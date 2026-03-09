@@ -1,0 +1,671 @@
+{
+  "@@locale": "ru",
+  "appTitle": "Планировщик бюджета",
+  "homeTitle": "Планировщик бюджета",
+  "homeTab": "Главная",
+  "analyticsTab": "Аналитика",
+  "budgetTab": "Бюджет",
+  "settingsTab": "Настройки",
+  "spentThisMonth": "Потрачено за месяц",
+  "lifeSpent": "Потрачено жизни: {value}",
+  "@lifeSpent": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "financialHealthScore": "Индекс финансового здоровья",
+  "monthlyFinancialPulse": "Ваш финансовый пульс за месяц",
+  "forecast": "Прогноз",
+  "setBudgetToUnlockForecast": "Установите бюджет, чтобы открыть прогноз",
+  "riskOfOverspending": "Есть риск выйти за бюджет в этом месяце",
+  "withinBudgetPace": "Вы укладываетесь в темп бюджета",
+  "addExpense": "Добавить расход",
+  "language": "Язык",
+  "languageDescription": "Выберите язык приложения",
+  "russian": "Русский",
+  "english": "Английский",
+  "notAvailableShort": "—",
+  "scoreValue": "{value}/100",
+  "@scoreValue": {
+    "placeholders": {
+      "value": {
+        "type": "int"
+      }
+    }
+  },
+  "durationMinutesOnly": "{minutes} мин",
+  "@durationMinutesOnly": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "durationHoursOnly": "{hours} ч",
+  "@durationHoursOnly": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "durationHoursMinutes": "{hours} ч {minutes} мин",
+  "@durationHoursMinutes": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "onboardingTitle1": "Деньги должны быть понятными",
+  "onboardingSubtitle1": "Укажите доход и месячный бюджет, чтобы открыть прогнозы и инсайты на основе жизни.",
+  "onboardingTitle2": "Переводите деньги во время жизни",
+  "onboardingSubtitle2": "Добавьте свой рабочий график, чтобы приложение показывало, сколько времени стоит каждая трата.",
+  "monthlyIncomeLabel": "Доход в месяц",
+  "monthlyBudgetLabel": "Бюджет на месяц",
+  "workDaysPerMonthLabel": "Рабочих дней в месяц",
+  "workHoursPerDayLabel": "Рабочих часов в день",
+  "continueButton": "Далее",
+  "finishButton": "Готово",
+  "analyticsComingSoon": "Экран аналитики скоро появится",
+  "budgetComingSoon": "Экран бюджета скоро появится",
+  "restartOnboarding": "Пройти онбординг заново",
+  "restartOnboardingDescription": "Снова открыть начальную настройку",
+  "smartInputHint": "Введите расход обычным текстом",
+  "smartInputExample": "Кофе 150",
+  "previewAmount": "Сумма",
+  "previewCurrency": "Валюта",
+  "previewCategory": "Категория",
+  "previewMerchant": "Место",
+  "saveExpenseButton": "Сохранить расход",
+  "categoryFood": "Еда",
+  "categoryTransport": "Транспорт",
+  "categorySubscriptions": "Подписки",
+  "categoryEntertainment": "Развлечения",
+  "categoryShopping": "Покупки",
+  "categoryHealth": "Здоровье",
+  "categoryBills": "Счета",
+  "categoryEducation": "Образование",
+  "categoryGifts": "Подарки",
+  "categoryTravel": "Путешествия",
+  "categoryOther": "Другое",
+  "onboardingValidationError": "Пожалуйста, заполните все поля корректно",
+  "backButton": "Назад",
+  "onboardingStepCounter": "Шаг {current} из {total}",
+  "@onboardingStepCounter": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "onboardingWelcomeTitle": "Бюджет, который думает вместе с вами",
+  "onboardingWelcomeSubtitle": "Быстро добавляйте расходы, получайте прогнозы и смотрите, сколько времени жизни стоят ваши траты.",
+  "onboardingFeatureFastTitle": "Быстрый ввод",
+  "onboardingFeatureFastSubtitle": "Добавляйте расходы за пару секунд обычным текстом.",
+  "onboardingFeatureForecastTitle": "Умные прогнозы",
+  "onboardingFeatureForecastSubtitle": "Понимайте заранее, укладываетесь ли вы в бюджет месяца.",
+  "onboardingFeatureLifeTitle": "Карта жизни",
+  "onboardingFeatureLifeSubtitle": "Смотрите, сколько часов вашей жизни уходит на разные покупки.",
+  "onboardingMoneyTitle": "Настройте финансовую основу",
+  "onboardingMoneySubtitle": "Укажите доход и месячный бюджет, чтобы приложение могло считать прогноз и индекс здоровья бюджета.",
+  "onboardingLifeTitle": "Настройте стоимость вашего времени",
+  "onboardingLifeSubtitle": "Добавьте рабочий график, чтобы приложение переводило траты в часы и минуты жизни.",
+  "validationEnterPositiveIncome": "Введите корректный доход больше нуля",
+  "validationEnterPositiveBudget": "Введите корректный бюджет больше нуля",
+  "validationEnterPositiveWorkDays": "Введите корректное число рабочих дней",
+  "validationEnterPositiveWorkHours": "Введите корректное число рабочих часов",
+  "recentExpensesTitle": "Последние расходы",
+  "emptyExpensesTitle": "Пока нет расходов",
+  "emptyExpensesSubtitle": "Добавьте первый расход, чтобы начать видеть свою финансовую картину.",
+  "todaySection": "Сегодня",
+  "yesterdaySection": "Вчера",
+  "earlierSection": "Ранее",
+  "expenseDeletedMessage": "Расход удалён",
+  "currentMonthlyBudgetTitle": "Текущий месячный бюджет",
+  "currentMonthlyBudgetSubtitle": "Ваш лимит расходов на текущий месяц",
+  "budgetSpentSubtitle": "Уже потрачено в этом месяце",
+  "remainingBudgetTitle": "Остаток бюджета",
+  "remainingBudgetPositiveSubtitle": "Вы всё ещё в пределах бюджета",
+  "remainingBudgetNegativeSubtitle": "Вы вышли за пределы бюджета",
+  "editBudgetButton": "Изменить бюджет",
+  "editBudgetDialogTitle": "Изменить месячный бюджет",
+  "cancelButton": "Отмена",
+  "saveButton": "Сохранить",
+  "analyticsEmptyTitle": "Пока недостаточно данных",
+  "analyticsEmptySubtitle": "Добавьте несколько расходов, чтобы увидеть аналитику по категориям.",
+  "analyticsTotalSpentTitle": "Всего потрачено",
+  "analyticsTotalSpentSubtitle": "Сумма расходов за текущий месяц",
+  "analyticsCategoriesTitle": "Категории расходов",
+  "analyticsBreakdownTitle": "Разбивка по категориям",
+  "analyticsTopCategoryTitle": "Главная категория",
+  "analyticsTopCategorySubtitle": "Потрачено: {amount}",
+  "@analyticsTopCategorySubtitle": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "financialRadarTitle": "Финансовый радар",
+  "emptyInsightsTitle": "Пока нет инсайтов",
+  "emptyInsightsSubtitle": "Добавьте больше расходов, чтобы приложение начало видеть закономерности.",
+  "analyticsInsightsTitle": "Инсайты",
+  "insightOverBudgetTitle": "Вы вышли за бюджет",
+  "insightOverBudgetDescription": "Сейчас вы превышаете бюджет на {amount}.",
+  "@insightOverBudgetDescription": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "insightHealthyPaceTitle": "Хороший темп месяца",
+  "insightHealthyPaceDescription": "Пока вы тратите спокойно и остаетесь в здоровом темпе.",
+  "insightTopCategoryTitle": "Одна категория доминирует",
+  "insightTopCategoryDescription": "Одна категория уже занимает {percent}% ваших трат за месяц.",
+  "@insightTopCategoryDescription": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "insightSubscriptionsTitle": "Подписки стали заметными",
+  "insightSubscriptionsDescription": "Подписки уже съели {amount} и занимают {percent}% расходов месяца.",
+  "@insightSubscriptionsDescription": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "insightStrongScoreTitle": "Сильная финансовая форма",
+  "insightStrongScoreDescription": "Ваши текущие привычки выглядят устойчиво и аккуратно.",
+  "insightLowScoreTitle": "Есть пространство для улучшения",
+  "insightLowScoreDescription": "Ваш бюджет пока выглядит напряженным и требует внимания.",
+  "scoreExcellentTitle": "Отличный финансовый ритм",
+  "scoreExcellentDescription": "У вас сильный баланс между расходами, бюджетом и устойчивостью.",
+  "scoreGoodTitle": "Хорошая финансовая форма",
+  "scoreGoodDescription": "Вы в неплохой позиции, но некоторые категории уже стоит держать под контролем.",
+  "scoreMediumTitle": "Нестабильный баланс",
+  "scoreMediumDescription": "Часть сигналов выглядит нормально, но бюджет уже начинает шататься.",
+  "scoreWeakTitle": "Слабый финансовый контур",
+  "scoreWeakDescription": "Сейчас важно сократить лишние траты и вернуть контроль над бюджетом.",
+  "autoBudgetTitle": "Автоматический бюджет",
+  "autoBudgetSubtitle": "Рекомендация на основе последних 30 дней расходов",
+  "applyAutoBudgetButton": "Применить рекомендацию",
+  "autoBudgetAppliedMessage": "Автоматический бюджет применён",
+  "openSubscriptionsButton": "Открыть подписки",
+  "subscriptionsTitle": "Подписки",
+  "subscriptionsSummaryTitle": "Сводка по подпискам",
+  "subscriptionsSummarySubtitle": "Оценка повторяющихся расходов в месяц",
+  "subscriptionsDetectedTitle": "Обнаруженные подписки",
+  "subscriptionsEmptyState": "Пока не найдено устойчивых повторяющихся платежей.",
+  "subscriptionsPotentialSavings": "Если сократить хотя бы половину этих подписок, можно вернуть около {amount} в месяц.",
+  "@subscriptionsPotentialSavings": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "subscriptionEstimatedMonthlyCost": "Оценка в месяц: {amount}",
+  "@subscriptionEstimatedMonthlyCost": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "subscriptionOccurrences": "Платежей: {count}, средний интервал: {days} дней",
+  "@subscriptionOccurrences": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "quickAddTitle": "Быстрое добавление",
+  "addSourceSmartText": "Текст",
+  "addSourceVoice": "Голос",
+  "addSourceReceipt": "Чек",
+  "voiceInputTitle": "Голосовой ввод",
+  "voiceInputSubtitle": "Скоро здесь можно будет быстро надиктовать расход вроде «кофе 150 сом».",
+  "startVoiceInputButton": "Начать запись",
+  "receiptScanTitle": "Сканирование чека",
+  "receiptScanSubtitle": "Скоро здесь можно будет сфотографировать чек и извлечь сумму автоматически.",
+  "scanReceiptButton": "Сканировать чек",
+  "voiceComingSoonMessage": "Голосовой ввод будет подключён следующим шагом",
+  "receiptComingSoonMessage": "Сканирование чека будет подключено следующим шагом",
+  "smartInputExampleWithCategory": "{category} 150",
+  "@smartInputExampleWithCategory": {
+    "placeholders": {
+      "category": {
+        "type": "String"
+      }
+    }
+  },
+  "voiceUnavailableMessage": "Голосовой ввод недоступен на этом устройстве или не выданы разрешения",
+  "voiceErrorMessage": "Ошибка голосового ввода: {message}",
+  "@voiceErrorMessage": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "voiceLanguageLabel": "Язык распознавания",
+  "stopVoiceInputButton": "Остановить запись",
+  "voiceRecognizedTextTitle": "Распознанный текст",
+  "pickReceiptFromGalleryButton": "Выбрать из галереи",
+  "receiptRecognizedTextTitle": "Распознанный текст чека",
+  "receiptScanErrorMessage": "Ошибка сканирования чека: {message}",
+  "@receiptScanErrorMessage": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "receiptNoTextFoundMessage": "На изображении не удалось распознать текст",
+  "receiptParsedSummaryTitle": "Разобранные данные чека",
+  "receiptConfidenceLabel": "Уверенность распознавания: {value}%",
+  "@receiptConfidenceLabel": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "financialLevelTitle": "Финансовый уровень",
+  "openMonthlyReportButton": "Открыть месячный отчет",
+  "monthlyReportTitle": "Месячный отчет",
+  "monthlyReportLevelTitle": "Ваш уровень месяца",
+  "monthlyReportShareHint": "Позже здесь появится карточка для шаринга итогов месяца.",
+  "monthlyReportIncome": "Доход: {value}",
+  "@monthlyReportIncome": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "monthlyReportSpent": "Потрачено: {value}",
+  "@monthlyReportSpent": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "monthlyReportSaved": "Сохранено: {value}",
+  "@monthlyReportSaved": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "monthlyReportTopCategory": "Главная категория: {value}",
+  "@monthlyReportTopCategory": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "monthlyReportLifeSpent": "Потрачено жизни: {value}",
+  "@monthlyReportLifeSpent": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "monthlyReportScore": "Индекс здоровья: {value}/100",
+  "@monthlyReportScore": {
+    "placeholders": {
+      "value": {
+        "type": "int"
+      }
+    }
+  },
+  "levelSurvivor": "Level 1 — Survivor",
+  "levelPlanner": "Level 2 — Planner",
+  "levelStrategist": "Level 3 — Strategist",
+  "levelInvestor": "Level 4 — Investor",
+  "levelSurvivorDescription": "Сейчас главная задача — вернуть контроль и стабилизировать бюджет.",
+  "levelPlannerDescription": "Вы уже начинаете осознанно управлять расходами.",
+  "levelStrategistDescription": "Ваши траты выглядят продуманнее, а решения — сильнее.",
+  "levelInvestorDescription": "Вы двигаетесь как человек, который управляет деньгами, а не догоняет их.",
+  "openShareCardButton": "Открыть share card",
+  "shareCardScreenTitle": "Карточка месяца",
+  "shareCardTitle": "Мои финансы за месяц",
+  "shareCardSubtitle": "Краткий итог, которым можно будет поделиться",
+  "shareCardIncome": "Доход",
+  "shareCardSpent": "Потрачено",
+  "shareCardSaved": "Сохранено",
+  "shareCardTopCategory": "Главная категория",
+  "shareCardLifeSpent": "Потрачено жизни",
+  "shareCardHealthScore": "Индекс здоровья",
+  "shareCardLevel": "Финансовый уровень",
+  "shareCardFooter": "Budget planner that thinks for you.",
+  "shareCardHintTitle": "Share-ready summary",
+  "shareCardHintSubtitle": "Следующим шагом здесь появится экспорт карточки в изображение и системный шаринг.",
+  "shareCardPrepareButton": "Подготовить карточку",
+  "shareCardExportComingSoon": "Экспорт карточки будет добавлен следующим шагом",
+  "shareCardHintSubtitleReady": "Карточка уже готова к экспорту в PNG и системному шарингу.",
+  "shareCardPreparingButton": "Подготовка...",
+  "shareCardShareButton": "Поделиться карточкой",
+  "shareCardShareText": "Мои финансы за месяц",
+  "shareCardRenderError": "Не удалось подготовить карточку",
+  "shareCardExportError": "Ошибка экспорта карточки: {message}",
+  "@shareCardExportError": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "receiptReviewTitle": "Проверка чека",
+  "receiptFieldConfidenceTitle": "Уверенность по полям",
+  "receiptAmountConfidence": "Сумма: {value}",
+  "@receiptAmountConfidence": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "receiptMerchantConfidence": "Место: {value}",
+  "@receiptMerchantConfidence": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "receiptDateConfidence": "Дата: {value}",
+  "@receiptDateConfidence": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "receiptCandidateAmountsTitle": "Подходящие суммы",
+  "receiptPickDateButton": "Выбрать дату чека",
+  "receiptPickedDateButton": "Дата чека: {value}",
+  "@receiptPickedDateButton": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "receiptConfirmParsedButton": "Подтвердить данные",
+  "categoryBudgetsTitle": "Бюджеты по категориям",
+  "categoryBudgetsEmpty": "Пока нет бюджетов по категориям. Примените автоматический бюджет, чтобы увидеть разбивку.",
+  "budgetDangerTitle": "Категория риска: {category}",
+  "@budgetDangerTitle": {
+    "placeholders": {
+      "category": {
+        "type": "String"
+      }
+    }
+  },
+  "budgetDangerSubtitle": "Эта категория быстрее всех приближается к перерасходу.",
+  "goalsTab": "Цели",
+  "goalsTitle": "Цели накопления",
+  "goalsEmptyTitle": "Пока нет цели",
+  "goalsEmptySubtitle": "Создайте цель, и приложение начнет показывать, как быстрее к ней прийти.",
+  "goalsCreateHint": "Добавьте цель накопления",
+  "goalCreateTitle": "Новая цель",
+  "goalCreateButton": "Создать цель",
+  "goalReplaceButton": "Изменить цель",
+  "goalTitleLabel": "Название цели",
+  "goalTargetAmountLabel": "Сумма цели",
+  "goalPickDateButton": "Выбрать срок",
+  "goalPickedDateButton": "Срок: {value}",
+  "@goalPickedDateButton": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "goalTitleError": "Введите название цели",
+  "goalAmountError": "Введите корректную сумму",
+  "goalProgressValue": "Прогресс: {current} / {target}",
+  "@goalProgressValue": {
+    "placeholders": {
+      "current": {
+        "type": "String"
+      },
+      "target": {
+        "type": "String"
+      }
+    }
+  },
+  "goalRemainingValue": "Осталось: {value}",
+  "@goalRemainingValue": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "goalRecommendedPerMonth": "Нужно в месяц: {value}",
+  "@goalRecommendedPerMonth": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "goalProjectionTitle": "Прогноз цели",
+  "goalProjectionNoDate": "У цели пока нет срока. Добавьте дату, чтобы увидеть план.",
+  "goalProjectionWithDate": "Чтобы успеть, нужно откладывать около {amount} в месяц в течение {months} мес.",
+  "@goalProjectionWithDate": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "months": {
+        "type": "int"
+      }
+    }
+  },
+  "goalProjectionNoCurrentRate": "Пока недостаточно данных, чтобы оценить текущий темп накопления.",
+  "goalProjectionCurrentRate": "С текущим темпом цель будет достигнута примерно за {months} мес.",
+  "@goalProjectionCurrentRate": {
+    "placeholders": {
+      "months": {
+        "type": "int"
+      }
+    }
+  },
+  "goalAddProgressTitle": "Добавить прогресс",
+  "goalAddProgressLabel": "Сумма пополнения",
+  "goalAddProgressButton": "Добавить прогресс",
+  "actionPlanTitle": "План действий",
+  "actionPlanEmptyTitle": "Пока нет действий",
+  "actionPlanEmptySubtitle": "Когда появится больше данных, приложение начнет предлагать конкретные финансовые шаги.",
+  "actionPlanCutCategoryTitle": "Снизьте темп в риск-категории",
+  "actionPlanCutCategoryDescription": "Эта категория уже достигла {percent}% своего лимита. Если притормозить сейчас, месяц будет спокойнее.",
+  "@actionPlanCutCategoryDescription": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "actionPlanSubscriptionsTitle": "Проверьте подписки",
+  "actionPlanSubscriptionsDescription": "Подписки забирают около {amount} в месяц. Даже сокращение наполовину вернет примерно {half}.",
+  "@actionPlanSubscriptionsDescription": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "half": {
+        "type": "String"
+      }
+    }
+  },
+  "actionPlanGoalTitle": "Ускорьте цель",
+  "actionPlanGoalDescription": "Чтобы успеть к сроку, нужно откладывать около {amount} в месяц еще {months} мес.",
+  "@actionPlanGoalDescription": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "months": {
+        "type": "String"
+      }
+    }
+  },
+  "actionPlanScoreTitle": "Укрепите финансовую форму",
+  "actionPlanScoreDescription": "Сейчас особенно важно держать лимиты категорий и не раздувать мелкие регулярные траты.",
+  "cashflowTab": "Cashflow",
+  "cashflowTitle": "Денежный поток",
+  "cashflowSummaryTitle": "Сводка потока",
+  "cashflowNoSalaryDay": "День зарплаты пока не задан",
+  "cashflowSalaryDayValue": "День зарплаты: {value}",
+  "@cashflowSalaryDayValue": {
+    "placeholders": {
+      "value": {
+        "type": "int"
+      }
+    }
+  },
+  "cashflowRecurringBillsValue": "Регулярных счетов: {value}",
+  "@cashflowRecurringBillsValue": {
+    "placeholders": {
+      "value": {
+        "type": "int"
+      }
+    }
+  },
+  "cashflowTimelineTitle": "Ближайшие события",
+  "cashflowEmpty": "Пока нет событий. Добавьте день зарплаты и регулярные счета.",
+  "salaryDayTitle": "День зарплаты",
+  "salaryDayLabel": "Число месяца",
+  "salaryDayButton": "Указать день зарплаты",
+  "salaryDayError": "Введите день от 1 до 31",
+  "recurringBillCreateTitle": "Новый регулярный счет",
+  "recurringBillCreateButton": "Добавить регулярный счет",
+  "recurringBillTitleLabel": "Название",
+  "recurringBillAmountLabel": "Сумма",
+  "recurringBillDayLabel": "День месяца",
+  "recurringBillTitleError": "Введите название счета",
+  "recurringBillAmountError": "Введите корректную сумму",
+  "recurringBillDayError": "Введите день от 1 до 31",
+  "premiumTitle": "Premium",
+  "premiumHeroTitle": "Разблокируйте финансового навигатора полностью",
+  "premiumHeroSubtitle": "Получите AI-инсайты, OCR чеков, voice input, cashflow timeline, продвинутые подписки и action planner.",
+  "premiumFeatureAiInsights": "AI-инсайты и объяснимые рекомендации",
+  "premiumFeatureVoice": "Голосовой ввод расходов",
+  "premiumFeatureReceipt": "OCR чеков и review flow",
+  "premiumFeatureSubscriptions": "Продвинутый анализ подписок",
+  "premiumFeatureCashflow": "Cashflow timeline и будущие события",
+  "premiumFeatureGoals": "Более сильная система целей",
+  "premiumFeatureShare": "Экспорт и шаринг карточек",
+  "premiumUnlockButton": "Разблокировать Premium",
+  "premiumDisableDebugButton": "Отключить Premium",
+  "openPremiumButton": "Открыть Premium",
+  "premiumLockedInsightsTitle": "AI-инсайты доступны в Premium",
+  "premiumLockedInsightsSubtitle": "Приложение сможет показывать умные сигналы, сравнения и финансовый радар.",
+  "premiumLockedActionPlanTitle": "План действий доступен в Premium",
+  "premiumLockedActionPlanSubtitle": "Получайте конкретные шаги, как быстрее улучшить бюджет и цели.",
+  "premiumLockedSubscriptionsTitle": "Подписки-паразиты доступны в Premium",
+  "premiumLockedSubscriptionsSubtitle": "Приложение найдет повторяющиеся платежи и покажет, где можно вернуть деньги.",
+  "premiumLockedCashflowTitle": "Cashflow timeline доступен в Premium",
+  "premiumLockedCashflowSubtitle": "Отслеживайте ближайшие доходы и регулярные списания заранее.",
+  "premiumLockedShareTitle": "Экспорт карточки доступен в Premium",
+  "premiumLockedShareSubtitle": "Сохраняйте и делитесь своей месячной карточкой как изображением.",
+  "expenseEditTitle": "Редактировать расход",
+  "expenseNoteLabel": "Заметка",
+  "expenseEditDateValue": "Дата: {value}",
+  "@expenseEditDateValue": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "monthCloseTitle": "Закрытие месяца",
+  "monthCloseCardTitle": "Итог месяца",
+  "monthCloseHomeTitle": "Завершите месяц осознанно",
+  "monthCloseHomeSubtitle": "Посмотрите, что получилось, что просело и с каким фокусом идти дальше.",
+  "monthCloseOpenButton": "Открыть итог месяца",
+  "monthCloseSpentChange": "Изменение трат: {value}",
+  "@monthCloseSpentChange": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "monthCloseHealthDelta": "Изменение health score: {value}",
+  "@monthCloseHealthDelta": {
+    "placeholders": {
+      "value": {
+        "type": "int"
+      }
+    }
+  },
+  "monthCloseWinTitle": "Месяц получился сильнее прошлого",
+  "monthCloseWinSubtitle": "Вы либо снизили траты, либо улучшили финансовую форму. Это хороший сигнал.",
+  "monthCloseFocusTitle": "Следующий месяц требует более точного фокуса",
+  "monthCloseFocusSubtitle": "Сейчас особенно важно сократить утечки и держать категорийные лимиты под контролем.",
+  "monthCloseStartNextMonthButton": "Начать новый месяц умнее",
+  "streakTitle": "Серия",
+  "streakCurrentValue": "Сейчас: {value} дн.",
+  "@streakCurrentValue": {
+    "placeholders": {
+      "value": {
+        "type": "int"
+      }
+    }
+  },
+  "streakBestValue": "Лучшее: {value} дн.",
+  "@streakBestValue": {
+    "placeholders": {
+      "value": {
+        "type": "int"
+      }
+    }
+  },
+  "streakTodayDone": "Сегодня активность уже есть",
+  "streakTodayMissing": "Сегодня еще можно продолжить серию",
+  "achievementsTitle": "Достижения",
+  "achievementFirstExpenseTitle": "Первый расход",
+  "achievementFirstExpenseSubtitle": "Вы начали вести свои деньги осознанно.",
+  "achievementTracker7Title": "7 дней подряд",
+  "achievementTracker7Subtitle": "Неделя непрерывного трекинга расходов.",
+  "achievementTracker30Title": "30 дней подряд",
+  "achievementTracker30Subtitle": "Целый месяц устойчивой привычки.",
+  "achievementGoalStartedTitle": "Первая цель",
+  "achievementGoalStartedSubtitle": "Вы задали финансовое направление.",
+  "achievementGoalProgressTitle": "Первый прогресс по цели",
+  "achievementGoalProgressSubtitle": "Вы начали не только считать, но и двигаться вперед.",
+  "achievementMonthCloseTitle": "Первое закрытие месяца",
+  "achievementMonthCloseSubtitle": "Вы подвели месячный финансовый итог.",
+  "achievementNoOverspendTitle": "Месяц без перерасхода",
+  "achievementNoOverspendSubtitle": "Вы удержали расходы в рамках бюджета."
+}

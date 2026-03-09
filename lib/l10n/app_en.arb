@@ -1,0 +1,672 @@
+{
+  "@@locale": "en",
+  "appTitle": "Budget Planner",
+  "homeTitle": "Budget Planner",
+  "homeTab": "Home",
+  "analyticsTab": "Analytics",
+  "budgetTab": "Budget",
+  "settingsTab": "Settings",
+  "spentThisMonth": "Spent this month",
+  "lifeSpent": "Life spent: {value}",
+  "@lifeSpent": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "financialHealthScore": "Financial Health Score",
+  "monthlyFinancialPulse": "Your monthly financial pulse",
+  "forecast": "Forecast",
+  "setBudgetToUnlockForecast": "Set a budget to unlock forecast",
+  "riskOfOverspending": "Risk of overspending this month",
+  "withinBudgetPace": "You are within budget pace",
+  "addExpense": "Add expense",
+  "language": "Language",
+  "languageDescription": "Choose the app language",
+  "russian": "Russian",
+  "english": "English",
+  "notAvailableShort": "—",
+  "scoreValue": "{value}/100",
+  "@scoreValue": {
+    "placeholders": {
+      "value": {
+        "type": "int"
+      }
+    }
+  },
+  "durationMinutesOnly": "{minutes} min",
+  "@durationMinutesOnly": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "durationHoursOnly": "{hours} h",
+  "@durationHoursOnly": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "durationHoursMinutes": "{hours} h {minutes} min",
+  "@durationHoursMinutes": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "onboardingTitle1": "Your money should feel clear",
+  "onboardingSubtitle1": "Set your monthly income and budget to unlock forecasts and life-based insights.",
+  "onboardingTitle2": "Translate money into life",
+  "onboardingSubtitle2": "Add your working schedule so the app can show how much time each expense costs.",
+  "monthlyIncomeLabel": "Monthly income",
+  "monthlyBudgetLabel": "Monthly budget",
+  "workDaysPerMonthLabel": "Working days per month",
+  "workHoursPerDayLabel": "Working hours per day",
+  "continueButton": "Continue",
+  "finishButton": "Finish",
+  "analyticsComingSoon": "Analytics screen is coming soon",
+  "budgetComingSoon": "Budget screen is coming soon",
+  "restartOnboarding": "Restart onboarding",
+  "restartOnboardingDescription": "Go through the intro setup again",
+  "smartInputHint": "Enter an expense in plain text",
+  "smartInputExample": "Coffee 150",
+  "previewAmount": "Amount",
+  "previewCurrency": "Currency",
+  "previewCategory": "Category",
+  "previewMerchant": "Merchant",
+  "saveExpenseButton": "Save expense",
+  "categoryFood": "Food",
+  "categoryTransport": "Transport",
+  "categorySubscriptions": "Subscriptions",
+  "categoryEntertainment": "Entertainment",
+  "categoryShopping": "Shopping",
+  "categoryHealth": "Health",
+  "categoryBills": "Bills",
+  "categoryEducation": "Education",
+  "categoryGifts": "Gifts",
+  "categoryTravel": "Travel",
+  "categoryOther": "Other",
+  "onboardingValidationError": "Please fill in all fields correctly",
+  "backButton": "Back",
+  "onboardingStepCounter": "Step {current} of {total}",
+  "@onboardingStepCounter": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "onboardingWelcomeTitle": "A budget that thinks with you",
+  "onboardingWelcomeSubtitle": "Add expenses fast, get forecasts, and see how much life time your spending really costs.",
+  "onboardingFeatureFastTitle": "Fast input",
+  "onboardingFeatureFastSubtitle": "Add expenses in seconds using plain text.",
+  "onboardingFeatureForecastTitle": "Smart forecasts",
+  "onboardingFeatureForecastSubtitle": "See early whether you are staying within your monthly budget.",
+  "onboardingFeatureLifeTitle": "Life map",
+  "onboardingFeatureLifeSubtitle": "See how many hours of your life different purchases are costing you.",
+  "onboardingMoneyTitle": "Set up your money baseline",
+  "onboardingMoneySubtitle": "Enter your income and monthly budget so the app can calculate forecasts and financial health.",
+  "onboardingLifeTitle": "Set up the value of your time",
+  "onboardingLifeSubtitle": "Add your work schedule so the app can convert spending into hours and minutes of life.",
+  "validationEnterPositiveIncome": "Enter a valid income greater than zero",
+  "validationEnterPositiveBudget": "Enter a valid budget greater than zero",
+  "validationEnterPositiveWorkDays": "Enter a valid number of working days",
+  "validationEnterPositiveWorkHours": "Enter a valid number of working hours",
+  "recentExpensesTitle": "Recent expenses",
+  "emptyExpensesTitle": "No expenses yet",
+  "emptyExpensesSubtitle": "Add your first expense to start seeing your financial picture.",
+  "todaySection": "Today",
+  "yesterdaySection": "Yesterday",
+  "earlierSection": "Earlier",
+  "expenseDeletedMessage": "Expense deleted",
+  "currentMonthlyBudgetTitle": "Current monthly budget",
+  "currentMonthlyBudgetSubtitle": "Your spending limit for the current month",
+  "budgetSpentSubtitle": "Already spent this month",
+  "remainingBudgetTitle": "Remaining budget",
+  "remainingBudgetPositiveSubtitle": "You are still within budget",
+  "remainingBudgetNegativeSubtitle": "You are over budget",
+  "editBudgetButton": "Edit budget",
+  "editBudgetDialogTitle": "Edit monthly budget",
+  "cancelButton": "Cancel",
+  "saveButton": "Save",
+  "analyticsEmptyTitle": "Not enough data yet",
+  "analyticsEmptySubtitle": "Add a few expenses to see category analytics.",
+  "analyticsTotalSpentTitle": "Total spent",
+  "analyticsTotalSpentSubtitle": "Your spending for the current month",
+  "analyticsCategoriesTitle": "Spending categories",
+  "analyticsBreakdownTitle": "Category breakdown",
+  "analyticsTopCategoryTitle": "Top category",
+  "analyticsTopCategorySubtitle": "Spent: {amount}",
+  "@analyticsTopCategorySubtitle": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "financialRadarTitle": "Financial radar",
+  "emptyInsightsTitle": "No insights yet",
+  "emptyInsightsSubtitle": "Add more expenses so the app can start detecting patterns.",
+  "analyticsInsightsTitle": "Insights",
+  "insightOverBudgetTitle": "You are over budget",
+  "insightOverBudgetDescription": "You are currently exceeding your budget by {amount}.",
+  "@insightOverBudgetDescription": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "insightHealthyPaceTitle": "Healthy monthly pace",
+  "insightHealthyPaceDescription": "So far your spending pace looks calm and under control.",
+  "insightTopCategoryTitle": "One category is dominating",
+  "insightTopCategoryDescription": "One category already makes up {percent}% of your monthly spending.",
+  "@insightTopCategoryDescription": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "insightSubscriptionsTitle": "Subscriptions are becoming noticeable",
+  "insightSubscriptionsDescription": "Subscriptions already consumed {amount} and account for {percent}% of this month’s spending.",
+  "@insightSubscriptionsDescription": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "insightStrongScoreTitle": "Strong financial shape",
+  "insightStrongScoreDescription": "Your current habits look stable and disciplined.",
+  "insightLowScoreTitle": "There is room to improve",
+  "insightLowScoreDescription": "Your budget currently looks stressed and needs attention.",
+  "scoreExcellentTitle": "Excellent financial rhythm",
+  "scoreExcellentDescription": "You have a strong balance between spending, budget discipline, and stability.",
+  "scoreGoodTitle": "Good financial shape",
+  "scoreGoodDescription": "You are in a decent position, but some categories already deserve closer attention.",
+  "scoreMediumTitle": "Unstable balance",
+  "scoreMediumDescription": "Some signals look fine, but your budget is starting to wobble.",
+  "scoreWeakTitle": "Weak financial contour",
+  "scoreWeakDescription": "Now it is important to cut extra spending and regain control over your budget.",
+  "autoBudgetTitle": "Automatic budget",
+  "autoBudgetSubtitle": "Recommendation based on the last 30 days of spending",
+  "applyAutoBudgetButton": "Apply recommendation",
+  "autoBudgetAppliedMessage": "Automatic budget applied",
+  "openSubscriptionsButton": "Open subscriptions",
+  "subscriptionsTitle": "Subscriptions",
+  "subscriptionsSummaryTitle": "Subscriptions summary",
+  "subscriptionsSummarySubtitle": "Estimated recurring monthly costs",
+  "subscriptionsDetectedTitle": "Detected subscriptions",
+  "subscriptionsEmptyState": "No stable recurring payments detected yet.",
+  "subscriptionsPotentialSavings": "If you cut even half of these subscriptions, you could save around {amount} per month.",
+  "@subscriptionsPotentialSavings": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "subscriptionEstimatedMonthlyCost": "Estimated monthly cost: {amount}",
+  "@subscriptionEstimatedMonthlyCost": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "subscriptionOccurrences": "Payments: {count}, average interval: {days} days",
+  "@subscriptionOccurrences": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "quickAddTitle": "Quick add",
+  "addSourceSmartText": "Text",
+  "addSourceVoice": "Voice",
+  "addSourceReceipt": "Receipt",
+  "voiceInputTitle": "Voice input",
+  "voiceInputSubtitle": "Soon you will be able to dictate an expense like “coffee 150 som” in seconds.",
+  "startVoiceInputButton": "Start recording",
+  "receiptScanTitle": "Receipt scan",
+  "receiptScanSubtitle": "Soon you will be able to photograph a receipt and extract the amount automatically.",
+  "scanReceiptButton": "Scan receipt",
+  "voiceComingSoonMessage": "Voice input will be connected in the next step",
+  "receiptComingSoonMessage": "Receipt scanning will be connected in the next step",
+  "smartInputExampleWithCategory": "{category} 150",
+  "@smartInputExampleWithCategory": {
+    "placeholders": {
+      "category": {
+        "type": "String"
+      }
+    }
+  },
+  "voiceUnavailableMessage": "Voice input is unavailable on this device or permissions were not granted",
+  "voiceErrorMessage": "Voice input error: {message}",
+  "@voiceErrorMessage": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "voiceLanguageLabel": "Recognition language",
+  "stopVoiceInputButton": "Stop recording",
+  "voiceRecognizedTextTitle": "Recognized text",
+  "pickReceiptFromGalleryButton": "Pick from gallery",
+  "receiptRecognizedTextTitle": "Recognized receipt text",
+  "receiptScanErrorMessage": "Receipt scan error: {message}",
+  "@receiptScanErrorMessage": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "receiptNoTextFoundMessage": "No text could be recognized in the image",
+  "receiptParsedSummaryTitle": "Parsed receipt data",
+  "receiptConfidenceLabel": "Recognition confidence: {value}%",
+  "@receiptConfidenceLabel": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "financialLevelTitle": "Financial level",
+  "openMonthlyReportButton": "Open monthly report",
+  "monthlyReportTitle": "Monthly report",
+  "monthlyReportLevelTitle": "Your level this month",
+  "monthlyReportShareHint": "A shareable monthly summary card will appear here later.",
+  "monthlyReportIncome": "Income: {value}",
+  "@monthlyReportIncome": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "monthlyReportSpent": "Spent: {value}",
+  "@monthlyReportSpent": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "monthlyReportSaved": "Saved: {value}",
+  "@monthlyReportSaved": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "monthlyReportTopCategory": "Top category: {value}",
+  "@monthlyReportTopCategory": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "monthlyReportLifeSpent": "Life spent: {value}",
+  "@monthlyReportLifeSpent": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "monthlyReportScore": "Health score: {value}/100",
+  "@monthlyReportScore": {
+    "placeholders": {
+      "value": {
+        "type": "int"
+      }
+    }
+  },
+  "levelSurvivor": "Level 1 — Survivor",
+  "levelPlanner": "Level 2 — Planner",
+  "levelStrategist": "Level 3 — Strategist",
+  "levelInvestor": "Level 4 — Investor",
+  "levelSurvivorDescription": "Right now the main goal is to regain control and stabilize your budget.",
+  "levelPlannerDescription": "You are already starting to manage spending more consciously.",
+  "levelStrategistDescription": "Your spending looks more intentional and your decisions more deliberate.",
+  "levelInvestorDescription": "You are moving like someone who manages money instead of chasing it.",
+  "openShareCardButton": "Open share card",
+  "shareCardScreenTitle": "Monthly card",
+  "shareCardTitle": "My monthly finances",
+  "shareCardSubtitle": "A short summary you will be able to share",
+  "shareCardIncome": "Income",
+  "shareCardSpent": "Spent",
+  "shareCardSaved": "Saved",
+  "shareCardTopCategory": "Top category",
+  "shareCardLifeSpent": "Life spent",
+  "shareCardHealthScore": "Health score",
+  "shareCardLevel": "Financial level",
+  "shareCardFooter": "Budget planner that thinks for you.",
+  "shareCardHintTitle": "Share-ready summary",
+  "shareCardHintSubtitle": "The next step will add image export and system sharing for this card.",
+  "shareCardPrepareButton": "Prepare card",
+  "shareCardExportComingSoon": "Card export will be added in the next step",
+  "shareCardHintSubtitleReady": "The card is now ready for PNG export and system sharing.",
+  "shareCardPreparingButton": "Preparing...",
+  "shareCardShareButton": "Share card",
+  "shareCardShareText": "My monthly finances",
+  "shareCardRenderError": "Could not prepare the card",
+  "shareCardExportError": "Card export error: {message}",
+  "@shareCardExportError": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "receiptReviewTitle": "Receipt review",
+  "receiptFieldConfidenceTitle": "Field confidence",
+  "receiptAmountConfidence": "Amount: {value}",
+  "@receiptAmountConfidence": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "receiptMerchantConfidence": "Merchant: {value}",
+  "@receiptMerchantConfidence": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "receiptDateConfidence": "Date: {value}",
+  "@receiptDateConfidence": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "receiptCandidateAmountsTitle": "Candidate amounts",
+  "receiptPickDateButton": "Pick receipt date",
+  "receiptPickedDateButton": "Receipt date: {value}",
+  "@receiptPickedDateButton": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "receiptConfirmParsedButton": "Confirm parsed data",
+  "categoryBudgetsTitle": "Category budgets",
+  "categoryBudgetsEmpty": "No category budgets yet. Apply automatic budget to see the breakdown.",
+  "budgetDangerTitle": "Risk category: {category}",
+  "@budgetDangerTitle": {
+    "placeholders": {
+      "category": {
+        "type": "String"
+      }
+    }
+  },
+  "budgetDangerSubtitle": "This category is moving toward overspending the fastest.",
+  "goalsTab": "Goals",
+  "goalsTitle": "Savings goals",
+  "goalsEmptyTitle": "No goal yet",
+  "goalsEmptySubtitle": "Create a goal and the app will start showing how to reach it faster.",
+  "goalsCreateHint": "Add a savings goal",
+  "goalCreateTitle": "New goal",
+  "goalCreateButton": "Create goal",
+  "goalReplaceButton": "Replace goal",
+  "goalTitleLabel": "Goal title",
+  "goalTargetAmountLabel": "Target amount",
+  "goalPickDateButton": "Pick deadline",
+  "goalPickedDateButton": "Deadline: {value}",
+  "@goalPickedDateButton": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "goalTitleError": "Enter a goal title",
+  "goalAmountError": "Enter a valid amount",
+  "goalProgressValue": "Progress: {current} / {target}",
+  "@goalProgressValue": {
+    "placeholders": {
+      "current": {
+        "type": "String"
+      },
+      "target": {
+        "type": "String"
+      }
+    }
+  },
+  "goalRemainingValue": "Remaining: {value}",
+  "@goalRemainingValue": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "goalRecommendedPerMonth": "Needed per month: {value}",
+  "@goalRecommendedPerMonth": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "goalProjectionTitle": "Goal projection",
+  "goalProjectionNoDate": "This goal has no deadline yet. Add a date to see a plan.",
+  "goalProjectionWithDate": "To stay on track, you need to save about {amount} per month for {months} months.",
+  "@goalProjectionWithDate": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "months": {
+        "type": "int"
+      }
+    }
+  },
+  "goalProjectionNoCurrentRate": "Not enough data yet to estimate your current saving pace.",
+  "goalProjectionCurrentRate": "At your current pace, the goal could be reached in about {months} months.",
+  "@goalProjectionCurrentRate": {
+    "placeholders": {
+      "months": {
+        "type": "int"
+      }
+    }
+  },
+  "goalAddProgressTitle": "Add progress",
+  "goalAddProgressLabel": "Contribution amount",
+  "goalAddProgressButton": "Add progress",
+  "actionPlanTitle": "Action plan",
+  "actionPlanEmptyTitle": "No actions yet",
+  "actionPlanEmptySubtitle": "As more data appears, the app will start suggesting concrete financial moves.",
+  "actionPlanCutCategoryTitle": "Slow down in the risk category",
+  "actionPlanCutCategoryDescription": "This category has already reached {percent}% of its limit. If you slow down now, the month will be calmer.",
+  "@actionPlanCutCategoryDescription": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "actionPlanSubscriptionsTitle": "Review subscriptions",
+  "actionPlanSubscriptionsDescription": "Subscriptions take about {amount} per month. Even cutting them in half could return around {half}.",
+  "@actionPlanSubscriptionsDescription": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "half": {
+        "type": "String"
+      }
+    }
+  },
+  "actionPlanGoalTitle": "Accelerate your goal",
+  "actionPlanGoalDescription": "To stay on deadline, you need to save about {amount} per month for another {months} months.",
+  "@actionPlanGoalDescription": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "months": {
+        "type": "String"
+      }
+    }
+  },
+  "actionPlanScoreTitle": "Strengthen your financial shape",
+  "actionPlanScoreDescription": "Right now it is especially important to hold category limits and avoid inflating small recurring spending.",
+  "cashflowTab": "Cashflow",
+  "cashflowTitle": "Cashflow",
+  "cashflowSummaryTitle": "Flow summary",
+  "cashflowNoSalaryDay": "Salary day is not set yet",
+  "cashflowSalaryDayValue": "Salary day: {value}",
+  "@cashflowSalaryDayValue": {
+    "placeholders": {
+      "value": {
+        "type": "int"
+      }
+    }
+  },
+  "cashflowRecurringBillsValue": "Recurring bills: {value}",
+  "@cashflowRecurringBillsValue": {
+    "placeholders": {
+      "value": {
+        "type": "int"
+      }
+    }
+  },
+  "cashflowTimelineTitle": "Upcoming events",
+  "cashflowEmpty": "No events yet. Add a salary day and recurring bills.",
+  "salaryDayTitle": "Salary day",
+  "salaryDayLabel": "Day of month",
+  "salaryDayButton": "Set salary day",
+  "salaryDayError": "Enter a day from 1 to 31",
+  "recurringBillCreateTitle": "New recurring bill",
+  "recurringBillCreateButton": "Add recurring bill",
+  "recurringBillTitleLabel": "Title",
+  "recurringBillAmountLabel": "Amount",
+  "recurringBillDayLabel": "Day of month",
+  "recurringBillTitleError": "Enter a bill title",
+  "recurringBillAmountError": "Enter a valid amount",
+  "recurringBillDayError": "Enter a day from 1 to 31",
+  "premiumTitle": "Premium",
+  "premiumHeroTitle": "Unlock the full financial navigator",
+  "premiumHeroSubtitle": "Get AI insights, receipt OCR, voice input, cashflow timeline, advanced subscriptions, and action planner.",
+  "premiumFeatureAiInsights": "AI insights and explainable recommendations",
+  "premiumFeatureVoice": "Voice expense input",
+  "premiumFeatureReceipt": "Receipt OCR and review flow",
+  "premiumFeatureSubscriptions": "Advanced subscription analysis",
+  "premiumFeatureCashflow": "Cashflow timeline and future events",
+  "premiumFeatureGoals": "A stronger goals system",
+  "premiumFeatureShare": "Card export and sharing",
+  "premiumUnlockButton": "Unlock Premium",
+  "premiumDisableDebugButton": "Disable Premium",
+  "openPremiumButton": "Open Premium",
+  "premiumLockedInsightsTitle": "AI insights are available in Premium",
+  "premiumLockedInsightsSubtitle": "The app will be able to show smart signals, comparisons, and a financial radar.",
+  "premiumLockedActionPlanTitle": "Action plan is available in Premium",
+  "premiumLockedActionPlanSubtitle": "Get concrete steps to improve your budget and goals faster.",
+  "premiumLockedSubscriptionsTitle": "Subscription detection is available in Premium",
+  "premiumLockedSubscriptionsSubtitle": "The app will find recurring payments and show where money can be recovered.",
+  "premiumLockedCashflowTitle": "Cashflow timeline is available in Premium",
+  "premiumLockedCashflowSubtitle": "Track upcoming income and recurring charges in advance.",
+  "premiumLockedShareTitle": "Card export is available in Premium",
+  "premiumLockedShareSubtitle": "Save and share your monthly card as an image.",
+  "expenseEditTitle": "Edit expense",
+  "expenseNoteLabel": "Note",
+  "expenseEditDateValue": "Date: {value}",
+  "@expenseEditDateValue": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "monthCloseTitle": "Month close",
+  "monthCloseCardTitle": "Monthly wrap-up",
+  "monthCloseHomeTitle": "Close the month with clarity",
+  "monthCloseHomeSubtitle": "See what worked, what slipped, and what to focus on next.",
+  "monthCloseOpenButton": "Open monthly wrap-up",
+  "monthCloseSpentChange": "Spending change: {value}",
+  "@monthCloseSpentChange": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "monthCloseHealthDelta": "Health score change: {value}",
+  "@monthCloseHealthDelta": {
+    "placeholders": {
+      "value": {
+        "type": "int"
+      }
+    }
+  },
+  "monthCloseWinTitle": "This month was stronger than the last one",
+  "monthCloseWinSubtitle": "You either reduced spending or improved your financial shape. That is a strong signal.",
+  "monthCloseFocusTitle": "Next month needs a sharper focus",
+  "monthCloseFocusSubtitle": "Right now it is especially important to reduce leaks and keep category limits under control.",
+  "monthCloseStartNextMonthButton": "Start the next month smarter",
+  "streakTitle": "Streak",
+  "streakCurrentValue": "Current: {value} days",
+  "@streakCurrentValue": {
+    "placeholders": {
+      "value": {
+        "type": "int"
+      }
+    }
+  },
+  "streakBestValue": "Best: {value} days",
+  "@streakBestValue": {
+    "placeholders": {
+      "value": {
+        "type": "int"
+      }
+    }
+  },
+  "streakTodayDone": "You already have activity today",
+  "streakTodayMissing": "You can still continue your streak today",
+  "achievementsTitle": "Achievements",
+  "achievementFirstExpenseTitle": "First expense",
+  "achievementFirstExpenseSubtitle": "You started tracking your money consciously.",
+  "achievementTracker7Title": "7 days in a row",
+  "achievementTracker7Subtitle": "A full week of consistent tracking.",
+  "achievementTracker30Title": "30 days in a row",
+  "achievementTracker30Subtitle": "A whole month of stable habit.",
+  "achievementGoalStartedTitle": "First goal",
+  "achievementGoalStartedSubtitle": "You set a financial direction.",
+  "achievementGoalProgressTitle": "First goal progress",
+  "achievementGoalProgressSubtitle": "You started not just tracking, but moving forward.",
+  "achievementMonthCloseTitle": "First month close",
+  "achievementMonthCloseSubtitle": "You completed your monthly financial wrap-up.",
+  "achievementNoOverspendTitle": "No overspend month",
+  "achievementNoOverspendSubtitle": "You kept your spending within budget."
+
+}
