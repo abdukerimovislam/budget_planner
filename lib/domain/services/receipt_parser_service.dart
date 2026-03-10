@@ -1,14 +1,13 @@
-import 'package:budget_planner/domain/services/reciept_candidate_amount.dart';
-import 'package:budget_planner/domain/services/reciept_field_confidence.dart';
-
 import '../../data/models/expense_category.dart';
-import 'receipt_parsed_data.dart';
+import '../../data/models/receipt_candidate_amount_view.dart';
+import '../../data/models/receipt_field_confidence_model.dart';
+import '../../data/models/receipt_parsed_data_model.dart';
 import 'smart_expense_parser.dart';
 
 class ReceiptParserService {
   final SmartExpenseParser _smartExpenseParser = SmartExpenseParser();
 
-  ReceiptParsedData parse(String text) {
+  ReceiptParsedDataModel parse(String text) {
     final normalized = _normalize(text);
 
     final merchant = _extractMerchant(normalized);
@@ -18,7 +17,7 @@ class ReceiptParserService {
     final receiptDate = _extractDate(normalized);
     final category = _detectCategory(normalized, merchant);
 
-    final fieldConfidence = ReceiptFieldConfidence(
+    final fieldConfidence = ReceiptFieldConfidenceModel(
       amount: amountCandidates.isNotEmpty ? amountCandidates.first.confidence : 0.0,
       merchant: merchant != null && merchant.isNotEmpty ? 0.75 : 0.2,
       currency: currency != null && currency.isNotEmpty ? 0.85 : 0.2,
@@ -33,7 +32,7 @@ class ReceiptParserService {
             (category != null ? 0.10 : 0.0)
     ).clamp(0.0, 1.0);
 
-    return ReceiptParsedData(
+    return ReceiptParsedDataModel(
       amount: amount,
       amountCandidates: amountCandidates,
       currency: currency,
@@ -126,14 +125,14 @@ class ReceiptParserService {
     return parsed.category ?? ExpenseCategory.other;
   }
 
-  List<ReceiptCandidateAmount> _extractAmountCandidates(String text) {
+  List<ReceiptCandidateAmountModel> _extractAmountCandidates(String text) {
     final lines = text
         .split('\n')
         .map((e) => e.trim())
         .where((e) => e.isNotEmpty)
         .toList();
 
-    final candidates = <ReceiptCandidateAmount>[];
+    final candidates = <ReceiptCandidateAmountModel>[];
     final amountRegex = RegExp(r'(\d+[.,]\d{1,2}|\d{2,})');
 
     for (final line in lines) {
@@ -155,7 +154,7 @@ class ReceiptParserService {
         if (parsed >= 100) confidence += 0.05;
 
         candidates.add(
-          ReceiptCandidateAmount(
+          ReceiptCandidateAmountModel(
             value: parsed,
             sourceLine: line,
             confidence: confidence.clamp(0.0, 1.0),
@@ -164,7 +163,7 @@ class ReceiptParserService {
       }
     }
 
-    final deduped = <double, ReceiptCandidateAmount>{};
+    final deduped = <double, ReceiptCandidateAmountModel>{};
     for (final candidate in candidates) {
       final existing = deduped[candidate.value];
       if (existing == null || candidate.confidence > existing.confidence) {

@@ -1,7 +1,7 @@
 import '../../data/models/expense_category.dart';
 import '../../data/models/expense_model.dart';
 import '../../data/models/income_profile_model.dart';
-import 'month_close_summary_model.dart';
+import '../../data/models/month_close_summary_model.dart';
 
 class MonthCloseService {
   MonthCloseSummaryModel build({

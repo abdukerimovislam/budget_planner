@@ -1,5 +1,5 @@
-import '../../data/models/expense_category.dart';
-import 'financial_level.dart';
+import 'expense_category.dart';
+import 'financial_level_model.dart';
 
 class ShareCardModel {
   final double income;

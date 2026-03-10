@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../../../core/utils/responsive.dart';
 import '../../../data/models/expense_category.dart';
-import '../../../domain/services/receipt_parsed_data.dart';
-import '../../../domain/services/reciept_candidate_amount.dart';
-import '../../../domain/services/reciept_view_model.dart';
+import '../../../data/models/receipt_candidate_amount_view.dart';
+import '../../../data/models/receipt_parsed_data_model.dart';
+import '../../../data/models/receipt_review_model.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../widgets/adaptive_page_padding.dart';
 
 class ReceiptReviewScreen extends StatefulWidget {
-  final ReceiptParsedData parsedData;
+  final ReceiptParsedDataModel parsedData;
 
   const ReceiptReviewScreen({
     super.key,
@@ -104,7 +104,7 @@ class _ReceiptReviewScreenState extends State<ReceiptReviewScreen> {
     }
   }
 
-  void _applyCandidate(ReceiptCandidateAmount candidate) {
+  void _applyCandidate(ReceiptCandidateAmountModel candidate) {
     setState(() {
       _amountController.text = candidate.value.toString();
     });

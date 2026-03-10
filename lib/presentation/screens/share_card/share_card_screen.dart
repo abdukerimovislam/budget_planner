@@ -6,8 +6,8 @@ import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/utils/responsive.dart';
+import '../../../data/models/share_card_model.dart';
 import '../../../domain/services/premium_feature.dart';
-import '../../../domain/services/share_card_model.dart';
 import '../../../domain/services/share_export_service.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../providers/home_provider.dart';

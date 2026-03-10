@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../core/utils/responsive.dart';
 import '../../data/models/expense_category.dart';
-import '../../domain/services/financial_level.dart';
-import '../../domain/services/share_card_model.dart';
+import '../../data/models/financial_level_model.dart';
+import '../../data/models/share_card_model.dart';
 import '../../l10n/app_localizations.dart';
 
 class MonthlyShareCardWidget extends StatelessWidget {

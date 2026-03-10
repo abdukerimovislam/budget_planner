@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../data/models/expense_category.dart';
-import 'parsed_expense_input.dart';
+import '../../data/models/parsed_expense_input_model.dart';
 
 class SmartExpenseParser {
   static final Map<ExpenseCategory, List<String>> _keywords = {
@@ -74,7 +74,7 @@ class SmartExpenseParser {
     ],
   };
 
-  ParsedExpenseInput parse(String input) {
+  ParsedExpenseInputModel parse(String input) {
     final text = input.trim().toLowerCase();
 
     final amountMatch = RegExp(r'(\d+[.,]?\d{0,2})').firstMatch(text);
@@ -86,7 +86,7 @@ class SmartExpenseParser {
     final category = _detectCategory(text);
     final merchant = _detectMerchant(text);
 
-    return ParsedExpenseInput(
+    return ParsedExpenseInputModel(
       amount: amount,
       currency: currency,
       category: category,

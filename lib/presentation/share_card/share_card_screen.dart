@@ -6,9 +6,9 @@ import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/utils/responsive.dart';
-import '../../../domain/services/share_card_model.dart';
 import '../../../domain/services/share_export_service.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../data/models/share_card_model.dart';
 import '../providers/home_provider.dart';
 import '../widgets/adaptive_page_padding.dart';
 import '../widgets/monthly_share_card_widget.dart';

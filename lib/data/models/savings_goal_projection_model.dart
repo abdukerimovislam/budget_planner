@@ -1,4 +1,4 @@
-class SavingsGoalProjection {
+class SavingsGoalProjectionModel {
   final double remainingAmount;
   final double progress;
   final double recommendedMonthlyContribution;
@@ -6,7 +6,7 @@ class SavingsGoalProjection {
   final int? monthsAtCurrentSavingsRate;
   final bool isOnTrack;
 
-  const SavingsGoalProjection({
+  const SavingsGoalProjectionModel({
     required this.remainingAmount,
     required this.progress,
     required this.recommendedMonthlyContribution,

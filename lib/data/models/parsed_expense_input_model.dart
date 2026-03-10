@@ -1,13 +1,13 @@
-import '/data/models/expense_category.dart';
+import 'expense_category.dart';
 
-class ParsedExpenseInput {
+class ParsedExpenseInputModel {
   final double? amount;
   final String? currency;
   final ExpenseCategory? category;
   final String? merchant;
   final String rawText;
 
-  const ParsedExpenseInput({
+  const ParsedExpenseInputModel({
     required this.amount,
     required this.currency,
     required this.category,

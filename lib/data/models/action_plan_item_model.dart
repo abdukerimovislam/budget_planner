@@ -5,14 +5,14 @@ enum ActionPlanType {
   improveBudgetDiscipline,
 }
 
-class ActionPlanItem {
+class ActionPlanItemModel {
   final ActionPlanType type;
   final String titleKey;
   final String descriptionKey;
   final Map<String, String> params;
   final bool isPriority;
 
-  const ActionPlanItem({
+  const ActionPlanItemModel({
     required this.type,
     required this.titleKey,
     required this.descriptionKey,

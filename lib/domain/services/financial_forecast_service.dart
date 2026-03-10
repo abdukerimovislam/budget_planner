@@ -1,8 +1,8 @@
-import '/data/models/expense_model.dart';
-import 'forecast_result.dart';
+import '../../data/models/expense_model.dart';
+import '../../data/models/forecast_result_model.dart';
 
 class FinancialForecastService {
-  ForecastResult calculate({
+  ForecastResultModel calculate({
     required List<ExpenseModel> expenses,
     required DateTime now,
     required double monthlyBudget,
@@ -23,7 +23,7 @@ class FinancialForecastService {
     final predictedMonthSpend = avgDailySpend * totalDays;
     final expectedRemaining = monthlyBudget - predictedMonthSpend;
 
-    return ForecastResult(
+    return ForecastResultModel(
       avgDailySpend: avgDailySpend,
       predictedMonthSpend: predictedMonthSpend,
       expectedRemaining: expectedRemaining,

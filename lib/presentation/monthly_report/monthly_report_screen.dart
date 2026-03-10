@@ -3,8 +3,8 @@ import 'package:provider/provider.dart';
 
 import '../../../core/utils/responsive.dart';
 import '../../../data/models/expense_category.dart';
-import '../../../domain/services/financial_level.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../data/models/financial_level_model.dart';
 import '../providers/home_provider.dart';
 import '../screens/share_card/share_card_screen.dart';
 import '../widgets/adaptive_page_padding.dart';

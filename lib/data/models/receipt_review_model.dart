@@ -1,4 +1,4 @@
-import '../../data/models/expense_category.dart';
+import 'expense_category.dart';
 
 class ReceiptReviewModel {
   final double? amount;

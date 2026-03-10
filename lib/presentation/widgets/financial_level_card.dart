@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/utils/responsive.dart';
-import '../../domain/services/financial_level.dart';
+import '../../data/models/financial_level_model.dart';
 import '../../l10n/app_localizations.dart';
 
 class FinancialLevelCard extends StatelessWidget {

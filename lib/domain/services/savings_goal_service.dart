@@ -1,8 +1,8 @@
 import '../../data/models/saving_goal_model.dart';
-import 'savings_goal_projection.dart';
+import '../../data/models/savings_goal_projection_model.dart';
 
 class SavingsGoalService {
-  SavingsGoalProjection project({
+  SavingsGoalProjectionModel project({
     required SavingsGoalModel goal,
     required double currentMonthlySavings,
     required DateTime now,
@@ -30,7 +30,7 @@ class SavingsGoalService {
         monthsAtCurrentRate == null ||
         monthsAtCurrentRate <= monthsToTargetDate;
 
-    return SavingsGoalProjection(
+    return SavingsGoalProjectionModel(
       remainingAmount: remaining,
       progress: progress,
       recommendedMonthlyContribution: recommendedMonthlyContribution,

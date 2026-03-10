@@ -7,6 +7,7 @@ import '../../../data/models/expense_category.dart';
 import '../../../data/models/expense_model.dart';
 import '../../../domain/services/premium_feature.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../monthly_report/monthly_report_screen.dart';
 import '../../providers/home_provider.dart';
 import '../../widgets/action_plan_card.dart';
 import '../../widgets/adaptive_page_padding.dart';

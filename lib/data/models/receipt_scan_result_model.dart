@@ -1,9 +1,9 @@
-class ReceiptScanResult {
+class ReceiptScanResultModel {
   final bool isSuccess;
   final String recognizedText;
   final String? errorMessage;
 
-  const ReceiptScanResult({
+  const ReceiptScanResultModel({
     required this.isSuccess,
     required this.recognizedText,
     this.errorMessage,

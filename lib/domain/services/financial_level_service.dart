@@ -1,4 +1,4 @@
-import 'financial_level.dart';
+import '../../data/models/financial_level_model.dart';
 
 class FinancialLevelService {
   FinancialLevel resolve({

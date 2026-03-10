@@ -3,40 +3,39 @@ import 'package:flutter/material.dart';
 
 import '../../core/utils/month_key.dart';
 import '../../data/datasources/local/local_storage_service.dart';
+import '../../data/models/achievement_model.dart';
+import '../../data/models/action_plan_item_model.dart';
 import '../../data/models/budget_model.dart';
 import '../../data/models/cashflow_event_model.dart';
 import '../../data/models/expense_category.dart';
 import '../../data/models/expense_filter_model.dart';
 import '../../data/models/expense_model.dart';
+import '../../data/models/forecast_result_model.dart';
 import '../../data/models/income_profile_model.dart';
+import '../../data/models/insight_model.dart';
+import '../../data/models/month_close_summary_model.dart';
 import '../../data/models/recurring_bill_model.dart';
 import '../../data/models/saving_goal_model.dart';
+import '../../data/models/savings_goal_projection_model.dart';
 import '../../data/models/subscription_candidate_model.dart';
-import '../../domain/services/action_plan_item.dart';
+import '../../domain/services/achievement_service.dart';
 import '../../domain/services/action_plan_service.dart';
 import '../../domain/services/auto_budget_service.dart';
 import '../../domain/services/cashflow_timeline_service.dart';
 import '../../domain/services/financial_forecast_service.dart';
 import '../../domain/services/financial_health_score_service.dart';
 import '../../domain/services/financial_insight_service.dart';
-import '../../domain/services/forecast_result.dart';
-import '../../domain/services/insight_model.dart';
 import '../../domain/services/life_value_service.dart';
+import '../../domain/services/month_close_service.dart';
 import '../../domain/services/monthly_report_model.dart';
 import '../../domain/services/monthly_report_service.dart';
 import '../../domain/services/premium_access_service.dart';
 import '../../domain/services/premium_feature.dart';
-import '../../domain/services/savings_goal_projection.dart';
 import '../../domain/services/savings_goal_service.dart';
-import '../../domain/services/subscription_detector_service.dart';
-import '../widgets/expense_edit_sheet.dart';
-import '../../domain/services/month_close_service.dart';
-import '../../domain/services/month_close_summary_model.dart';
-import '../../data/models/achievement_model.dart';
-import '../../domain/services/achievement_service.dart';
 import '../../domain/services/streak_service.dart';
 import '../../domain/services/streak_summary_model.dart';
-
+import '../../domain/services/subscription_detector_service.dart';
+import '../widgets/expense_edit_sheet.dart';
 
 class HomeProvider extends ChangeNotifier {
   final FinancialForecastService forecastService;
@@ -55,7 +54,7 @@ class HomeProvider extends ChangeNotifier {
   final PremiumAccessService premiumAccessService = PremiumAccessService();
   final MonthCloseService monthCloseService = MonthCloseService();
   final StreakService streakService = StreakService();
-  final AchievementService achievementService = AchievementService();c
+  final AchievementService achievementService = AchievementService();
 
   HomeProvider({
     required this.forecastService,
@@ -340,7 +339,7 @@ class HomeProvider extends ChangeNotifier {
     return totalBudget - totalSpentForMonth(now);
   }
 
-  ForecastResult? forecastFor(DateTime now) {
+  ForecastResultModel? forecastFor(DateTime now) {
     final currentBudget = _budget?.totalBudget;
     if (currentBudget == null) return null;
 
@@ -513,7 +512,7 @@ class HomeProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  SavingsGoalProjection? savingsGoalProjection(DateTime now) {
+  SavingsGoalProjectionModel? savingsGoalProjection(DateTime now) {
     final goal = _savingsGoal;
     if (goal == null) return null;
 
@@ -550,7 +549,7 @@ class HomeProvider extends ChangeNotifier {
     );
   }
 
-  List<ActionPlanItem> actionPlan(DateTime now) {
+  List<ActionPlanItemModel> actionPlan(DateTime now) {
     if (!canUseFeature(PremiumFeature.actionPlanner)) {
       return const [];
     }

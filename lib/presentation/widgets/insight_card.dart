@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../app/theme/app_spacing.dart';
-import '../../domain/services/insight_model.dart';
-import '../../domain/services/insight_type.dart';
+import '../../data/models/insight_model.dart';
+import '../../data/models/insight_type.dart';
 import '../../l10n/app_localizations.dart';
 
 class InsightCard extends StatelessWidget {

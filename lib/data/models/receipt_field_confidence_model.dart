@@ -1,10 +1,10 @@
-class ReceiptFieldConfidence {
+class ReceiptFieldConfidenceModel {
   final double amount;
   final double merchant;
   final double currency;
   final double date;
 
-  const ReceiptFieldConfidence({
+  const ReceiptFieldConfidenceModel({
     required this.amount,
     required this.merchant,
     required this.currency,

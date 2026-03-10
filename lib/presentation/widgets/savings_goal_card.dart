@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../../core/utils/responsive.dart';
 import '../../data/models/saving_goal_model.dart';
-import '../../domain/services/savings_goal_projection.dart';
+import '../../data/models/savings_goal_projection_model.dart';
 import '../../l10n/app_localizations.dart';
 
 class SavingsGoalCard extends StatelessWidget {
   final SavingsGoalModel goal;
-  final SavingsGoalProjection projection;
+  final SavingsGoalProjectionModel projection;
   final VoidCallback? onTap;
 
   const SavingsGoalCard({

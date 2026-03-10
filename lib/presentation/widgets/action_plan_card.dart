@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../core/utils/responsive.dart';
-import '../../domain/services/action_plan_item.dart';
+import '../../data/models/action_plan_item_model.dart';
 import '../../l10n/app_localizations.dart';
 
 class ActionPlanCard extends StatelessWidget {
-  final ActionPlanItem item;
+  final ActionPlanItemModel item;
 
   const ActionPlanCard({
     super.key,

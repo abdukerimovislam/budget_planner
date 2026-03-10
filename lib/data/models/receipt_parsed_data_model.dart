@@ -1,20 +1,20 @@
-import 'package:budget_planner/domain/services/reciept_candidate_amount.dart';
-import 'package:budget_planner/domain/services/reciept_field_confidence.dart';
+import 'package:budget_planner/data/models/receipt_candidate_amount_view.dart';
 
-import '../../data/models/expense_category.dart';
+import 'expense_category.dart';
+import 'receipt_field_confidence_model.dart';
 
-class ReceiptParsedData {
+class ReceiptParsedDataModel {
   final double? amount;
-  final List<ReceiptCandidateAmount> amountCandidates;
+  final List<ReceiptCandidateAmountModel> amountCandidates;
   final String? currency;
   final String? merchant;
   final DateTime? receiptDate;
   final ExpenseCategory? category;
   final double confidence;
-  final ReceiptFieldConfidence fieldConfidence;
+  final ReceiptFieldConfidenceModel fieldConfidence;
   final String rawText;
 
-  const ReceiptParsedData({
+  const ReceiptParsedDataModel({
     required this.amount,
     required this.amountCandidates,
     required this.currency,

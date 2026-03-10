@@ -1,7 +1,7 @@
 import '../../data/models/expense_category.dart';
 import '../../data/models/expense_model.dart';
-import 'insight_model.dart';
-import 'insight_type.dart';
+import '../../data/models/insight_model.dart';
+import '../../data/models/insight_type.dart';
 
 class FinancialInsightService {
   List<InsightModel> generate({

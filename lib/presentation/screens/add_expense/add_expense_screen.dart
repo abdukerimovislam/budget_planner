@@ -8,13 +8,13 @@ import '../../../core/utils/responsive.dart';
 import '../../../data/models/expense_category.dart';
 import '../../../data/models/expense_model.dart';
 import '../../../data/models/expense_source_type.dart';
+import '../../../data/models/parsed_expense_input_model.dart';
+import '../../../data/models/receipt_parsed_data_model.dart';
+import '../../../data/models/receipt_review_model.dart';
+import '../../../data/models/receipt_scan_result_model.dart';
 import '../../../domain/services/premium_feature.dart';
-import '../../../domain/services/parsed_expense_input.dart';
-import '../../../domain/services/receipt_parsed_data.dart';
 import '../../../domain/services/receipt_parser_service.dart';
-import '../../../domain/services/receipt_scan_result.dart';
 import '../../../domain/services/receipt_scan_service.dart';
-import '../../../domain/services/reciept_view_model.dart';
 import '../../../domain/services/smart_expense_parser.dart';
 import '../../../domain/services/voice_input_service.dart';
 import '../../../l10n/app_localizations.dart';
@@ -43,8 +43,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   final ReceiptScanService _receiptScanService = ReceiptScanService();
   final ReceiptParserService _receiptParserService = ReceiptParserService();
 
-  ParsedExpenseInput? _parsed;
-  ReceiptParsedData? _receiptParsedData;
+  ParsedExpenseInputModel? _parsed;
+  ReceiptParsedDataModel? _receiptParsedData;
   AddExpenseSourceMode _sourceMode = AddExpenseSourceMode.smartText;
 
   bool _isVoiceLoading = false;
@@ -62,7 +62,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     super.initState();
 
     if (widget.initialCategory != null) {
-      _parsed = ParsedExpenseInput(
+      _parsed = ParsedExpenseInputModel(
         amount: null,
         currency: 'KGS',
         category: widget.initialCategory,
@@ -115,7 +115,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     final parsed = _parser.parse(_smartInputController.text);
 
     setState(() {
-      _parsed = ParsedExpenseInput(
+      _parsed = ParsedExpenseInputModel(
         amount: parsed.amount,
         currency: parsed.currency,
         category:
@@ -131,7 +131,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
     setState(() {
       _voicePreviewText = text;
-      _parsed = ParsedExpenseInput(
+      _parsed = ParsedExpenseInputModel(
         amount: parsed.amount,
         currency: parsed.currency,
         category:
@@ -148,7 +148,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     setState(() {
       _receiptPreviewText = text;
       _receiptParsedData = parsedReceipt;
-      _parsed = ParsedExpenseInput(
+      _parsed = ParsedExpenseInputModel(
         amount: parsedReceipt.amount,
         currency: parsedReceipt.currency,
         category:
@@ -223,7 +223,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       _pickedReceiptFile = file;
     });
 
-    final ReceiptScanResult result = await _receiptScanService.scanFile(file);
+    final ReceiptScanResultModel result = await _receiptScanService.scanFile(file);
 
     if (!mounted) return;
 
@@ -259,7 +259,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     if (!mounted || review == null) return;
 
     setState(() {
-      _parsed = ParsedExpenseInput(
+      _parsed = ParsedExpenseInputModel(
         amount: review.amount,
         currency: review.currency,
         category: review.category,

@@ -27,6 +27,12 @@ class _BudgetPlannerAppState extends State<BudgetPlannerApp> {
   }
 
   Future<void> _loadInitialData() async {
+    // Откладываем выполнение, чтобы дать Flutter закончить текущий билд
+    // Это исправляет ошибку "setState() or markNeedsBuild() called during build"
+    await Future.microtask(() {});
+
+    if (!mounted) return;
+
     await context.read<AppState>().load();
     await context.read<LocaleController>().load();
     await context.read<HomeProvider>().load();

@@ -1,5 +1,5 @@
 import '../../data/models/expense_category.dart';
-import 'financial_level.dart';
+import '../../data/models/financial_level_model.dart';
 
 class MonthlyReportModel {
   final double totalIncome;

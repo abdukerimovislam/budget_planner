@@ -1,20 +1,20 @@
+import '../../data/models/action_plan_item_model.dart';
 import '../../data/models/expense_category.dart';
 import '../../data/models/saving_goal_model.dart';
+import '../../data/models/savings_goal_projection_model.dart';
 import '../../data/models/subscription_candidate_model.dart';
-import 'action_plan_item.dart';
-import 'savings_goal_projection.dart';
 
 class ActionPlanService {
-  List<ActionPlanItem> generate({
+  List<ActionPlanItemModel> generate({
     required ExpenseCategory? dangerousCategory,
     required double dangerousCategorySpent,
     required double dangerousCategoryBudget,
     required List<SubscriptionCandidateModel> subscriptions,
     required SavingsGoalModel? goal,
-    required SavingsGoalProjection? goalProjection,
+    required SavingsGoalProjectionModel? goalProjection,
     required int healthScore,
   }) {
-    final items = <ActionPlanItem>[];
+    final items = <ActionPlanItemModel>[];
 
     if (dangerousCategory != null &&
         dangerousCategoryBudget > 0 &&
@@ -24,7 +24,7 @@ class ActionPlanService {
           .toStringAsFixed(0);
 
       items.add(
-        ActionPlanItem(
+        ActionPlanItemModel(
           type: ActionPlanType.cutCategory,
           titleKey: 'actionPlanCutCategoryTitle',
           descriptionKey: 'actionPlanCutCategoryDescription',
@@ -43,7 +43,7 @@ class ActionPlanService {
       );
 
       items.add(
-        ActionPlanItem(
+        ActionPlanItemModel(
           type: ActionPlanType.reduceSubscriptions,
           titleKey: 'actionPlanSubscriptionsTitle',
           descriptionKey: 'actionPlanSubscriptionsDescription',
@@ -59,7 +59,7 @@ class ActionPlanService {
     if (goal != null && goalProjection != null) {
       if (!goalProjection.isOnTrack && goalProjection.monthsToTargetDate != null) {
         items.add(
-          ActionPlanItem(
+          ActionPlanItemModel(
             type: ActionPlanType.saveMore,
             titleKey: 'actionPlanGoalTitle',
             descriptionKey: 'actionPlanGoalDescription',
@@ -75,7 +75,7 @@ class ActionPlanService {
 
     if (healthScore < 60) {
       items.add(
-        const ActionPlanItem(
+        const ActionPlanItemModel(
           type: ActionPlanType.improveBudgetDiscipline,
           titleKey: 'actionPlanScoreTitle',
           descriptionKey: 'actionPlanScoreDescription',

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/utils/responsive.dart';
-import '../../domain/services/month_close_summary_model.dart';
+import '../../data/models/month_close_summary_model.dart';
 import '../../l10n/app_localizations.dart';
 
 class MonthCloseSummaryCard extends StatelessWidget {
