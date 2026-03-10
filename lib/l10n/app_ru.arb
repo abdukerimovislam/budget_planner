@@ -667,5 +667,57 @@
   "achievementMonthCloseTitle": "Первое закрытие месяца",
   "achievementMonthCloseSubtitle": "Вы подвели месячный финансовый итог.",
   "achievementNoOverspendTitle": "Месяц без перерасхода",
-  "achievementNoOverspendSubtitle": "Вы удержали расходы в рамках бюджета."
+  "achievementNoOverspendSubtitle": "Вы удержали расходы в рамках бюджета.",
+  "greetingMorning": "Доброе утро",
+  "greetingAfternoon": "Добрый день",
+  "greetingEvening": "Добрый вечер",
+  "greetingNight": "Доброй ночи",
+  "leftToSpend": "ОСТАЛОСЬ ТРАТИТЬ",
+  "safeToSpendToday": "БЕЗОПАСНО НА СЕГОДНЯ",
+  "healthLabel": "Здоровье",
+  "daysLeftLabel": "Осталось дней",
+  "keepPaceBudget": "Держите этот темп бюджета",
+  "monthCloseNearTitle": "Скоро закрытие месяца!",
+  "monthCloseNearSubtitle": "Осталось {days} дней в рамках бюджета.",
+  "@monthCloseNearSubtitle": {
+    "placeholders": {
+      "days": { "type": "int" }
+    }
+  },
+  "aiInsightsTitle": "ИИ Советы",
+  "seeAllAction": "Все",
+  "historyAction": "История",
+  "warningLabel": "Внимание",
+  "tipLabel": "Совет",
+  "customCategory": "Своя",
+  "gotItButton": "Понятно",
+  "addCustomCategoryTitle": "Новая категория",
+  "addCustomCategorySubtitle": "Свои категории появятся в следующем обновлении!",
+  "expensesHistoryTitle": "История транзакций",
+  "expensesHistoryEmpty": "Расходы не найдены. Попробуйте изменить фильтры.",
+  "expenseFilterAllCategories": "Все категории",
+  "expenseSortNewest": "Сначала новые",
+  "expenseSortOldest": "Сначала старые",
+  "expenseSortHighest": "Сначала дорогие",
+  "expenseSortLowest": "Сначала дешевые",
+  "expenseSearchHint": "Поиск по месту или заметке...",
+  "expenseFilterCategoryLabel": "Категория",
+  "expenseFilterSortLabel": "Сортировка",
+  "expenseFilterStartDate": "От: {date}",
+  "@expenseFilterStartDate": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "expenseFilterEndDate": "До: {date}",
+  "@expenseFilterEndDate": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "expenseFilterClearDates": "Сбросить даты"
 }

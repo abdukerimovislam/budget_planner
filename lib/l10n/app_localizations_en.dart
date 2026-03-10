@@ -1153,4 +1153,111 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get achievementNoOverspendSubtitle =>
       'You kept your spending within budget.';
+
+  @override
+  String get greetingMorning => 'Good morning';
+
+  @override
+  String get greetingAfternoon => 'Good afternoon';
+
+  @override
+  String get greetingEvening => 'Good evening';
+
+  @override
+  String get greetingNight => 'Good night';
+
+  @override
+  String get leftToSpend => 'LEFT TO SPEND';
+
+  @override
+  String get safeToSpendToday => 'SAFE TO SPEND TODAY';
+
+  @override
+  String get healthLabel => 'Health';
+
+  @override
+  String get daysLeftLabel => 'Days left';
+
+  @override
+  String get keepPaceBudget => 'Keep this pace to stay on budget';
+
+  @override
+  String get monthCloseNearTitle => 'Month Close is near!';
+
+  @override
+  String monthCloseNearSubtitle(int days) {
+    return 'Only $days days left to stay in budget.';
+  }
+
+  @override
+  String get aiInsightsTitle => 'AI Insights';
+
+  @override
+  String get seeAllAction => 'See all';
+
+  @override
+  String get historyAction => 'History';
+
+  @override
+  String get warningLabel => 'Warning';
+
+  @override
+  String get tipLabel => 'Tip';
+
+  @override
+  String get customCategory => 'Custom';
+
+  @override
+  String get gotItButton => 'Got it';
+
+  @override
+  String get addCustomCategoryTitle => 'New Category';
+
+  @override
+  String get addCustomCategorySubtitle =>
+      'Custom categories will be available in the next update!';
+
+  @override
+  String get expensesHistoryTitle => 'Transaction History';
+
+  @override
+  String get expensesHistoryEmpty =>
+      'No expenses found. Try changing the filters.';
+
+  @override
+  String get expenseFilterAllCategories => 'All Categories';
+
+  @override
+  String get expenseSortNewest => 'Newest First';
+
+  @override
+  String get expenseSortOldest => 'Oldest First';
+
+  @override
+  String get expenseSortHighest => 'Highest Amount';
+
+  @override
+  String get expenseSortLowest => 'Lowest Amount';
+
+  @override
+  String get expenseSearchHint => 'Search by merchant or note...';
+
+  @override
+  String get expenseFilterCategoryLabel => 'Category';
+
+  @override
+  String get expenseFilterSortLabel => 'Sort By';
+
+  @override
+  String expenseFilterStartDate(String date) {
+    return 'From: $date';
+  }
+
+  @override
+  String expenseFilterEndDate(String date) {
+    return 'To: $date';
+  }
+
+  @override
+  String get expenseFilterClearDates => 'Clear Dates';
 }

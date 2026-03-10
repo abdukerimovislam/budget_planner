@@ -667,6 +667,58 @@
   "achievementMonthCloseTitle": "First month close",
   "achievementMonthCloseSubtitle": "You completed your monthly financial wrap-up.",
   "achievementNoOverspendTitle": "No overspend month",
-  "achievementNoOverspendSubtitle": "You kept your spending within budget."
+  "achievementNoOverspendSubtitle": "You kept your spending within budget.",
+  "greetingMorning": "Good morning",
+  "greetingAfternoon": "Good afternoon",
+  "greetingEvening": "Good evening",
+  "greetingNight": "Good night",
+  "leftToSpend": "LEFT TO SPEND",
+  "safeToSpendToday": "SAFE TO SPEND TODAY",
+  "healthLabel": "Health",
+  "daysLeftLabel": "Days left",
+  "keepPaceBudget": "Keep this pace to stay on budget",
+  "monthCloseNearTitle": "Month Close is near!",
+  "monthCloseNearSubtitle": "Only {days} days left to stay in budget.",
+  "@monthCloseNearSubtitle": {
+    "placeholders": {
+      "days": { "type": "int" }
+    }
+  },
+  "aiInsightsTitle": "AI Insights",
+  "seeAllAction": "See all",
+  "historyAction": "History",
+  "warningLabel": "Warning",
+  "tipLabel": "Tip",
+  "customCategory": "Custom",
+  "gotItButton": "Got it",
+  "addCustomCategoryTitle": "New Category",
+  "addCustomCategorySubtitle": "Custom categories will be available in the next update!",
+  "expensesHistoryTitle": "Transaction History",
+  "expensesHistoryEmpty": "No expenses found. Try changing the filters.",
+  "expenseFilterAllCategories": "All Categories",
+  "expenseSortNewest": "Newest First",
+  "expenseSortOldest": "Oldest First",
+  "expenseSortHighest": "Highest Amount",
+  "expenseSortLowest": "Lowest Amount",
+  "expenseSearchHint": "Search by merchant or note...",
+  "expenseFilterCategoryLabel": "Category",
+  "expenseFilterSortLabel": "Sort By",
+  "expenseFilterStartDate": "From: {date}",
+  "@expenseFilterStartDate": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "expenseFilterEndDate": "To: {date}",
+  "@expenseFilterEndDate": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "expenseFilterClearDates": "Clear Dates"
 
 }

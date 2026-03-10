@@ -2071,6 +2071,204 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'You kept your spending within budget.'**
   String get achievementNoOverspendSubtitle;
+
+  /// No description provided for @greetingMorning.
+  ///
+  /// In en, this message translates to:
+  /// **'Good morning'**
+  String get greetingMorning;
+
+  /// No description provided for @greetingAfternoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Good afternoon'**
+  String get greetingAfternoon;
+
+  /// No description provided for @greetingEvening.
+  ///
+  /// In en, this message translates to:
+  /// **'Good evening'**
+  String get greetingEvening;
+
+  /// No description provided for @greetingNight.
+  ///
+  /// In en, this message translates to:
+  /// **'Good night'**
+  String get greetingNight;
+
+  /// No description provided for @leftToSpend.
+  ///
+  /// In en, this message translates to:
+  /// **'LEFT TO SPEND'**
+  String get leftToSpend;
+
+  /// No description provided for @safeToSpendToday.
+  ///
+  /// In en, this message translates to:
+  /// **'SAFE TO SPEND TODAY'**
+  String get safeToSpendToday;
+
+  /// No description provided for @healthLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Health'**
+  String get healthLabel;
+
+  /// No description provided for @daysLeftLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Days left'**
+  String get daysLeftLabel;
+
+  /// No description provided for @keepPaceBudget.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep this pace to stay on budget'**
+  String get keepPaceBudget;
+
+  /// No description provided for @monthCloseNearTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Month Close is near!'**
+  String get monthCloseNearTitle;
+
+  /// No description provided for @monthCloseNearSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Only {days} days left to stay in budget.'**
+  String monthCloseNearSubtitle(int days);
+
+  /// No description provided for @aiInsightsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'AI Insights'**
+  String get aiInsightsTitle;
+
+  /// No description provided for @seeAllAction.
+  ///
+  /// In en, this message translates to:
+  /// **'See all'**
+  String get seeAllAction;
+
+  /// No description provided for @historyAction.
+  ///
+  /// In en, this message translates to:
+  /// **'History'**
+  String get historyAction;
+
+  /// No description provided for @warningLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Warning'**
+  String get warningLabel;
+
+  /// No description provided for @tipLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Tip'**
+  String get tipLabel;
+
+  /// No description provided for @customCategory.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom'**
+  String get customCategory;
+
+  /// No description provided for @gotItButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Got it'**
+  String get gotItButton;
+
+  /// No description provided for @addCustomCategoryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'New Category'**
+  String get addCustomCategoryTitle;
+
+  /// No description provided for @addCustomCategorySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom categories will be available in the next update!'**
+  String get addCustomCategorySubtitle;
+
+  /// No description provided for @expensesHistoryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Transaction History'**
+  String get expensesHistoryTitle;
+
+  /// No description provided for @expensesHistoryEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No expenses found. Try changing the filters.'**
+  String get expensesHistoryEmpty;
+
+  /// No description provided for @expenseFilterAllCategories.
+  ///
+  /// In en, this message translates to:
+  /// **'All Categories'**
+  String get expenseFilterAllCategories;
+
+  /// No description provided for @expenseSortNewest.
+  ///
+  /// In en, this message translates to:
+  /// **'Newest First'**
+  String get expenseSortNewest;
+
+  /// No description provided for @expenseSortOldest.
+  ///
+  /// In en, this message translates to:
+  /// **'Oldest First'**
+  String get expenseSortOldest;
+
+  /// No description provided for @expenseSortHighest.
+  ///
+  /// In en, this message translates to:
+  /// **'Highest Amount'**
+  String get expenseSortHighest;
+
+  /// No description provided for @expenseSortLowest.
+  ///
+  /// In en, this message translates to:
+  /// **'Lowest Amount'**
+  String get expenseSortLowest;
+
+  /// No description provided for @expenseSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search by merchant or note...'**
+  String get expenseSearchHint;
+
+  /// No description provided for @expenseFilterCategoryLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Category'**
+  String get expenseFilterCategoryLabel;
+
+  /// No description provided for @expenseFilterSortLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Sort By'**
+  String get expenseFilterSortLabel;
+
+  /// No description provided for @expenseFilterStartDate.
+  ///
+  /// In en, this message translates to:
+  /// **'From: {date}'**
+  String expenseFilterStartDate(String date);
+
+  /// No description provided for @expenseFilterEndDate.
+  ///
+  /// In en, this message translates to:
+  /// **'To: {date}'**
+  String expenseFilterEndDate(String date);
+
+  /// No description provided for @expenseFilterClearDates.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear Dates'**
+  String get expenseFilterClearDates;
 }
 
 class _AppLocalizationsDelegate

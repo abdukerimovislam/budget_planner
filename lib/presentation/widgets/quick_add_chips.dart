@@ -4,11 +4,15 @@ import '../../data/models/expense_category.dart';
 import '../../l10n/app_localizations.dart';
 
 class QuickAddChips extends StatelessWidget {
+  final List<ExpenseCategory> categories;
   final ValueChanged<ExpenseCategory> onTapCategory;
+  final VoidCallback onCustomCategoryTap;
 
   const QuickAddChips({
     super.key,
+    required this.categories,
     required this.onTapCategory,
+    required this.onCustomCategoryTap,
   });
 
   String _label(BuildContext context, ExpenseCategory category) {
@@ -69,23 +73,47 @@ class QuickAddChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const categories = [
-      ExpenseCategory.food,
-      ExpenseCategory.transport,
-      ExpenseCategory.subscriptions,
-      ExpenseCategory.shopping,
-    ];
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
 
     return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: categories.map((category) {
-        return ActionChip(
-          avatar: Icon(_icon(category), size: 18),
-          label: Text(_label(context, category)),
-          onPressed: () => onTapCategory(category),
-        );
-      }).toList(),
+      spacing: 12,
+      runSpacing: 12,
+      children: [
+        // 1. Умные категории (подставляются снаружи)
+        ...categories.map((category) {
+          return ActionChip(
+            avatar: Icon(_icon(category), size: 18, color: theme.colorScheme.onSurface),
+            label: Text(
+              _label(context, category),
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+            backgroundColor: theme.colorScheme.surface,
+            side: BorderSide(color: theme.colorScheme.surfaceVariant),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            onPressed: () => onTapCategory(category),
+          );
+        }),
+
+        // 2. Кнопка для своей категории (Custom)
+        ActionChip(
+          avatar: const Icon(Icons.add_rounded, size: 18, color: Colors.white),
+          label: Text(
+            l10n.customCategory,
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
+          ),
+          backgroundColor: theme.colorScheme.primary,
+          side: BorderSide.none,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          onPressed: onCustomCategoryTap,
+        ),
+      ],
     );
   }
 }

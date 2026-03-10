@@ -1155,4 +1155,111 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get achievementNoOverspendSubtitle =>
       'Вы удержали расходы в рамках бюджета.';
+
+  @override
+  String get greetingMorning => 'Доброе утро';
+
+  @override
+  String get greetingAfternoon => 'Добрый день';
+
+  @override
+  String get greetingEvening => 'Добрый вечер';
+
+  @override
+  String get greetingNight => 'Доброй ночи';
+
+  @override
+  String get leftToSpend => 'ОСТАЛОСЬ ТРАТИТЬ';
+
+  @override
+  String get safeToSpendToday => 'БЕЗОПАСНО НА СЕГОДНЯ';
+
+  @override
+  String get healthLabel => 'Здоровье';
+
+  @override
+  String get daysLeftLabel => 'Осталось дней';
+
+  @override
+  String get keepPaceBudget => 'Держите этот темп бюджета';
+
+  @override
+  String get monthCloseNearTitle => 'Скоро закрытие месяца!';
+
+  @override
+  String monthCloseNearSubtitle(int days) {
+    return 'Осталось $days дней в рамках бюджета.';
+  }
+
+  @override
+  String get aiInsightsTitle => 'ИИ Советы';
+
+  @override
+  String get seeAllAction => 'Все';
+
+  @override
+  String get historyAction => 'История';
+
+  @override
+  String get warningLabel => 'Внимание';
+
+  @override
+  String get tipLabel => 'Совет';
+
+  @override
+  String get customCategory => 'Своя';
+
+  @override
+  String get gotItButton => 'Понятно';
+
+  @override
+  String get addCustomCategoryTitle => 'Новая категория';
+
+  @override
+  String get addCustomCategorySubtitle =>
+      'Свои категории появятся в следующем обновлении!';
+
+  @override
+  String get expensesHistoryTitle => 'История транзакций';
+
+  @override
+  String get expensesHistoryEmpty =>
+      'Расходы не найдены. Попробуйте изменить фильтры.';
+
+  @override
+  String get expenseFilterAllCategories => 'Все категории';
+
+  @override
+  String get expenseSortNewest => 'Сначала новые';
+
+  @override
+  String get expenseSortOldest => 'Сначала старые';
+
+  @override
+  String get expenseSortHighest => 'Сначала дорогие';
+
+  @override
+  String get expenseSortLowest => 'Сначала дешевые';
+
+  @override
+  String get expenseSearchHint => 'Поиск по месту или заметке...';
+
+  @override
+  String get expenseFilterCategoryLabel => 'Категория';
+
+  @override
+  String get expenseFilterSortLabel => 'Сортировка';
+
+  @override
+  String expenseFilterStartDate(String date) {
+    return 'От: $date';
+  }
+
+  @override
+  String expenseFilterEndDate(String date) {
+    return 'До: $date';
+  }
+
+  @override
+  String get expenseFilterClearDates => 'Сбросить даты';
 }

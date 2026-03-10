@@ -1,26 +1,32 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  AppColors._();
+  // Главные цвета (Доверие и акценты)
+  static const Color primary = Color(0xFF4F46E5); // Глубокий Индиго
+  static const Color onPrimary = Colors.white;
 
-  // Base palette
-  static const Color seed = Color(0xFF6D5DF6);
+  static const Color secondary = Color(0xFF10B981); // Изумрудный (Доходы/Успех)
+  static const Color onSecondary = Colors.white;
 
-  // Light theme
-  static const Color lightBackground = Color(0xFFF7F8FC);
-  static const Color lightSurface = Colors.white;
-  static const Color lightTextPrimary = Color(0xFF111827);
-  static const Color lightTextSecondary = Color(0xFF6B7280);
-  static const Color lightSuccess = Color(0xFF16A34A);
-  static const Color lightWarning = Color(0xFFF59E0B);
-  static const Color lightDanger = Color(0xFFEF4444);
+  // Семантика
+  static const Color error = Color(0xFFEF4444); // Чистый красный (Траты/Предупреждения)
+  static const Color warning = Color(0xFFF59E0B); // Теплый оранжевый
+  static const Color success = Color(0xFF10B981);
 
-  // Dark theme
-  static const Color darkBackground = Color(0xFF0F1117);
-  static const Color darkSurface = Color(0xFF171A21);
-  static const Color darkTextPrimary = Color(0xFFF3F4F6);
-  static const Color darkTextSecondary = Color(0xFF9CA3AF);
-  static const Color darkSuccess = Color(0xFF22C55E);
-  static const Color darkWarning = Color(0xFFFBBF24);
-  static const Color darkDanger = Color(0xFFF87171);
+  // Фоны - Светлая тема
+  static const Color backgroundLight = Color(0xFFF8FAFC); // Очень мягкий серо-голубой
+  static const Color surfaceLight = Colors.white;
+  static const Color surfaceVariantLight = Color(0xFFF1F5F9);
+
+  // Фоны - Темная тема (OLED-friendly, но мягкая)
+  static const Color backgroundDark = Color(0xFF0F172A);
+  static const Color surfaceDark = Color(0xFF1E293B);
+  static const Color surfaceVariantDark = Color(0xFF334155);
+
+  // Текст
+  static const Color textLight = Color(0xFF0F172A);
+  static const Color textFadedLight = Color(0xFF64748B);
+
+  static const Color textDark = Color(0xFFF8FAFC);
+  static const Color textFadedDark = Color(0xFF94A3B8);
 }

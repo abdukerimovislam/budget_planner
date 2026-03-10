@@ -94,16 +94,25 @@ class ExpenseFilterBar extends StatelessWidget {
           children: [
             Expanded(
               child: DropdownButtonFormField<ExpenseCategory?>(
+                isExpanded: true, // <--- Делает дропдаун адаптивным по ширине
                 value: filter.category,
                 items: [
                   DropdownMenuItem<ExpenseCategory?>(
                     value: null,
-                    child: Text(l10n.expenseFilterAllCategories),
+                    child: Text(
+                      l10n.expenseFilterAllCategories,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
                   ),
                   ...ExpenseCategory.values.map(
                         (category) => DropdownMenuItem<ExpenseCategory?>(
                       value: category,
-                      child: Text(_categoryLabel(context, category)),
+                      child: Text(
+                        _categoryLabel(context, category),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
                     ),
                   ),
                 ],
@@ -116,15 +125,18 @@ class ExpenseFilterBar extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: DropdownButtonFormField<ExpenseSortOption>(
+                isExpanded: true, // <--- Делает дропдаун адаптивным по ширине
                 value: filter.sortOption,
-                items: ExpenseSortOption.values
-                    .map(
+                items: ExpenseSortOption.values.map(
                       (option) => DropdownMenuItem(
                     value: option,
-                    child: Text(_sortLabel(context, option)),
+                    child: Text(
+                      _sortLabel(context, option),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
                   ),
-                )
-                    .toList(),
+                ).toList(),
                 onChanged: (value) {
                   if (value != null) onSortChanged(value);
                 },
@@ -141,8 +153,12 @@ class ExpenseFilterBar extends StatelessWidget {
             Expanded(
               child: OutlinedButton(
                 onPressed: onPickStartDate,
+                // Обрезаем текст троеточием на очень узких экранах
                 child: Text(
                   l10n.expenseFilterStartDate(_formatDate(filter.startDate)),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
                 ),
               ),
             ),
@@ -152,6 +168,9 @@ class ExpenseFilterBar extends StatelessWidget {
                 onPressed: onPickEndDate,
                 child: Text(
                   l10n.expenseFilterEndDate(_formatDate(filter.endDate)),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
                 ),
               ),
             ),
