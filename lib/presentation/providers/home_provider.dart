@@ -90,9 +90,11 @@ class HomeProvider extends ChangeNotifier {
     _incomeProfile = LocalStorageService.instance.getIncomeProfile();
     _budget = LocalStorageService.instance.getBudget();
 
-    _expenses
-      ..clear()
-      ..addAll(LocalStorageService.instance.getExpenses());
+    _expenses.clear();
+    final loadedExpenses = LocalStorageService.instance.getExpenses();
+    // ИСПРАВЛЕНИЕ ЛОВУШКИ №4: Принудительная сортировка из базы (самые новые сверху)
+    loadedExpenses.sort((a, b) => b.date.compareTo(a.date));
+    _expenses.addAll(loadedExpenses);
 
     _customCategories
       ..clear()
@@ -124,6 +126,23 @@ class HomeProvider extends ChangeNotifier {
   Future<void> deleteCustomCategory(String id) async {
     _customCategories.removeWhere((c) => c.id == id);
     await LocalStorageService.instance.saveCustomCategories(_customCategories);
+
+    // ИСПРАВЛЕНИЕ УЯЗВИМОСТИ №1: "Спасаем" осиротевшие транзакции
+    bool needsExpenseUpdate = false;
+    for (int i = 0; i < _expenses.length; i++) {
+      if (_expenses[i].customCategoryId == id) {
+        _expenses[i] = _expenses[i].copyWith(
+          category: ExpenseCategory.other,
+          customCategoryId: null, // Сбрасываем ID
+        );
+        needsExpenseUpdate = true;
+      }
+    }
+
+    if (needsExpenseUpdate) {
+      await LocalStorageService.instance.saveExpenses(_expenses);
+    }
+
     notifyListeners();
   }
 

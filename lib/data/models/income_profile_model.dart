@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'dart:math'; // <-- ДОБАВЛЕНО: для умного расчета дохода
 
 enum IncomeType {
   salary,      // 1. Стабильная з/п (считаем по дням и часам)
@@ -16,7 +17,6 @@ class IncomeProfileModel {
   final int? workingHoursPerDay;
 
   // Настройки для Freelance (Прямая оценка часа)
-  // Бизнесмен тоже может задать это поле, если хочет жестко зафиксировать цену своего часа
   final double? hourlyRate;
 
   // Настройки для Business (Сколько реально часов в неделю уходит на дела)
@@ -31,22 +31,19 @@ class IncomeProfileModel {
     this.workingHoursPerDay,
     this.hourlyRate,
     this.workingHoursPerWeek,
-    this.currency = 'KGS',
+    this.currency = 'USD', // <-- ИСПРАВЛЕНО: Глобальный дефолт без хардкода локальной валюты
   });
 
   /// УМНЫЙ АЛГОРИТМ РАСЧЕТА СТОИМОСТИ 1 МИНУТЫ ЖИЗНИ
-  /// [actualIncomeThisMonth] - сумма всех фактических поступлений за месяц.
-  /// Если передать, расчет будет абсолютно точным для плавающего дохода.
   double valuePerMinute({double? actualIncomeThisMonth}) {
-    // 1. Если человек жестко задал стоимость своего часа (Фриланс или принципиальный Бизнесмен)
+    // 1. Если человек жестко задал стоимость своего часа
     if (hourlyRate != null && hourlyRate! > 0) {
       return hourlyRate! / 60;
     }
 
-    // 2. Определяем, от каких денег считать: от фактических или от ожидаемых
-    final incomeToUse = (actualIncomeThisMonth != null && actualIncomeThisMonth > 0)
-        ? actualIncomeThisMonth
-        : expectedMonthlyIncome;
+    // 2. ИСПРАВЛЕНИЕ ЛОВУШКИ: Берем максимум между ожидаемым и фактическим доходом.
+    // Это спасет расчеты в начале месяца (когда бизнесмен заработал пока только $10).
+    final incomeToUse = max(expectedMonthlyIncome, actualIncomeThisMonth ?? 0.0);
 
     if (incomeToUse <= 0) return 0.0;
 
@@ -71,7 +68,7 @@ class IncomeProfileModel {
     return 0.0;
   }
 
-  // Заглушка для обратной совместимости, если где-то остался старый вызов
+  // Заглушка для обратной совместимости
   double get monthlyIncome => expectedMonthlyIncome;
 
   IncomeProfileModel copyWith({
