@@ -6,6 +6,7 @@ class CashflowTimelineService {
     required DateTime now,
     required int? salaryDay,
     required double monthlyIncome,
+    required String currency, // <-- ДОБАВЛЕНО: Динамическая валюта
     required List<RecurringBillModel> recurringBills,
     int daysAhead = 30,
   }) {
@@ -13,11 +14,7 @@ class CashflowTimelineService {
     final endDate = now.add(Duration(days: daysAhead));
 
     if (salaryDay != null && salaryDay >= 1 && salaryDay <= 31 && monthlyIncome > 0) {
-      final salaryDates = _generateMonthlyDates(
-        start: now,
-        end: endDate,
-        dayOfMonth: salaryDay,
-      );
+      final salaryDates = _generateMonthlyDates(start: now, end: endDate, dayOfMonth: salaryDay);
 
       for (final date in salaryDates) {
         events.add(
@@ -25,7 +22,7 @@ class CashflowTimelineService {
             id: 'salary_${date.toIso8601String()}',
             title: 'Salary',
             amount: monthlyIncome,
-            currency: 'KGS',
+            currency: currency, // <-- ИСПРАВЛЕНО: Убран хардкод 'KGS'
             date: date,
             type: CashflowEventType.income,
           ),
@@ -34,11 +31,7 @@ class CashflowTimelineService {
     }
 
     for (final bill in recurringBills.where((b) => b.isActive)) {
-      final billDates = _generateMonthlyDates(
-        start: now,
-        end: endDate,
-        dayOfMonth: bill.dayOfMonth,
-      );
+      final billDates = _generateMonthlyDates(start: now, end: endDate, dayOfMonth: bill.dayOfMonth);
 
       for (final date in billDates) {
         events.add(
@@ -58,13 +51,8 @@ class CashflowTimelineService {
     return events;
   }
 
-  List<DateTime> _generateMonthlyDates({
-    required DateTime start,
-    required DateTime end,
-    required int dayOfMonth,
-  }) {
+  List<DateTime> _generateMonthlyDates({required DateTime start, required DateTime end, required int dayOfMonth}) {
     final result = <DateTime>[];
-
     var cursor = DateTime(start.year, start.month, 1);
 
     while (!cursor.isAfter(end)) {
@@ -72,14 +60,11 @@ class CashflowTimelineService {
       final safeDay = dayOfMonth > lastDay ? lastDay : dayOfMonth;
       final candidate = DateTime(cursor.year, cursor.month, safeDay);
 
-      if (!candidate.isBefore(DateTime(start.year, start.month, start.day)) &&
-          !candidate.isAfter(end)) {
+      if (!candidate.isBefore(DateTime(start.year, start.month, start.day)) && !candidate.isAfter(end)) {
         result.add(candidate);
       }
-
       cursor = DateTime(cursor.year, cursor.month + 1, 1);
     }
-
     return result;
   }
 }

@@ -7,8 +7,9 @@ class FinancialForecastService {
     required DateTime now,
     required double monthlyBudget,
   }) {
+    // ИСПРАВЛЕНИЕ: Архитектурный щит. Игнорируем доходы на уровне домена!
     final currentMonthExpenses = expenses.where(
-          (e) => e.date.year == now.year && e.date.month == now.month,
+          (e) => e.date.year == now.year && e.date.month == now.month && !e.isIncome,
     );
 
     final spent = currentMonthExpenses.fold<double>(

@@ -1,3 +1,4 @@
+import 'dart:math'; // <-- ДОБАВЛЕН ИМПОРТ ДЛЯ ФУНКЦИИ MAX()
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -92,7 +93,7 @@ class HomeProvider extends ChangeNotifier {
 
     _expenses.clear();
     final loadedExpenses = LocalStorageService.instance.getExpenses();
-    // ИСПРАВЛЕНИЕ ЛОВУШКИ №4: Принудительная сортировка из базы (самые новые сверху)
+    // Принудительная сортировка из базы (самые новые сверху)
     loadedExpenses.sort((a, b) => b.date.compareTo(a.date));
     _expenses.addAll(loadedExpenses);
 
@@ -127,7 +128,7 @@ class HomeProvider extends ChangeNotifier {
     _customCategories.removeWhere((c) => c.id == id);
     await LocalStorageService.instance.saveCustomCategories(_customCategories);
 
-    // ИСПРАВЛЕНИЕ УЯЗВИМОСТИ №1: "Спасаем" осиротевшие транзакции
+    // "Спасаем" осиротевшие транзакции
     bool needsExpenseUpdate = false;
     for (int i = 0; i < _expenses.length; i++) {
       if (_expenses[i].customCategoryId == id) {
@@ -166,8 +167,12 @@ class HomeProvider extends ChangeNotifier {
 
     if (profile == null || budget == null) return 0;
 
+    // ИСПРАВЛЕНИЕ: Берем точный исторический доход за прошлый месяц
+    final actualIncomePrevMonth = actualIncomeForMonth(previousMonth);
+    final incomeToUse = max(profile.expectedMonthlyIncome, actualIncomePrevMonth);
+
     return scoreService.calculate(
-      income: profile.expectedMonthlyIncome, // Используем новое поле из профиля
+      income: incomeToUse, // Использован справедливый доход
       totalSpent: totalSpentForMonth(previousMonth),
       totalBudget: budget.totalBudget,
       subscriptionsSpent: subscriptionsSpentForMonth(previousMonth),
@@ -176,9 +181,13 @@ class HomeProvider extends ChangeNotifier {
   }
 
   MonthCloseSummaryModel monthCloseSummary(DateTime now) {
+    // ИСПРАВЛЕНИЕ: Не пускаем доходы в алгоритмы, считающие только траты для экрана закрытия
+    final currentExpensesOnly = expensesForMonth(now).where((e) => !e.isIncome).toList();
+    final previousExpensesOnly = expensesForPreviousMonth(now).where((e) => !e.isIncome).toList();
+
     return monthCloseService.build(
-      currentMonthExpenses: expensesForMonth(now),
-      previousMonthExpenses: expensesForPreviousMonth(now),
+      currentMonthExpenses: currentExpensesOnly,
+      previousMonthExpenses: previousExpensesOnly,
       incomeProfile: _incomeProfile,
       healthScore: healthScoreFor(now),
       previousHealthScore: previousMonthHealthScore(now),
@@ -355,16 +364,14 @@ class HomeProvider extends ChangeNotifier {
     return list;
   }
 
-  // --- НОВЫЙ БЛОК: СЧИТАЕМ РАСХОДЫ ОТДЕЛЬНО ОТ ДОХОДОВ ---
+  // --- СЧИТАЕМ РАСХОДЫ ОТДЕЛЬНО ОТ ДОХОДОВ ---
 
-  // Считаем ТОЛЬКО траты
   double totalSpentForMonth(DateTime date) {
     return expensesForMonth(date)
         .where((e) => !e.isIncome)
         .fold<double>(0, (sum, e) => sum + e.amount);
   }
 
-  // Считаем ТОЛЬКО фактические доходы за месяц
   double actualIncomeForMonth(DateTime date) {
     return expensesForMonth(date)
         .where((e) => e.isIncome)
@@ -414,8 +421,12 @@ class HomeProvider extends ChangeNotifier {
     final budget = _budget;
     if (profile == null || budget == null) return 0;
 
+    // ИСПРАВЛЕНИЕ: Справедливый расчет баллов здоровья с учетом сверхприбыли
+    final actualIncome = actualIncomeForMonth(now);
+    final incomeToUse = max(profile.expectedMonthlyIncome, actualIncome);
+
     return scoreService.calculate(
-      income: profile.expectedMonthlyIncome, // Используем ожидаемый для скоринга
+      income: incomeToUse, // Использован справедливый доход
       totalSpent: totalSpentForMonth(now),
       totalBudget: budget.totalBudget,
       subscriptionsSpent: subscriptionsSpentForMonth(now),
@@ -423,7 +434,6 @@ class HomeProvider extends ChangeNotifier {
     );
   }
 
-  // НОВЫЙ МЕТОД: Использует реальные доходы для расчета
   Duration spentLifeDurationForMonth(DateTime now) {
     final profile = _incomeProfile;
     if (profile == null) return Duration.zero;
@@ -551,7 +561,7 @@ class HomeProvider extends ChangeNotifier {
 
   MonthlyReportModel monthlyReport(DateTime now) {
     return monthlyReportService.generate(
-      monthExpenses: expensesForMonth(now).where((e) => !e.isIncome).toList(),
+      monthTransactions: expensesForMonth(now),
       incomeProfile: _incomeProfile,
       budget: _budget?.totalBudget ?? 0,
       healthScore: healthScoreFor(now),
@@ -609,6 +619,7 @@ class HomeProvider extends ChangeNotifier {
       now: now,
       salaryDay: _salaryDay,
       monthlyIncome: _incomeProfile?.expectedMonthlyIncome ?? 0,
+      currency: _incomeProfile?.currency ?? 'USD',
       recurringBills: _recurringBills,
       daysAhead: 30,
     );
