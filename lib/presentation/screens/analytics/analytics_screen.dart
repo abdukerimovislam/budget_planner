@@ -52,13 +52,12 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    final currentMonthExpenses = provider.expensesForMonth(now);
-    final previousMonthExpenses = provider.expensesForPreviousMonth(now);
+    // ИСПРАВЛЕНИЕ БАГА: Фильтруем транзакции, оставляем ТОЛЬКО РАСХОДЫ!
+    final currentMonthExpenses = provider.expensesForMonth(now).where((e) => !e.isIncome).toList();
+    final previousMonthExpenses = provider.expensesForPreviousMonth(now).where((e) => !e.isIncome).toList();
 
-    // ИСПРАВЛЕНИЕ: Берем валюту из глобального списка трат, либо KGS по умолчанию
-    final String currency = provider.expenses.isNotEmpty
-        ? provider.expenses.first.currency
-        : 'KGS';
+    // ИСПРАВЛЕНИЕ: Берем валюту надежно из профиля пользователя (как мы сделали в других местах)
+    final String currency = provider.incomeProfile?.currency ?? 'USD';
 
     final totalSpent = provider.totalSpentThisMonth(now);
     final lastMonthTotal = previousMonthExpenses.fold<double>(0, (sum, e) => sum + e.amount);
@@ -75,6 +74,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       highestExpense = currentMonthExpenses.reduce((a, b) => a.amount > b.amount ? a : b);
     }
 
+    // ИДЕАЛЬНАЯ ГРУППИРОВКА
     final breakdown = <String, _DetailedCategoryStat>{};
     for (final e in currentMonthExpenses) {
       final key = e.category == ExpenseCategory.custom ? 'custom_${e.customCategoryId}' : e.category.name;
@@ -263,7 +263,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                         ),
                                       ),
                                       Text(
-                                        currency,
+                                        currency, // ВАЛЮТА В ЦЕНТРЕ ГРАФИКА
                                         style: TextStyle(
                                           fontSize: 14,
                                           fontWeight: FontWeight.w600,
@@ -283,7 +283,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
                       Row(
                         children: [
-                          Expanded(child: _MiniStatCard(icon: CupertinoIcons.calendar, title: l10n.analyticsDailyAvg, value: _formatNumber(dailyAvg))),
+                          Expanded(child: _MiniStatCard(icon: CupertinoIcons.calendar, title: l10n.analyticsDailyAvg, value: '${_formatNumber(dailyAvg)} $currency')),
                           const SizedBox(width: 8),
                           Expanded(child: _MiniStatCard(icon: CupertinoIcons.tag_fill, title: l10n.analyticsTransactions, value: transactionsCount.toString())),
                         ],
@@ -321,8 +321,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                   ],
                                 ),
                               ),
+                              // ВАЛЮТА ДЛЯ САМОЙ БОЛЬШОЙ ТРАТЫ
                               Text(
-                                _formatNumber(highestExpense.amount),
+                                '${_formatNumber(highestExpense.amount)} $currency',
                                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: theme.colorScheme.onSurface),
                               ),
                             ],
@@ -356,7 +357,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                               categoryName: stat.category.localizedName(context, customCategoryId: stat.customId),
                               categoryColor: stat.category.dynamicColor(context, customCategoryId: stat.customId),
                               iconData: stat.category.dynamicIcon(context, customCategoryId: stat.customId),
-                              amount: _formatNumber(stat.amount),
+                              amount: '${_formatNumber(stat.amount)} $currency', // ВАЛЮТА ДЛЯ КАТЕГОРИИ
                               transactionsCountLabel: l10n.analyticsTransactionsCount(stat.count),
                               percent: percent,
                               isLast: isLast,
@@ -452,7 +453,7 @@ class _MiniStatCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: theme.colorScheme.onSurface)),
+          Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: theme.colorScheme.onSurface), maxLines: 1, overflow: TextOverflow.ellipsis),
         ],
       ),
     );

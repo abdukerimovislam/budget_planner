@@ -263,6 +263,29 @@ class HomeProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // --- УМНАЯ ГРУППИРОВКА (ДЛЯ АНАЛИТИКИ) ---
+
+  /// Группирует траты по категориям.
+  /// Возвращает Map, где ключ - это ID кастомной категории ИЛИ системное имя (например "food").
+  Map<String, double> detailedCategoryTotalsForMonth(DateTime date) {
+    final Map<String, double> totals = {};
+
+    for (final expense in expensesForMonth(date).where((e) => !e.isIncome)) {
+      String key;
+      if (expense.category == ExpenseCategory.custom && expense.customCategoryId != null) {
+        // Если это кастомная категория, используем ее ID как ключ
+        key = 'custom_${expense.customCategoryId}';
+      } else {
+        // Иначе используем имя системного Enum
+        key = expense.category.name;
+      }
+
+      totals[key] = (totals[key] ?? 0) + expense.amount;
+    }
+
+    return totals;
+  }
+
   Future<void> deleteExpense(String expenseId) async {
     _expenses.removeWhere((e) => e.id == expenseId);
     await LocalStorageService.instance.saveExpenses(_expenses);
