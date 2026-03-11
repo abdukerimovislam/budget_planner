@@ -1335,4 +1335,17 @@ class AppLocalizationsRu extends AppLocalizations {
   String analyticsTransactionsCount(int count) {
     return '$count шт.';
   }
+
+  @override
+  String get aiCopilotTitle => 'ИИ Советник';
+
+  @override
+  String get aiGreeting =>
+      'Привет! Я твой финансовый ИИ-ассистент. Вот что я заметил в твоем бюджете за последнее время:';
+
+  @override
+  String get aiChatHint => 'Спроси о своих финансах...';
+
+  @override
+  String get askAiAction => 'Чат с ИИ';
 }

@@ -750,6 +750,10 @@
         "type": "int"
       }
     }
-  }
+  },
+  "aiCopilotTitle": "AI Copilot",
+  "aiGreeting": "Hello! I am your financial AI assistant. Here is what I've noticed about your budget recently:",
+  "aiChatHint": "Ask about your finances...",
+  "askAiAction": "Ask AI"
 
 }

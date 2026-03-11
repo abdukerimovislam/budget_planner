@@ -1,92 +1,80 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 
-import '../../core/utils/responsive.dart';
 import '../../data/models/financial_level_model.dart';
 import '../../l10n/app_localizations.dart';
 
 class FinancialLevelCard extends StatelessWidget {
   final FinancialLevel level;
-  final VoidCallback? onTapReport;
+  final VoidCallback onTapReport;
 
   const FinancialLevelCard({
     super.key,
     required this.level,
-    this.onTapReport,
+    required this.onTapReport,
   });
 
-  String _title(AppLocalizations l10n) {
+  String _levelLabel(AppLocalizations l10n) {
     switch (level) {
-      case FinancialLevel.survivor:
-        return l10n.levelSurvivor;
-      case FinancialLevel.planner:
-        return l10n.levelPlanner;
-      case FinancialLevel.strategist:
-        return l10n.levelStrategist;
-      case FinancialLevel.investor:
-        return l10n.levelInvestor;
+      case FinancialLevel.survivor: return l10n.levelSurvivor;
+      case FinancialLevel.planner: return l10n.levelPlanner;
+      case FinancialLevel.strategist: return l10n.levelStrategist;
+      case FinancialLevel.investor: return l10n.levelInvestor;
     }
   }
 
-  String _description(AppLocalizations l10n) {
+  Color _levelColor() {
     switch (level) {
-      case FinancialLevel.survivor:
-        return l10n.levelSurvivorDescription;
-      case FinancialLevel.planner:
-        return l10n.levelPlannerDescription;
-      case FinancialLevel.strategist:
-        return l10n.levelStrategistDescription;
-      case FinancialLevel.investor:
-        return l10n.levelInvestorDescription;
-    }
-  }
-
-  IconData _icon() {
-    switch (level) {
-      case FinancialLevel.survivor:
-        return Icons.shield_outlined;
-      case FinancialLevel.planner:
-        return Icons.edit_note_rounded;
-      case FinancialLevel.strategist:
-        return Icons.insights_rounded;
-      case FinancialLevel.investor:
-        return Icons.rocket_launch_rounded;
+      case FinancialLevel.survivor: return CupertinoColors.systemRed;
+      case FinancialLevel.planner: return CupertinoColors.systemOrange;
+      case FinancialLevel.strategist: return CupertinoColors.systemBlue;
+      case FinancialLevel.investor: return CupertinoColors.systemPurple;
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final color = _levelColor();
 
-    return Card(
-      child: Padding(
-        padding: EdgeInsets.all(Responsive.cardPadding(context)),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return GestureDetector(
+      onTap: onTapReport,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface.withOpacity(0.8),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: theme.colorScheme.surfaceVariant.withOpacity(0.5)),
+        ),
+        child: Row(
           children: [
-            Row(
-              children: [
-                Icon(_icon(), color: Theme.of(context).colorScheme.primary),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    _title(l10n),
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Text(
-              _description(l10n),
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            if (onTapReport != null) ...[
-              const SizedBox(height: 16),
-              OutlinedButton(
-                onPressed: onTapReport,
-                child: Text(l10n.openMonthlyReportButton),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.15),
+                shape: BoxShape.circle,
               ),
-            ],
+              child: Icon(CupertinoIcons.star_circle_fill, color: color, size: 28),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _levelLabel(l10n),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: theme.colorScheme.onSurface, letterSpacing: -0.5),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    l10n.openMonthlyReportButton,
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: theme.colorScheme.primary),
+                  ),
+                ],
+              ),
+            ),
+            Icon(CupertinoIcons.chevron_forward, color: theme.colorScheme.onSurface.withOpacity(0.3), size: 20),
           ],
         ),
       ),

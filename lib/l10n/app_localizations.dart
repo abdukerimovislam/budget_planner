@@ -2407,6 +2407,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count} transactions'**
   String analyticsTransactionsCount(int count);
+
+  /// No description provided for @aiCopilotTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'AI Copilot'**
+  String get aiCopilotTitle;
+
+  /// No description provided for @aiGreeting.
+  ///
+  /// In en, this message translates to:
+  /// **'Hello! I am your financial AI assistant. Here is what I\'ve noticed about your budget recently:'**
+  String get aiGreeting;
+
+  /// No description provided for @aiChatHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask about your finances...'**
+  String get aiChatHint;
+
+  /// No description provided for @askAiAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask AI'**
+  String get askAiAction;
 }
 
 class _AppLocalizationsDelegate

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart'; // <-- Обязательно для иконок Cupertino
 
-import '../../core/utils/category_extension.dart'; // <-- ИМПОРТИРУЕМ РАСШИРЕНИЕ
+import '../../core/utils/category_extension.dart';
 import '../../data/models/expense_model.dart';
 import '../../data/models/income_profile_model.dart';
 
@@ -21,6 +22,7 @@ class ExpenseItemCard extends StatelessWidget {
     return value.toStringAsFixed(2);
   }
 
+  // КИЛЛЕР ФИЧА: Считаем часы и минуты жизни
   String _lifeCost() {
     final profile = incomeProfile;
     if (profile == null || profile.monthlyIncome <= 0) return '';
@@ -31,10 +33,14 @@ class ExpenseItemCard extends StatelessWidget {
     final valuePerMinute = profile.monthlyIncome / minutesPerMonth;
     if (valuePerMinute <= 0) return '';
 
-    final minutes = (expense.amount / valuePerMinute).round();
-    if (minutes <= 0) return '';
+    final totalMinutes = (expense.amount / valuePerMinute).round();
+    if (totalMinutes <= 0) return '';
 
-    return '$minutes min';
+    final hours = totalMinutes ~/ 60;
+    final mins = totalMinutes % 60;
+
+    if (hours > 0) return '${hours}h ${mins}m';
+    return '${mins}m';
   }
 
   @override
@@ -46,11 +52,13 @@ class ExpenseItemCard extends StatelessWidget {
     final catColor = expense.category.dynamicColor(context, customCategoryId: expense.customCategoryId);
     final catName = expense.category.localizedName(context, customCategoryId: expense.customCategoryId);
 
+    // Убрали _lifeCost() отсюда, чтобы не писать его мелким серым текстом
     final subtitleParts = <String>[
       if (expense.merchant.isNotEmpty) expense.merchant,
       if ((expense.note ?? '').trim().isNotEmpty) expense.note!.trim(),
-      if (_lifeCost().isNotEmpty) _lifeCost(),
     ];
+
+    final lifeCostStr = _lifeCost();
 
     return Material(
       color: Colors.transparent,
@@ -102,14 +110,45 @@ class ExpenseItemCard extends StatelessWidget {
 
               const SizedBox(width: 16),
 
-              // 3. СУММА
-              Text(
-                '-${_formatNumber(expense.amount)}',
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
-                  color: theme.colorScheme.onSurface,
-                ),
+              // 3. СУММА И БЕЙДЖ "ВРЕМЯ = ДЕНЬГИ"
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '-${_formatNumber(expense.amount)}',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
+                  if (lifeCostStr.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    // НОВЫЙ ЯРКИЙ БЕЙДЖ ВРЕМЕНИ ЖИЗНИ
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: CupertinoColors.systemRed.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(CupertinoIcons.clock_fill, size: 10, color: CupertinoColors.systemRed),
+                          const SizedBox(width: 4),
+                          Text(
+                            lifeCostStr,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: CupertinoColors.systemRed,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ]
+                ],
               ),
             ],
           ),

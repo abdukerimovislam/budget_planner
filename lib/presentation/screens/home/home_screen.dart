@@ -4,7 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 
 import '../../../app/theme/app_spacing.dart';
-import '../../../core/utils/category_extension.dart'; // <-- Наше расширение
+import '../../../core/utils/category_extension.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../data/models/expense_category.dart';
 import '../../../data/models/expense_model.dart';
@@ -21,11 +21,12 @@ import '../../widgets/expense_item_card.dart';
 import '../../widgets/hero_dashboard_card.dart';
 import '../../widgets/insight_card.dart';
 import '../../widgets/morphing_fab.dart';
-import '../../widgets/premium_background.dart'; // <-- ИМПОРТ ФОНА
+import '../../widgets/premium_background.dart';
 import '../../widgets/premium_lock_card.dart';
 import '../../widgets/quick_add_chips.dart';
 import '../../widgets/spending_pace_card.dart';
 import '../add_expense/add_expense_screen.dart';
+import '../analytics/analytics_screen.dart';
 import '../expenses/expenses_screen.dart';
 import '../premium/premium_screen.dart';
 import '../profile/profile_screen.dart';
@@ -69,6 +70,28 @@ class _HomeScreenState extends State<HomeScreen> {
   String _formatNumber(num value) {
     if (value % 1 == 0) return value.toInt().toString();
     return value.toStringAsFixed(2);
+  }
+
+  // ФОРМАТИРОВАНИЕ ДЛИТЕЛЬНОСТИ ЖИЗНИ ДЛЯ КАРТОЧКИ
+  String _formatLifeTime(Duration duration) {
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes.remainder(60);
+    if (hours <= 0 && minutes <= 0) return '0m';
+    if (hours > 0) return '${hours}h ${minutes}m';
+    return '${minutes}m';
+  }
+
+  String _resolveInsightTitle(BuildContext context, InsightModel insight) {
+    final l10n = AppLocalizations.of(context);
+    switch (insight.titleKey) {
+      case 'insightOverBudgetTitle': return l10n.insightOverBudgetTitle;
+      case 'insightHealthyPaceTitle': return l10n.insightHealthyPaceTitle;
+      case 'insightTopCategoryTitle': return l10n.insightTopCategoryTitle;
+      case 'insightSubscriptionsTitle': return l10n.insightSubscriptionsTitle;
+      case 'insightStrongScoreTitle': return l10n.insightStrongScoreTitle;
+      case 'insightLowScoreTitle': return l10n.insightLowScoreTitle;
+      default: return insight.titleKey;
+    }
   }
 
   void _showInsightStory(BuildContext context, InsightModel insight) {
@@ -153,6 +176,10 @@ class _HomeScreenState extends State<HomeScreen> {
     final actionPlan = provider.actionPlan(now);
     final dangerousCategory = provider.mostDangerousCategoryThisMonth(now);
 
+    // ПОЛУЧАЕМ ПОТРАЧЕННУЮ ЖИЗНЬ ЗА МЕСЯЦ
+    final lifeSpentDuration = provider.spentLifeDurationForMonth(now);
+    final lifeSpentFormatted = _formatLifeTime(lifeSpentDuration);
+
     final itemGap = Responsive.itemGap(context);
     final sectionGap = Responsive.sectionGap(context) * 1.2;
 
@@ -161,12 +188,10 @@ class _HomeScreenState extends State<HomeScreen> {
     final safeToSpendDaily = forecast != null && forecast.expectedRemaining > 0
         ? forecast.expectedRemaining / daysLeft : 0.0;
 
-    // ОБОРАЧИВАЕМ ЭКРАН В НАШ ФОН
     return PremiumBackground(
       child: GestureDetector(
         onTap: () { if (_isFabExpanded) setState(() => _isFabExpanded = false); },
         child: Scaffold(
-          // ПРОЗРАЧНЫЙ ФОН СКЭФФОЛДА, ЧТОБЫ БЫЛО ВИДНО PremiumBackground
           backgroundColor: Colors.transparent,
           body: Stack(
             children: [
@@ -175,7 +200,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 slivers: [
                   SliverAppBar.large(
                     stretch: true,
-                    // ПРОЗРАЧНЫЙ АППБАР
                     backgroundColor: Colors.transparent,
                     surfaceTintColor: Colors.transparent,
                     title: Column(
@@ -215,7 +239,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       delegate: SliverChildListDelegate([
                         const SizedBox(height: 8),
 
-                        // HERO DASHBOARD (BANK CARDS)
+                        // HERO DASHBOARD
                         SizedBox(
                           height: 250,
                           child: PageView(
@@ -232,8 +256,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                   isWarning: _showRemaining && (forecast?.isOverBudget ?? false),
                                   bottomWidget: _GlassMetricRow(
                                     isGold: false,
-                                    leftIcon: CupertinoIcons.heart_fill, leftLabel: l10n.healthLabel, leftValue: '$healthScore/100',
-                                    rightIcon: CupertinoIcons.calendar_today, rightLabel: l10n.daysLeftLabel, rightValue: '$daysLeft',
+                                    leftIcon: CupertinoIcons.heart_fill,
+                                    leftLabel: l10n.healthLabel,
+                                    leftValue: '$healthScore/100',
+
+                                    // КИЛЛЕР-ФИЧА: Динамическое переключение
+                                    rightIcon: _showRemaining ? CupertinoIcons.calendar_today : CupertinoIcons.clock_fill,
+                                    rightLabel: _showRemaining ? l10n.daysLeftLabel : l10n.shareCardLifeSpent,
+                                    rightValue: _showRemaining ? '$daysLeft' : lifeSpentFormatted,
                                   ),
                                 ),
                               ),
@@ -277,31 +307,66 @@ class _HomeScreenState extends State<HomeScreen> {
 
                         // AI INSIGHTS
                         if (insights.isNotEmpty && provider.canUseFeature(PremiumFeature.aiInsights)) ...[
-                          AppleSectionHeader(title: l10n.aiInsightsTitle, action: l10n.seeAllAction),
+                          AppleSectionHeader(
+                            title: l10n.aiInsightsTitle,
+                            action: 'Ask AI',
+                            onActionTap: () {
+                              Navigator.of(context).push(
+                                CupertinoPageRoute(builder: (_) => const AnalyticsScreen()),
+                              );
+                            },
+                          ),
                           SizedBox(height: itemGap),
                           SizedBox(
-                            height: 100,
+                            height: 130,
                             child: ListView.separated(
-                              scrollDirection: Axis.horizontal, physics: const BouncingScrollPhysics(), clipBehavior: Clip.none,
-                              itemCount: insights.length, separatorBuilder: (_, __) => const SizedBox(width: 16),
+                              scrollDirection: Axis.horizontal,
+                              physics: const BouncingScrollPhysics(),
+                              clipBehavior: Clip.none,
+                              itemCount: insights.length,
+                              separatorBuilder: (_, __) => const SizedBox(width: 16),
                               itemBuilder: (context, index) {
                                 final insight = insights[index];
                                 final isWarning = insight.type == InsightType.warning;
+                                final color = isWarning ? CupertinoColors.systemOrange : CupertinoColors.activeBlue;
+                                final icon = isWarning ? CupertinoIcons.exclamationmark_triangle_fill : CupertinoIcons.lightbulb_fill;
+
                                 return GestureDetector(
                                   onTap: () => _showInsightStory(context, insight),
-                                  child: Column(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.all(3),
-                                        decoration: BoxDecoration(shape: BoxShape.circle, gradient: LinearGradient(colors: isWarning ? [Colors.orange, Colors.red] : [Colors.blue, Colors.purple])),
-                                        child: Container(
-                                          padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, shape: BoxShape.circle),
-                                          child: Icon(isWarning ? CupertinoIcons.exclamationmark_triangle_fill : CupertinoIcons.lightbulb_fill, color: isWarning ? Colors.red : Colors.purple),
+                                  child: Container(
+                                    width: 260,
+                                    padding: const EdgeInsets.all(20),
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context).colorScheme.surface.withOpacity(0.8),
+                                      borderRadius: BorderRadius.circular(28),
+                                      border: Border.all(color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5)),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Container(
+                                              padding: const EdgeInsets.all(8),
+                                              decoration: BoxDecoration(color: color.withOpacity(0.15), shape: BoxShape.circle),
+                                              child: Icon(icon, color: color, size: 16),
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Text(
+                                              isWarning ? l10n.warningLabel.toUpperCase() : l10n.tipLabel.toUpperCase(),
+                                              style: TextStyle(fontWeight: FontWeight.w800, color: color, fontSize: 11, letterSpacing: 1.2),
+                                            ),
+                                          ],
                                         ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(isWarning ? l10n.warningLabel : l10n.tipLabel, style: Theme.of(context).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-                                    ],
+                                        const Spacer(),
+                                        Text(
+                                          _resolveInsightTitle(context, insight),
+                                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: Theme.of(context).colorScheme.onSurface, height: 1.2),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 );
                               },
@@ -316,7 +381,6 @@ class _HomeScreenState extends State<HomeScreen> {
                           SizedBox(height: itemGap),
                           if (dangerousCategory != null) ...[
                             SpendingPaceCard(
-                              // ИСПОЛЬЗУЕМ РАСШИРЕНИЕ ДЛЯ КАТЕГОРИИ
                               title: l10n.budgetDangerTitle(dangerousCategory.localizedName(context)),
                               subtitle: l10n.budgetDangerSubtitle,
                               isWarning: true,
@@ -339,7 +403,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         SizedBox(height: itemGap),
                         if (latestExpenses.isNotEmpty)
                           Container(
-                            decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, borderRadius: BorderRadius.circular(20)),
+                            decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface.withOpacity(0.8), borderRadius: BorderRadius.circular(24), border: Border.all(color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5))),
                             child: Column(
                               children: _buildSections(context, latestExpenses).expand((section) {
                                 return [
@@ -372,7 +436,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                           onDismissed: (_) => context.read<HomeProvider>().deleteExpense(expense.id),
                                           child: ExpenseItemCard(expense: expense, incomeProfile: provider.incomeProfile, onTap: () => provider.openExpenseEditor(context, expense)),
                                         ),
-                                        if (!isLast) Padding(padding: const EdgeInsets.only(left: 64), child: Divider(height: 1, color: Theme.of(context).colorScheme.surfaceVariant)),
+                                        if (!isLast) Padding(padding: const EdgeInsets.only(left: 64), child: Divider(height: 1, color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5))),
                                       ],
                                     );
                                   }),

@@ -1332,4 +1332,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String analyticsTransactionsCount(int count) {
     return '$count transactions';
   }
+
+  @override
+  String get aiCopilotTitle => 'AI Copilot';
+
+  @override
+  String get aiGreeting =>
+      'Hello! I am your financial AI assistant. Here is what I\'ve noticed about your budget recently:';
+
+  @override
+  String get aiChatHint => 'Ask about your finances...';
+
+  @override
+  String get askAiAction => 'Ask AI';
 }
