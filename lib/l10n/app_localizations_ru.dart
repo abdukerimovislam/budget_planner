@@ -1262,4 +1262,77 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get expenseFilterClearDates => 'Сбросить даты';
+
+  @override
+  String get profileTitle => 'Профиль';
+
+  @override
+  String get gamificationSection => 'Ваш прогресс';
+
+  @override
+  String get preferencesSection => 'Настройки';
+
+  @override
+  String get dangerZoneSection => 'Опасная зона';
+
+  @override
+  String get subscriptionSection => 'Подписка';
+
+  @override
+  String get premiumActiveTitle => 'Budget Planner Premium';
+
+  @override
+  String get premiumUpgradeTitle => 'Улучшить до Premium';
+
+  @override
+  String get premiumActiveSubtitle => 'Активна';
+
+  @override
+  String get premiumUpgradeSubtitle => 'Откройте ИИ-советы и безлимитные цели';
+
+  @override
+  String get clearAllDataTitle => 'Удалить все данные';
+
+  @override
+  String get clearDataDialogTitle => 'Удалить все данные?';
+
+  @override
+  String get clearDataDialogContent =>
+      'Это навсегда удалит все ваши расходы, бюджеты и настройки. Это действие нельзя отменить.';
+
+  @override
+  String get deleteButton => 'Удалить';
+
+  @override
+  String get dataClearedMessage => 'Все данные удалены';
+
+  @override
+  String get validationEnterValidAmount =>
+      'Пожалуйста, введите корректную сумму';
+
+  @override
+  String get receiptReviewSubtitle => 'Проверьте отсканированные данные';
+
+  @override
+  String get categoryCustom => 'Своя категория';
+
+  @override
+  String get newCategoryButton => 'Новая';
+
+  @override
+  String get analyticsVsLastMonth => 'к прошлому мес.';
+
+  @override
+  String get analyticsDailyAvg => 'В среднем / день';
+
+  @override
+  String get analyticsTransactions => 'Операции';
+
+  @override
+  String get analyticsLargestTransaction => 'Крупнейшая покупка';
+
+  @override
+  String analyticsTransactionsCount(int count) {
+    return '$count шт.';
+  }
 }

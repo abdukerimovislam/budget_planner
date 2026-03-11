@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/utils/category_extension.dart'; // <-- ИМПОРТ РАСШИРЕНИЯ
 import '../../data/models/expense_category.dart';
 import '../../data/models/expense_filter_model.dart';
 import '../../l10n/app_localizations.dart';
@@ -23,36 +24,6 @@ class ExpenseFilterBar extends StatelessWidget {
     required this.onPickEndDate,
     required this.onClearDates,
   });
-
-  String _categoryLabel(BuildContext context, ExpenseCategory? category) {
-    final l10n = AppLocalizations.of(context);
-    if (category == null) return l10n.expenseFilterAllCategories;
-
-    switch (category) {
-      case ExpenseCategory.food:
-        return l10n.categoryFood;
-      case ExpenseCategory.transport:
-        return l10n.categoryTransport;
-      case ExpenseCategory.subscriptions:
-        return l10n.categorySubscriptions;
-      case ExpenseCategory.entertainment:
-        return l10n.categoryEntertainment;
-      case ExpenseCategory.shopping:
-        return l10n.categoryShopping;
-      case ExpenseCategory.health:
-        return l10n.categoryHealth;
-      case ExpenseCategory.bills:
-        return l10n.categoryBills;
-      case ExpenseCategory.education:
-        return l10n.categoryEducation;
-      case ExpenseCategory.gifts:
-        return l10n.categoryGifts;
-      case ExpenseCategory.travel:
-        return l10n.categoryTravel;
-      case ExpenseCategory.other:
-        return l10n.categoryOther;
-    }
-  }
 
   String _sortLabel(BuildContext context, ExpenseSortOption option) {
     final l10n = AppLocalizations.of(context);
@@ -80,6 +51,9 @@ class ExpenseFilterBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
 
+    // Пока фильтруем только по системным категориям + all
+    final availableCategories = ExpenseCategory.values.where((c) => c != ExpenseCategory.custom).toList();
+
     return Column(
       children: [
         TextField(
@@ -94,7 +68,7 @@ class ExpenseFilterBar extends StatelessWidget {
           children: [
             Expanded(
               child: DropdownButtonFormField<ExpenseCategory?>(
-                isExpanded: true, // <--- Делает дропдаун адаптивным по ширине
+                isExpanded: true,
                 value: filter.category,
                 items: [
                   DropdownMenuItem<ExpenseCategory?>(
@@ -105,11 +79,11 @@ class ExpenseFilterBar extends StatelessWidget {
                       maxLines: 1,
                     ),
                   ),
-                  ...ExpenseCategory.values.map(
+                  ...availableCategories.map(
                         (category) => DropdownMenuItem<ExpenseCategory?>(
                       value: category,
                       child: Text(
-                        _categoryLabel(context, category),
+                        category.localizedName(context), // ИСПОЛЬЗУЕМ РАСШИРЕНИЕ
                         overflow: TextOverflow.ellipsis,
                         maxLines: 1,
                       ),
@@ -125,7 +99,7 @@ class ExpenseFilterBar extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: DropdownButtonFormField<ExpenseSortOption>(
-                isExpanded: true, // <--- Делает дропдаун адаптивным по ширине
+                isExpanded: true,
                 value: filter.sortOption,
                 items: ExpenseSortOption.values.map(
                       (option) => DropdownMenuItem(
@@ -153,7 +127,6 @@ class ExpenseFilterBar extends StatelessWidget {
             Expanded(
               child: OutlinedButton(
                 onPressed: onPickStartDate,
-                // Обрезаем текст троеточием на очень узких экранах
                 child: Text(
                   l10n.expenseFilterStartDate(_formatDate(filter.startDate)),
                   maxLines: 1,

@@ -719,5 +719,36 @@
       }
     }
   },
-  "expenseFilterClearDates": "Сбросить даты"
+  "expenseFilterClearDates": "Сбросить даты",
+  "profileTitle": "Профиль",
+  "gamificationSection": "Ваш прогресс",
+  "preferencesSection": "Настройки",
+  "dangerZoneSection": "Опасная зона",
+  "subscriptionSection": "Подписка",
+  "premiumActiveTitle": "Budget Planner Premium",
+  "premiumUpgradeTitle": "Улучшить до Premium",
+  "premiumActiveSubtitle": "Активна",
+  "premiumUpgradeSubtitle": "Откройте ИИ-советы и безлимитные цели",
+  "clearAllDataTitle": "Удалить все данные",
+  "clearDataDialogTitle": "Удалить все данные?",
+  "clearDataDialogContent": "Это навсегда удалит все ваши расходы, бюджеты и настройки. Это действие нельзя отменить.",
+  "cancelButton": "Отмена",
+  "deleteButton": "Удалить",
+  "dataClearedMessage": "Все данные удалены",
+  "validationEnterValidAmount": "Пожалуйста, введите корректную сумму",
+  "receiptReviewSubtitle": "Проверьте отсканированные данные",
+  "categoryCustom": "Своя категория",
+  "newCategoryButton": "Новая",
+  "analyticsVsLastMonth": "к прошлому мес.",
+  "analyticsDailyAvg": "В среднем / день",
+  "analyticsTransactions": "Операции",
+  "analyticsLargestTransaction": "Крупнейшая покупка",
+  "analyticsTransactionsCount": "{count} шт.",
+  "@analyticsTransactionsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

@@ -2269,6 +2269,144 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Clear Dates'**
   String get expenseFilterClearDates;
+
+  /// No description provided for @profileTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile'**
+  String get profileTitle;
+
+  /// No description provided for @gamificationSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Your Progress'**
+  String get gamificationSection;
+
+  /// No description provided for @preferencesSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Preferences'**
+  String get preferencesSection;
+
+  /// No description provided for @dangerZoneSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Danger Zone'**
+  String get dangerZoneSection;
+
+  /// No description provided for @subscriptionSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Subscription'**
+  String get subscriptionSection;
+
+  /// No description provided for @premiumActiveTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Budget Planner Premium'**
+  String get premiumActiveTitle;
+
+  /// No description provided for @premiumUpgradeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Upgrade to Premium'**
+  String get premiumUpgradeTitle;
+
+  /// No description provided for @premiumActiveSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get premiumActiveSubtitle;
+
+  /// No description provided for @premiumUpgradeSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock AI Insights & Unlimited Goals'**
+  String get premiumUpgradeSubtitle;
+
+  /// No description provided for @clearAllDataTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear All Data'**
+  String get clearAllDataTitle;
+
+  /// No description provided for @clearDataDialogTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete All Data?'**
+  String get clearDataDialogTitle;
+
+  /// No description provided for @clearDataDialogContent.
+  ///
+  /// In en, this message translates to:
+  /// **'This will permanently delete all your expenses, budgets, and settings. This action cannot be undone.'**
+  String get clearDataDialogContent;
+
+  /// No description provided for @deleteButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get deleteButton;
+
+  /// No description provided for @dataClearedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'All data cleared'**
+  String get dataClearedMessage;
+
+  /// No description provided for @validationEnterValidAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter a valid amount'**
+  String get validationEnterValidAmount;
+
+  /// No description provided for @receiptReviewSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Review the scanned details'**
+  String get receiptReviewSubtitle;
+
+  /// No description provided for @categoryCustom.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom Category'**
+  String get categoryCustom;
+
+  /// No description provided for @newCategoryButton.
+  ///
+  /// In en, this message translates to:
+  /// **'New'**
+  String get newCategoryButton;
+
+  /// No description provided for @analyticsVsLastMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'vs last month'**
+  String get analyticsVsLastMonth;
+
+  /// No description provided for @analyticsDailyAvg.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily Avg'**
+  String get analyticsDailyAvg;
+
+  /// No description provided for @analyticsTransactions.
+  ///
+  /// In en, this message translates to:
+  /// **'Transactions'**
+  String get analyticsTransactions;
+
+  /// No description provided for @analyticsLargestTransaction.
+  ///
+  /// In en, this message translates to:
+  /// **'Largest Transaction'**
+  String get analyticsLargestTransaction;
+
+  /// No description provided for @analyticsTransactionsCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} transactions'**
+  String analyticsTransactionsCount(int count);
 }
 
 class _AppLocalizationsDelegate

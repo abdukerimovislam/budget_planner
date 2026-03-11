@@ -26,40 +26,47 @@ extension ExpenseSourceTypeSerializer on ExpenseSourceType {
   }
 }
 
-extension ExpenseModelSerializer on ExpenseModel {
-  Map<String, dynamic> toMap() {
+// Найди класс ExpenseModelSerializer и обнови его так:
+class ExpenseModelSerializer {
+  static Map<String, dynamic> toMap(ExpenseModel model) {
     return {
-      'id': id,
-      'amount': amount,
-      'currency': currency,
-      'category': category.storageValue,
-      'merchant': merchant,
-      'note': note,
-      'date': date.toIso8601String(),
-      'sourceType': sourceType.storageValue,
-      'isRecurring': isRecurring,
-      'recurringGroupId': recurringGroupId,
-      'createdAt': createdAt.toIso8601String(),
+      'id': model.id,
+      'amount': model.amount,
+      'currency': model.currency,
+      'category': model.category.name,
+      'customCategoryId': model.customCategoryId, // <-- ДОБАВЛЕНО
+      'merchant': model.merchant,
+      'note': model.note,
+      'date': model.date.toIso8601String(),
+      'sourceType': model.sourceType.name,
+      'isRecurring': model.isRecurring,
+      'recurringGroupId': model.recurringGroupId,
+      'createdAt': model.createdAt.toIso8601String(),
     };
   }
 
-  static ExpenseModel fromMap(Map<dynamic, dynamic> map) {
+  static ExpenseModel fromMap(Map map) {
     return ExpenseModel(
       id: map['id'] as String,
       amount: (map['amount'] as num).toDouble(),
       currency: map['currency'] as String,
-      category: ExpenseCategorySerializer.fromStorage(
-        map['category'] as String? ?? 'other',
+      category: ExpenseCategory.values.firstWhere(
+            (e) => e.name == map['category'],
+        orElse: () => ExpenseCategory.other, // Fallback
       ),
-      merchant: map['merchant'] as String? ?? '',
+      customCategoryId: map['customCategoryId'] as String?, // <-- ДОБАВЛЕНО
+      merchant: map['merchant'] as String,
       note: map['note'] as String?,
       date: DateTime.parse(map['date'] as String),
-      sourceType: ExpenseSourceTypeSerializer.fromStorage(
-        map['sourceType'] as String? ?? 'manual',
+      sourceType: ExpenseSourceType.values.firstWhere(
+            (e) => e.name == map['sourceType'],
+        orElse: () => ExpenseSourceType.smartText,
       ),
       isRecurring: map['isRecurring'] as bool? ?? false,
       recurringGroupId: map['recurringGroupId'] as String?,
-      createdAt: DateTime.parse(map['createdAt'] as String),
+      createdAt: map['createdAt'] != null
+          ? DateTime.parse(map['createdAt'] as String)
+          : DateTime.now(),
     );
   }
 }

@@ -6,6 +6,7 @@ class ExpenseModel {
   final double amount;
   final String currency;
   final ExpenseCategory category;
+  final String? customCategoryId; // <-- ДОБАВЛЕНО: Ссылка на созданную категорию
   final String merchant;
   final String? note;
   final DateTime date;
@@ -19,6 +20,7 @@ class ExpenseModel {
     required this.amount,
     required this.currency,
     required this.category,
+    this.customCategoryId, // <-- Добавлено в конструктор
     required this.merchant,
     required this.note,
     required this.date,
@@ -33,6 +35,7 @@ class ExpenseModel {
     double? amount,
     String? currency,
     ExpenseCategory? category,
+    String? customCategoryId,
     String? merchant,
     String? note,
     DateTime? date,
@@ -46,6 +49,7 @@ class ExpenseModel {
       amount: amount ?? this.amount,
       currency: currency ?? this.currency,
       category: category ?? this.category,
+      customCategoryId: customCategoryId ?? this.customCategoryId,
       merchant: merchant ?? this.merchant,
       note: note ?? this.note,
       date: date ?? this.date,

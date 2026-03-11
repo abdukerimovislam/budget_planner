@@ -719,6 +719,37 @@
       }
     }
   },
-  "expenseFilterClearDates": "Clear Dates"
+  "expenseFilterClearDates": "Clear Dates",
+  "profileTitle": "Profile",
+  "gamificationSection": "Your Progress",
+  "preferencesSection": "Preferences",
+  "dangerZoneSection": "Danger Zone",
+  "subscriptionSection": "Subscription",
+  "premiumActiveTitle": "Budget Planner Premium",
+  "premiumUpgradeTitle": "Upgrade to Premium",
+  "premiumActiveSubtitle": "Active",
+  "premiumUpgradeSubtitle": "Unlock AI Insights & Unlimited Goals",
+  "clearAllDataTitle": "Clear All Data",
+  "clearDataDialogTitle": "Delete All Data?",
+  "clearDataDialogContent": "This will permanently delete all your expenses, budgets, and settings. This action cannot be undone.",
+  "cancelButton": "Cancel",
+  "deleteButton": "Delete",
+  "dataClearedMessage": "All data cleared",
+  "validationEnterValidAmount": "Please enter a valid amount",
+  "receiptReviewSubtitle": "Review the scanned details",
+  "categoryCustom": "Custom Category",
+  "newCategoryButton": "New",
+  "analyticsVsLastMonth": "vs last month",
+  "analyticsDailyAvg": "Daily Avg",
+  "analyticsTransactions": "Transactions",
+  "analyticsLargestTransaction": "Largest Transaction",
+  "analyticsTransactionsCount": "{count} transactions",
+  "@analyticsTransactionsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 
 }

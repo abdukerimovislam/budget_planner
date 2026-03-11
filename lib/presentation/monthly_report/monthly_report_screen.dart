@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/utils/category_extension.dart'; // <-- ИМПОРТ
 import '../../../core/utils/responsive.dart';
-import '../../../data/models/expense_category.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../data/models/financial_level_model.dart';
 import '../providers/home_provider.dart';
@@ -17,9 +17,7 @@ class MonthlyReportScreen extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     final totalMinutes = duration.inMinutes;
 
-    if (totalMinutes <= 0) {
-      return l10n.durationMinutesOnly(0);
-    }
+    if (totalMinutes <= 0) return l10n.durationMinutesOnly(0);
 
     final hours = totalMinutes ~/ 60;
     final minutes = totalMinutes % 60;
@@ -30,46 +28,12 @@ class MonthlyReportScreen extends StatelessWidget {
     return l10n.durationHoursMinutes(hours, minutes);
   }
 
-  String _categoryLabel(BuildContext context, ExpenseCategory? category) {
-    final l10n = AppLocalizations.of(context);
-    if (category == null) return l10n.categoryOther;
-
-    switch (category) {
-      case ExpenseCategory.food:
-        return l10n.categoryFood;
-      case ExpenseCategory.transport:
-        return l10n.categoryTransport;
-      case ExpenseCategory.subscriptions:
-        return l10n.categorySubscriptions;
-      case ExpenseCategory.entertainment:
-        return l10n.categoryEntertainment;
-      case ExpenseCategory.shopping:
-        return l10n.categoryShopping;
-      case ExpenseCategory.health:
-        return l10n.categoryHealth;
-      case ExpenseCategory.bills:
-        return l10n.categoryBills;
-      case ExpenseCategory.education:
-        return l10n.categoryEducation;
-      case ExpenseCategory.gifts:
-        return l10n.categoryGifts;
-      case ExpenseCategory.travel:
-        return l10n.categoryTravel;
-      case ExpenseCategory.other:
-        return l10n.categoryOther;
-    }
-  }
-
   String _levelLabel(AppLocalizations l10n, FinancialLevel level) {
     switch (level) {
-      case FinancialLevel.survivor:
-        return l10n.levelSurvivor;
-      case FinancialLevel.planner:
-        return l10n.levelPlanner;
-      case FinancialLevel.strategist:
-        return l10n.levelStrategist;
-      case FinancialLevel.investor:
-        return l10n.levelInvestor;
+      case FinancialLevel.survivor: return l10n.levelSurvivor;
+      case FinancialLevel.planner: return l10n.levelPlanner;
+      case FinancialLevel.strategist: return l10n.levelStrategist;
+      case FinancialLevel.investor: return l10n.levelInvestor;
     }
   }
 
@@ -91,7 +55,8 @@ class MonthlyReportScreen extends StatelessWidget {
           children: [
             MonthlyReportCard(
               report: report,
-              topCategoryLabel: _categoryLabel(context, report.topCategory),
+              // ИСПОЛЬЗУЕМ РАСШИРЕНИЕ ВМЕСТО SWITCH:
+              topCategoryLabel: report.topCategory?.localizedName(context) ?? l10n.categoryOther,
               lifeSpentText: _formatDuration(context, report.lifeSpent),
             ),
             SizedBox(height: Responsive.sectionGap(context)),

@@ -8,4 +8,5 @@ class StorageKeys {
   static const String incomeProfile = 'income_profile';
   static const String budget = 'budget';
   static const String expenses = 'expenses';
+  static const String customCategories = 'custom_categories';
 }

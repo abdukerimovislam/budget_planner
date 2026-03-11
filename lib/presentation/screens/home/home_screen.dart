@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 
 import '../../../app/theme/app_spacing.dart';
+import '../../../core/utils/category_extension.dart'; // <-- Наше расширение
 import '../../../core/utils/responsive.dart';
 import '../../../data/models/expense_category.dart';
 import '../../../data/models/expense_model.dart';
@@ -20,12 +21,15 @@ import '../../widgets/expense_item_card.dart';
 import '../../widgets/hero_dashboard_card.dart';
 import '../../widgets/insight_card.dart';
 import '../../widgets/morphing_fab.dart';
+import '../../widgets/premium_background.dart'; // <-- ИМПОРТ ФОНА
 import '../../widgets/premium_lock_card.dart';
 import '../../widgets/quick_add_chips.dart';
 import '../../widgets/spending_pace_card.dart';
 import '../add_expense/add_expense_screen.dart';
 import '../expenses/expenses_screen.dart';
 import '../premium/premium_screen.dart';
+import '../profile/profile_screen.dart';
+import '../../widgets/custom_category_sheet.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -62,24 +66,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return [ExpenseCategory.entertainment, ExpenseCategory.food, ExpenseCategory.transport];
   }
 
-  // --- ВОТ ТОТ САМЫЙ МЕТОД, КОТОРЫЙ МЫ ВЕРНУЛИ ---
-  String _categoryLabel(BuildContext context, ExpenseCategory category) {
-    final l10n = AppLocalizations.of(context);
-    switch (category) {
-      case ExpenseCategory.food: return l10n.categoryFood;
-      case ExpenseCategory.transport: return l10n.categoryTransport;
-      case ExpenseCategory.subscriptions: return l10n.categorySubscriptions;
-      case ExpenseCategory.entertainment: return l10n.categoryEntertainment;
-      case ExpenseCategory.shopping: return l10n.categoryShopping;
-      case ExpenseCategory.health: return l10n.categoryHealth;
-      case ExpenseCategory.bills: return l10n.categoryBills;
-      case ExpenseCategory.education: return l10n.categoryEducation;
-      case ExpenseCategory.gifts: return l10n.categoryGifts;
-      case ExpenseCategory.travel: return l10n.categoryTravel;
-      case ExpenseCategory.other: return l10n.categoryOther;
-    }
-  }
-
   String _formatNumber(num value) {
     if (value % 1 == 0) return value.toInt().toString();
     return value.toStringAsFixed(2);
@@ -112,18 +98,17 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _showCustomCategoryDialog(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l10n.addCustomCategoryTitle),
-        content: Text(l10n.addCustomCategorySubtitle),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("OK")),
-        ],
-      ),
-    );
+  void _showCustomCategoryDialog(BuildContext context) async {
+    final newCategory = await CustomCategorySheet.show(context);
+    if (newCategory != null && context.mounted) {
+      Navigator.of(context).push(
+          CupertinoPageRoute(
+            builder: (_) => AddExpenseScreen(
+              initialCustomCategoryId: newCategory.id,
+            ),
+          )
+      );
+    }
   }
 
   bool _isSameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
@@ -158,7 +143,6 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final provider = context.watch<HomeProvider>();
     final l10n = AppLocalizations.of(context);
-    final materialL10n = MaterialLocalizations.of(context);
     final now = DateTime.now();
 
     final forecast = provider.forecastFor(now);
@@ -177,230 +161,244 @@ class _HomeScreenState extends State<HomeScreen> {
     final safeToSpendDaily = forecast != null && forecast.expectedRemaining > 0
         ? forecast.expectedRemaining / daysLeft : 0.0;
 
-    return GestureDetector(
-      onTap: () { if (_isFabExpanded) setState(() => _isFabExpanded = false); },
-      child: Scaffold(
-        backgroundColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
-        body: Stack(
-          children: [
-            CustomScrollView(
-              physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-              slivers: [
-                SliverAppBar.large(
-                  stretch: true,
-                  backgroundColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
-                  surfaceTintColor: Colors.transparent,
-                  title: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        _getGreeting(context).toUpperCase(),
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.5, color: Theme.of(context).colorScheme.primary),
+    // ОБОРАЧИВАЕМ ЭКРАН В НАШ ФОН
+    return PremiumBackground(
+      child: GestureDetector(
+        onTap: () { if (_isFabExpanded) setState(() => _isFabExpanded = false); },
+        child: Scaffold(
+          // ПРОЗРАЧНЫЙ ФОН СКЭФФОЛДА, ЧТОБЫ БЫЛО ВИДНО PremiumBackground
+          backgroundColor: Colors.transparent,
+          body: Stack(
+            children: [
+              CustomScrollView(
+                physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                slivers: [
+                  SliverAppBar.large(
+                    stretch: true,
+                    // ПРОЗРАЧНЫЙ АППБАР
+                    backgroundColor: Colors.transparent,
+                    surfaceTintColor: Colors.transparent,
+                    title: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _getGreeting(context).toUpperCase(),
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.5, color: Theme.of(context).colorScheme.primary),
+                        ),
+                        Text(l10n.homeTab, style: const TextStyle(fontWeight: FontWeight.w800, letterSpacing: -0.5)),
+                      ],
+                    ),
+                    actions: [
+                      Padding(
+                        padding: const EdgeInsets.only(right: 16.0),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(24),
+                          onTap: () {
+                            Navigator.of(context).push(
+                              CupertinoPageRoute(builder: (_) => const ProfileScreen()),
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, shape: BoxShape.circle),
+                            child: Icon(CupertinoIcons.person, color: Theme.of(context).colorScheme.primary),
+                          ),
+                        ),
                       ),
-                      Text(l10n.homeTab, style: const TextStyle(fontWeight: FontWeight.w800, letterSpacing: -0.5)),
                     ],
                   ),
-                  actions: [
-                    Padding(
-                      padding: const EdgeInsets.only(right: 16.0),
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, shape: BoxShape.circle),
-                        child: Icon(CupertinoIcons.person, color: Theme.of(context).colorScheme.primary),
-                      ),
-                    ),
-                  ],
-                ),
 
-                SliverPadding(
-                  padding: EdgeInsets.symmetric(horizontal: Responsive.cardPadding(context)),
-                  sliver: SliverList(
-                    delegate: SliverChildListDelegate([
-                      const SizedBox(height: 8),
+                  SliverPadding(
+                    padding: EdgeInsets.symmetric(horizontal: Responsive.cardPadding(context)),
+                    sliver: SliverList(
+                      delegate: SliverChildListDelegate([
+                        const SizedBox(height: 8),
 
-                      // HERO DASHBOARD (BANK CARDS)
-                      SizedBox(
-                        height: 250,
-                        child: PageView(
-                          controller: _heroPageController,
-                          physics: const BouncingScrollPhysics(),
-                          onPageChanged: (idx) => setState(() => _currentHeroPage = idx),
-                          children: [
-                            GestureDetector(
-                              onTap: () => setState(() => _showRemaining = !_showRemaining),
-                              child: HeroDashboardCard(
-                                metal: CardMetal.platinum,
-                                label: _showRemaining ? l10n.leftToSpend : l10n.spentThisMonth.toUpperCase(),
-                                value: _formatNumber(_showRemaining ? (forecast?.expectedRemaining ?? 0) : totalSpent),
-                                isWarning: _showRemaining && (forecast?.isOverBudget ?? false),
-                                bottomWidget: _GlassMetricRow(
-                                  isGold: false,
-                                  leftIcon: CupertinoIcons.heart_fill, leftLabel: l10n.healthLabel, leftValue: '$healthScore/100',
-                                  rightIcon: CupertinoIcons.calendar_today, rightLabel: l10n.daysLeftLabel, rightValue: '$daysLeft',
-                                ),
-                              ),
-                            ),
-                            HeroDashboardCard(
-                              metal: CardMetal.gold,
-                              label: l10n.safeToSpendToday,
-                              value: _formatNumber(safeToSpendDaily),
-                              withSparkline: true,
-                              bottomWidget: _GlassTextBanner(text: l10n.keepPaceBudget, isGold: true),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: List.generate(2, (index) => AnimatedContainer(
-                          duration: const Duration(milliseconds: 300),
-                          margin: const EdgeInsets.symmetric(horizontal: 4),
-                          height: 6, width: _currentHeroPage == index ? 24 : 6,
-                          decoration: BoxDecoration(
-                            color: _currentHeroPage == index ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        )),
-                      ),
-
-                      SizedBox(height: sectionGap),
-
-                      // QUICK ADD
-                      AppleSectionHeader(title: l10n.quickAddTitle),
-                      SizedBox(height: itemGap),
-                      QuickAddChips(
-                        categories: _getSmartCategories(),
-                        onTapCategory: (cat) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => AddExpenseScreen(initialCategory: cat))),
-                        onCustomCategoryTap: () => _showCustomCategoryDialog(context),
-                      ),
-
-                      SizedBox(height: sectionGap),
-
-                      // AI INSIGHTS
-                      if (insights.isNotEmpty && provider.canUseFeature(PremiumFeature.aiInsights)) ...[
-                        AppleSectionHeader(title: l10n.aiInsightsTitle, action: l10n.seeAllAction),
-                        SizedBox(height: itemGap),
+                        // HERO DASHBOARD (BANK CARDS)
                         SizedBox(
-                          height: 100,
-                          child: ListView.separated(
-                            scrollDirection: Axis.horizontal, physics: const BouncingScrollPhysics(), clipBehavior: Clip.none,
-                            itemCount: insights.length, separatorBuilder: (_, __) => const SizedBox(width: 16),
-                            itemBuilder: (context, index) {
-                              final insight = insights[index];
-                              final isWarning = insight.type == InsightType.warning;
-                              return GestureDetector(
-                                onTap: () => _showInsightStory(context, insight),
-                                child: Column(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(3),
-                                      decoration: BoxDecoration(shape: BoxShape.circle, gradient: LinearGradient(colors: isWarning ? [Colors.orange, Colors.red] : [Colors.blue, Colors.purple])),
-                                      child: Container(
-                                        padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, shape: BoxShape.circle),
-                                        child: Icon(isWarning ? CupertinoIcons.exclamationmark_triangle_fill : CupertinoIcons.lightbulb_fill, color: isWarning ? Colors.red : Colors.purple),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(isWarning ? l10n.warningLabel : l10n.tipLabel, style: Theme.of(context).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
-                                  ],
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                        SizedBox(height: sectionGap),
-                      ],
-
-                      // ПЛАН ДЕЙСТВИЙ (AI ADVISOR)
-                      if (dangerousCategory != null || actionPlan.isNotEmpty) ...[
-                        AppleSectionHeader(title: l10n.financialRadarTitle),
-                        SizedBox(height: itemGap),
-                        if (dangerousCategory != null) ...[
-                          SpendingPaceCard(
-                            title: l10n.budgetDangerTitle(_categoryLabel(context, dangerousCategory)), // Ошибка была здесь! Теперь всё работает.
-                            subtitle: l10n.budgetDangerSubtitle,
-                            isWarning: true,
-                          ),
-                          SizedBox(height: itemGap),
-                        ],
-                        if (actionPlan.isNotEmpty) ...actionPlan.map((item) => Padding(
-                          padding: EdgeInsets.only(bottom: itemGap),
-                          child: ActionPlanCard(item: item),
-                        )),
-                        SizedBox(height: sectionGap),
-                      ],
-
-                      // TRANSACTIONS
-                      AppleSectionHeader(
-                        title: l10n.recentExpensesTitle,
-                        action: l10n.historyAction,
-                        onActionTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ExpensesScreen())),
-                      ),
-                      SizedBox(height: itemGap),
-                      if (latestExpenses.isNotEmpty)
-                        Container(
-                          decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, borderRadius: BorderRadius.circular(20)),
-                          child: Column(
-                            children: _buildSections(context, latestExpenses).expand((section) {
-                              return [
-                                Container(
-                                  width: double.infinity,
-                                  padding: const EdgeInsets.only(left: 16, top: 16, bottom: 8),
-                                  child: Text(
-                                    section.title.toUpperCase(),
-                                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: 1.2,
-                                    ),
+                          height: 250,
+                          child: PageView(
+                            controller: _heroPageController,
+                            physics: const BouncingScrollPhysics(),
+                            onPageChanged: (idx) => setState(() => _currentHeroPage = idx),
+                            children: [
+                              GestureDetector(
+                                onTap: () => setState(() => _showRemaining = !_showRemaining),
+                                child: HeroDashboardCard(
+                                  metal: CardMetal.platinum,
+                                  label: _showRemaining ? l10n.leftToSpend : l10n.spentThisMonth.toUpperCase(),
+                                  value: _formatNumber(_showRemaining ? (forecast?.expectedRemaining ?? 0) : totalSpent),
+                                  isWarning: _showRemaining && (forecast?.isOverBudget ?? false),
+                                  bottomWidget: _GlassMetricRow(
+                                    isGold: false,
+                                    leftIcon: CupertinoIcons.heart_fill, leftLabel: l10n.healthLabel, leftValue: '$healthScore/100',
+                                    rightIcon: CupertinoIcons.calendar_today, rightLabel: l10n.daysLeftLabel, rightValue: '$daysLeft',
                                   ),
                                 ),
-                                ...section.items.asMap().entries.map((entry) {
-                                  final expense = entry.value;
-                                  final isLast = entry.key == section.items.length - 1;
-                                  return Column(
-                                    children: [
-                                      Dismissible(
-                                        key: ValueKey(expense.id),
-                                        direction: DismissDirection.endToStart,
-                                        background: Container(
-                                          alignment: Alignment.centerRight,
-                                          padding: const EdgeInsets.symmetric(horizontal: 24),
-                                          color: CupertinoColors.destructiveRed,
-                                          child: const Icon(CupertinoIcons.trash, color: Colors.white),
-                                        ),
-                                        onDismissed: (_) => context.read<HomeProvider>().deleteExpense(expense.id),
-                                        child: ExpenseItemCard(expense: expense, incomeProfile: provider.incomeProfile, onTap: () => provider.openExpenseEditor(context, expense)),
-                                      ),
-                                      if (!isLast) Padding(padding: const EdgeInsets.only(left: 64), child: Divider(height: 1, color: Theme.of(context).colorScheme.surfaceVariant)),
-                                    ],
-                                  );
-                                }),
-                              ];
-                            }).toList(),
+                              ),
+                              HeroDashboardCard(
+                                metal: CardMetal.gold,
+                                label: l10n.safeToSpendToday,
+                                value: _formatNumber(safeToSpendDaily),
+                                withSparkline: true,
+                                bottomWidget: _GlassTextBanner(text: l10n.keepPaceBudget, isGold: true),
+                              ),
+                            ],
                           ),
                         ),
 
-                      SizedBox(height: 140 + MediaQuery.of(context).padding.bottom),
-                    ]),
-                  ),
-                ),
-              ],
-            ),
+                        const SizedBox(height: 16),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: List.generate(2, (index) => AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            margin: const EdgeInsets.symmetric(horizontal: 4),
+                            height: 6, width: _currentHeroPage == index ? 24 : 6,
+                            decoration: BoxDecoration(
+                              color: _currentHeroPage == index ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                          )),
+                        ),
 
-            // MORPHING FAB
-            MorphingFab(
-              isExpanded: _isFabExpanded,
-              onToggle: () => setState(() => _isFabExpanded = !_isFabExpanded),
-              onSelectSource: (mode) {
-                setState(() => _isFabExpanded = false);
-                Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AddExpenseScreen()));
-              },
-            ),
-          ],
+                        SizedBox(height: sectionGap),
+
+                        // QUICK ADD
+                        AppleSectionHeader(title: l10n.quickAddTitle),
+                        SizedBox(height: itemGap),
+                        QuickAddChips(
+                          categories: _getSmartCategories(),
+                          onTapCategory: (cat) => Navigator.of(context).push(CupertinoPageRoute(builder: (_) => AddExpenseScreen(initialCategory: cat))),
+                          onCustomCategoryTap: () => _showCustomCategoryDialog(context),
+                        ),
+
+                        SizedBox(height: sectionGap),
+
+                        // AI INSIGHTS
+                        if (insights.isNotEmpty && provider.canUseFeature(PremiumFeature.aiInsights)) ...[
+                          AppleSectionHeader(title: l10n.aiInsightsTitle, action: l10n.seeAllAction),
+                          SizedBox(height: itemGap),
+                          SizedBox(
+                            height: 100,
+                            child: ListView.separated(
+                              scrollDirection: Axis.horizontal, physics: const BouncingScrollPhysics(), clipBehavior: Clip.none,
+                              itemCount: insights.length, separatorBuilder: (_, __) => const SizedBox(width: 16),
+                              itemBuilder: (context, index) {
+                                final insight = insights[index];
+                                final isWarning = insight.type == InsightType.warning;
+                                return GestureDetector(
+                                  onTap: () => _showInsightStory(context, insight),
+                                  child: Column(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(3),
+                                        decoration: BoxDecoration(shape: BoxShape.circle, gradient: LinearGradient(colors: isWarning ? [Colors.orange, Colors.red] : [Colors.blue, Colors.purple])),
+                                        child: Container(
+                                          padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, shape: BoxShape.circle),
+                                          child: Icon(isWarning ? CupertinoIcons.exclamationmark_triangle_fill : CupertinoIcons.lightbulb_fill, color: isWarning ? Colors.red : Colors.purple),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(isWarning ? l10n.warningLabel : l10n.tipLabel, style: Theme.of(context).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          SizedBox(height: sectionGap),
+                        ],
+
+                        // ПЛАН ДЕЙСТВИЙ (AI ADVISOR)
+                        if (dangerousCategory != null || actionPlan.isNotEmpty) ...[
+                          AppleSectionHeader(title: l10n.financialRadarTitle),
+                          SizedBox(height: itemGap),
+                          if (dangerousCategory != null) ...[
+                            SpendingPaceCard(
+                              // ИСПОЛЬЗУЕМ РАСШИРЕНИЕ ДЛЯ КАТЕГОРИИ
+                              title: l10n.budgetDangerTitle(dangerousCategory.localizedName(context)),
+                              subtitle: l10n.budgetDangerSubtitle,
+                              isWarning: true,
+                            ),
+                            SizedBox(height: itemGap),
+                          ],
+                          if (actionPlan.isNotEmpty) ...actionPlan.map((item) => Padding(
+                            padding: EdgeInsets.only(bottom: itemGap),
+                            child: ActionPlanCard(item: item),
+                          )),
+                          SizedBox(height: sectionGap),
+                        ],
+
+                        // TRANSACTIONS
+                        AppleSectionHeader(
+                          title: l10n.recentExpensesTitle,
+                          action: l10n.historyAction,
+                          onActionTap: () => Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const ExpensesScreen())),
+                        ),
+                        SizedBox(height: itemGap),
+                        if (latestExpenses.isNotEmpty)
+                          Container(
+                            decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, borderRadius: BorderRadius.circular(20)),
+                            child: Column(
+                              children: _buildSections(context, latestExpenses).expand((section) {
+                                return [
+                                  Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.only(left: 16, top: 16, bottom: 8),
+                                    child: Text(
+                                      section.title.toUpperCase(),
+                                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 1.2,
+                                      ),
+                                    ),
+                                  ),
+                                  ...section.items.asMap().entries.map((entry) {
+                                    final expense = entry.value;
+                                    final isLast = entry.key == section.items.length - 1;
+                                    return Column(
+                                      children: [
+                                        Dismissible(
+                                          key: ValueKey(expense.id),
+                                          direction: DismissDirection.endToStart,
+                                          background: Container(
+                                            alignment: Alignment.centerRight,
+                                            padding: const EdgeInsets.symmetric(horizontal: 24),
+                                            color: CupertinoColors.destructiveRed,
+                                            child: const Icon(CupertinoIcons.trash, color: Colors.white),
+                                          ),
+                                          onDismissed: (_) => context.read<HomeProvider>().deleteExpense(expense.id),
+                                          child: ExpenseItemCard(expense: expense, incomeProfile: provider.incomeProfile, onTap: () => provider.openExpenseEditor(context, expense)),
+                                        ),
+                                        if (!isLast) Padding(padding: const EdgeInsets.only(left: 64), child: Divider(height: 1, color: Theme.of(context).colorScheme.surfaceVariant)),
+                                      ],
+                                    );
+                                  }),
+                                ];
+                              }).toList(),
+                            ),
+                          ),
+
+                        SizedBox(height: 140 + MediaQuery.of(context).padding.bottom),
+                      ]),
+                    ),
+                  ),
+                ],
+              ),
+
+              // MORPHING FAB
+              MorphingFab(
+                isExpanded: _isFabExpanded,
+                onToggle: () => setState(() => _isFabExpanded = !_isFabExpanded),
+                onSelectSource: (mode) {
+                  setState(() => _isFabExpanded = false);
+                  Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const AddExpenseScreen()));
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );

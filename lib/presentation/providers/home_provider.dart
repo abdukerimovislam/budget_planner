@@ -7,6 +7,7 @@ import '../../data/models/achievement_model.dart';
 import '../../data/models/action_plan_item_model.dart';
 import '../../data/models/budget_model.dart';
 import '../../data/models/cashflow_event_model.dart';
+import '../../data/models/custom_category_model.dart';
 import '../../data/models/expense_category.dart';
 import '../../data/models/expense_filter_model.dart';
 import '../../data/models/expense_model.dart';
@@ -35,7 +36,7 @@ import '../../domain/services/savings_goal_service.dart';
 import '../../domain/services/streak_service.dart';
 import '../../domain/services/streak_summary_model.dart';
 import '../../domain/services/subscription_detector_service.dart';
-import '../widgets/expense_edit_sheet.dart';
+import '../widgets/expense_edit_sheet.dart'; // <-- ВОТ ЭТОТ ИМПОРТ СТЕРСЯ
 
 class HomeProvider extends ChangeNotifier {
   final FinancialForecastService forecastService;
@@ -44,12 +45,10 @@ class HomeProvider extends ChangeNotifier {
 
   final FinancialInsightService insightService = FinancialInsightService();
   final AutoBudgetService autoBudgetService = AutoBudgetService();
-  final SubscriptionDetectorService subscriptionDetectorService =
-  SubscriptionDetectorService();
+  final SubscriptionDetectorService subscriptionDetectorService = SubscriptionDetectorService();
   final MonthlyReportService monthlyReportService = MonthlyReportService();
   final SavingsGoalService savingsGoalService = SavingsGoalService();
-  final CashflowTimelineService cashflowTimelineService =
-  CashflowTimelineService();
+  final CashflowTimelineService cashflowTimelineService = CashflowTimelineService();
   final ActionPlanService actionPlanService = ActionPlanService();
   final PremiumAccessService premiumAccessService = PremiumAccessService();
   final MonthCloseService monthCloseService = MonthCloseService();
@@ -63,6 +62,8 @@ class HomeProvider extends ChangeNotifier {
   });
 
   final List<ExpenseModel> _expenses = [];
+  final List<CustomCategoryModel> _customCategories = [];
+
   IncomeProfileModel? _incomeProfile;
   BudgetModel? _budget;
   bool _isInitialized = false;
@@ -75,14 +76,15 @@ class HomeProvider extends ChangeNotifier {
   final List<RecurringBillModel> _recurringBills = [];
 
   List<ExpenseModel> get expenses => List.unmodifiable(_expenses);
+  List<CustomCategoryModel> get customCategories => List.unmodifiable(_customCategories);
+
   IncomeProfileModel? get incomeProfile => _incomeProfile;
   BudgetModel? get budget => _budget;
   bool get isInitialized => _isInitialized;
   bool get isPremium => _isPremium;
   SavingsGoalModel? get savingsGoal => _savingsGoal;
   int? get salaryDay => _salaryDay;
-  List<RecurringBillModel> get recurringBills =>
-      List.unmodifiable(_recurringBills);
+  List<RecurringBillModel> get recurringBills => List.unmodifiable(_recurringBills);
 
   Future<void> load() async {
     _incomeProfile = LocalStorageService.instance.getIncomeProfile();
@@ -91,6 +93,10 @@ class HomeProvider extends ChangeNotifier {
     _expenses
       ..clear()
       ..addAll(LocalStorageService.instance.getExpenses());
+
+    _customCategories
+      ..clear()
+      ..addAll(LocalStorageService.instance.getCustomCategories());
 
     _isInitialized = true;
     notifyListeners();
@@ -107,6 +113,26 @@ class HomeProvider extends ChangeNotifier {
       feature: feature,
       activeGoalsCount: _savingsGoal == null ? 0 : 1,
     );
+  }
+
+  Future<void> addCustomCategory(CustomCategoryModel category) async {
+    _customCategories.add(category);
+    await LocalStorageService.instance.saveCustomCategories(_customCategories);
+    notifyListeners();
+  }
+
+  Future<void> deleteCustomCategory(String id) async {
+    _customCategories.removeWhere((c) => c.id == id);
+    await LocalStorageService.instance.saveCustomCategories(_customCategories);
+    notifyListeners();
+  }
+
+  CustomCategoryModel? getCustomCategoryById(String id) {
+    try {
+      return _customCategories.firstWhere((c) => c.id == id);
+    } catch (_) {
+      return null;
+    }
   }
 
   List<ExpenseModel> expensesForPreviousMonth(DateTime now) {
@@ -149,7 +175,6 @@ class HomeProvider extends ChangeNotifier {
   List<AchievementModel> achievements() {
     final streak = streakSummary();
     final goal = _savingsGoal;
-    final monthClose = monthCloseSummary(DateTime.now());
 
     return achievementService.build(
       expenses: _expenses,
@@ -217,6 +242,7 @@ class HomeProvider extends ChangeNotifier {
 
   Future<void> clearAllData() async {
     _expenses.clear();
+    _customCategories.clear();
     _incomeProfile = null;
     _budget = null;
     await LocalStorageService.instance.clearAll();

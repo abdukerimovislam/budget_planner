@@ -1260,4 +1260,76 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get expenseFilterClearDates => 'Clear Dates';
+
+  @override
+  String get profileTitle => 'Profile';
+
+  @override
+  String get gamificationSection => 'Your Progress';
+
+  @override
+  String get preferencesSection => 'Preferences';
+
+  @override
+  String get dangerZoneSection => 'Danger Zone';
+
+  @override
+  String get subscriptionSection => 'Subscription';
+
+  @override
+  String get premiumActiveTitle => 'Budget Planner Premium';
+
+  @override
+  String get premiumUpgradeTitle => 'Upgrade to Premium';
+
+  @override
+  String get premiumActiveSubtitle => 'Active';
+
+  @override
+  String get premiumUpgradeSubtitle => 'Unlock AI Insights & Unlimited Goals';
+
+  @override
+  String get clearAllDataTitle => 'Clear All Data';
+
+  @override
+  String get clearDataDialogTitle => 'Delete All Data?';
+
+  @override
+  String get clearDataDialogContent =>
+      'This will permanently delete all your expenses, budgets, and settings. This action cannot be undone.';
+
+  @override
+  String get deleteButton => 'Delete';
+
+  @override
+  String get dataClearedMessage => 'All data cleared';
+
+  @override
+  String get validationEnterValidAmount => 'Please enter a valid amount';
+
+  @override
+  String get receiptReviewSubtitle => 'Review the scanned details';
+
+  @override
+  String get categoryCustom => 'Custom Category';
+
+  @override
+  String get newCategoryButton => 'New';
+
+  @override
+  String get analyticsVsLastMonth => 'vs last month';
+
+  @override
+  String get analyticsDailyAvg => 'Daily Avg';
+
+  @override
+  String get analyticsTransactions => 'Transactions';
+
+  @override
+  String get analyticsLargestTransaction => 'Largest Transaction';
+
+  @override
+  String analyticsTransactionsCount(int count) {
+    return '$count transactions';
+  }
 }

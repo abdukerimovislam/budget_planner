@@ -10,6 +10,7 @@ enum ExpenseCategory {
   gifts,
   travel,
   other,
+  custom, // <-- ДОБАВЛЕНО: Флаг для пользовательской категории
 }
 
 extension ExpenseCategoryX on ExpenseCategory {

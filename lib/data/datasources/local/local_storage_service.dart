@@ -4,6 +4,7 @@ import '../../../core/constants/storage_keys.dart';
 import '../../models/budget_model.dart';
 import '../../models/expense_model.dart';
 import '../../models/income_profile_model.dart';
+import '../../models/custom_category_model.dart'; // <-- Импорт новой модели
 import '../../models/model_serializers.dart';
 
 class LocalStorageService {
@@ -71,9 +72,25 @@ class LocalStorageService {
   }
 
   Future<void> saveExpenses(List<ExpenseModel> expenses) async {
-    final data = expenses.map((e) => e.toMap()).toList();
+    // Используем ExpenseModelSerializer вместо e.toMap()
+    final data = expenses.map((e) => ExpenseModelSerializer.toMap(e)).toList();
     await _box.put(StorageKeys.expenses, data);
   }
+
+  // --- НОВЫЕ МЕТОДЫ ДЛЯ КАСТОМНЫХ КАТЕГОРИЙ ---
+  List<CustomCategoryModel> getCustomCategories() {
+    final rawList = _box.get(StorageKeys.customCategories, defaultValue: <dynamic>[]) as List<dynamic>;
+    return rawList
+        .whereType<Map>()
+        .map((map) => CustomCategoryModel.fromMap(Map<String, dynamic>.from(map)))
+        .toList();
+  }
+
+  Future<void> saveCustomCategories(List<CustomCategoryModel> categories) async {
+    final data = categories.map((c) => c.toMap()).toList();
+    await _box.put(StorageKeys.customCategories, data);
+  }
+  // ---------------------------------------------
 
   Future<void> clearAll() async {
     await _box.clear();

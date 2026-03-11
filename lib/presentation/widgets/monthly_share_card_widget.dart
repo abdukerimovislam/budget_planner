@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/utils/category_extension.dart'; // <-- ИМПОРТ
 import '../../core/utils/responsive.dart';
-import '../../data/models/expense_category.dart';
 import '../../data/models/financial_level_model.dart';
 import '../../data/models/share_card_model.dart';
 import '../../l10n/app_localizations.dart';
@@ -21,45 +21,10 @@ class MonthlyShareCardWidget extends StatelessWidget {
 
   String _levelLabel(AppLocalizations l10n, FinancialLevel level) {
     switch (level) {
-      case FinancialLevel.survivor:
-        return l10n.levelSurvivor;
-      case FinancialLevel.planner:
-        return l10n.levelPlanner;
-      case FinancialLevel.strategist:
-        return l10n.levelStrategist;
-      case FinancialLevel.investor:
-        return l10n.levelInvestor;
-    }
-  }
-
-  String _categoryLabel(BuildContext context, ExpenseCategory? category) {
-    final l10n = AppLocalizations.of(context);
-
-    if (category == null) return l10n.categoryOther;
-
-    switch (category) {
-      case ExpenseCategory.food:
-        return l10n.categoryFood;
-      case ExpenseCategory.transport:
-        return l10n.categoryTransport;
-      case ExpenseCategory.subscriptions:
-        return l10n.categorySubscriptions;
-      case ExpenseCategory.entertainment:
-        return l10n.categoryEntertainment;
-      case ExpenseCategory.shopping:
-        return l10n.categoryShopping;
-      case ExpenseCategory.health:
-        return l10n.categoryHealth;
-      case ExpenseCategory.bills:
-        return l10n.categoryBills;
-      case ExpenseCategory.education:
-        return l10n.categoryEducation;
-      case ExpenseCategory.gifts:
-        return l10n.categoryGifts;
-      case ExpenseCategory.travel:
-        return l10n.categoryTravel;
-      case ExpenseCategory.other:
-        return l10n.categoryOther;
+      case FinancialLevel.survivor: return l10n.levelSurvivor;
+      case FinancialLevel.planner: return l10n.levelPlanner;
+      case FinancialLevel.strategist: return l10n.levelStrategist;
+      case FinancialLevel.investor: return l10n.levelInvestor;
     }
   }
 
@@ -112,7 +77,7 @@ class MonthlyShareCardWidget extends StatelessWidget {
           const SizedBox(height: 10),
           _MetricRow(
             label: l10n.shareCardTopCategory,
-            value: _categoryLabel(context, data.topCategory),
+            value: data.topCategory?.localizedName(context) ?? l10n.categoryOther, // <-- ИСПРАВЛЕНИЕ
           ),
           const SizedBox(height: 10),
           _MetricRow(
