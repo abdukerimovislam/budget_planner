@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:speech_to_text/speech_to_text.dart';
@@ -28,12 +29,14 @@ import '../receipt_review/receipt_review_screen.dart';
 
 class AddExpenseScreen extends StatefulWidget {
   final ExpenseCategory? initialCategory;
-  final String? initialCustomCategoryId; // Ссылка на созданную кастомную категорию
+  final String? initialCustomCategoryId;
+  final bool initialIsIncome;
 
   const AddExpenseScreen({
     super.key,
     this.initialCategory,
     this.initialCustomCategoryId,
+    this.initialIsIncome = false,
   });
 
   @override
@@ -56,6 +59,11 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   ExpenseCategory? _selectedCategory;
   String? _selectedCustomCategoryId;
 
+  late bool _isIncome;
+
+  // ДОБАВЛЕНО: Валюта пользователя
+  late String _userCurrency;
+
   bool _isVoiceLoading = false;
   bool _isVoiceListening = false;
   String _voicePreviewText = '';
@@ -70,43 +78,42 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   void initState() {
     super.initState();
 
-    // Если передали Свою категорию
+    _isIncome = widget.initialIsIncome;
+
+    // ДОБАВЛЕНО: Достаем валюту из профиля пользователя (по умолчанию USD)
+    final provider = context.read<HomeProvider>();
+    _userCurrency = provider.incomeProfile?.currency ?? 'USD';
+
     if (widget.initialCustomCategoryId != null) {
       _selectedCategory = ExpenseCategory.custom;
       _selectedCustomCategoryId = widget.initialCustomCategoryId;
 
-      _parsed = ParsedExpenseInputModel(
-        amount: null,
-        currency: 'KGS',
-        category: ExpenseCategory.custom,
-        merchant: null,
-        rawText: '',
-      );
+      // ИСПОЛЬЗУЕМ _userCurrency
+      _parsed = ParsedExpenseInputModel(amount: null, currency: _userCurrency, category: ExpenseCategory.custom, merchant: null, rawText: '');
     } else {
-      // Если передали системную категорию (или ничего)
       _selectedCategory = widget.initialCategory;
       if (widget.initialCategory != null) {
-        _parsed = ParsedExpenseInputModel(
-          amount: null,
-          currency: 'KGS',
-          category: widget.initialCategory,
-          merchant: null,
-          rawText: '',
-        );
+        // ИСПОЛЬЗУЕМ _userCurrency
+        _parsed = ParsedExpenseInputModel(amount: null, currency: _userCurrency, category: widget.initialCategory, merchant: null, rawText: '');
+      } else if (_isIncome) {
+        _selectedCategory = ExpenseCategory.other;
       }
     }
 
     _initVoice();
   }
 
+  String _t(String en, String ru) {
+    final isRu = Localizations.localeOf(context).languageCode == 'ru';
+    return isRu ? ru : en;
+  }
+
   Future<void> _initVoice() async {
     final result = await _voiceInputService.initialize();
     if (!mounted) return;
-
     if (result.isAvailable) {
       final locales = await _voiceInputService.locales();
       if (!mounted) return;
-
       setState(() {
         _availableLocales = locales;
         _selectedLocaleId = _pickPreferredLocale(locales);
@@ -115,12 +122,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   }
 
   String? _pickPreferredLocale(List<LocaleName> locales) {
-    for (final locale in locales) {
-      if (locale.localeId.toLowerCase().startsWith('ru')) return locale.localeId;
-    }
-    for (final locale in locales) {
-      if (locale.localeId.toLowerCase().startsWith('en')) return locale.localeId;
-    }
+    for (final locale in locales) { if (locale.localeId.toLowerCase().startsWith('ru')) return locale.localeId; }
+    for (final locale in locales) { if (locale.localeId.toLowerCase().startsWith('en')) return locale.localeId; }
     return locales.isNotEmpty ? locales.first.localeId : null;
   }
 
@@ -137,7 +140,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     setState(() {
       _parsed = ParsedExpenseInputModel(
         amount: parsed.amount,
-        currency: parsed.currency,
+        currency: parsed.currency ?? _userCurrency, // Если парсер не нашел валюту, ставим дефолтную
         category: _selectedCategory ?? parsed.category ?? widget.initialCategory ?? ExpenseCategory.other,
         merchant: parsed.merchant,
         rawText: parsed.rawText,
@@ -151,7 +154,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       _voicePreviewText = text;
       _parsed = ParsedExpenseInputModel(
         amount: parsed.amount,
-        currency: parsed.currency,
+        currency: parsed.currency ?? _userCurrency,
         category: _selectedCategory ?? parsed.category ?? widget.initialCategory ?? ExpenseCategory.other,
         merchant: parsed.merchant,
         rawText: text,
@@ -166,7 +169,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       _receiptParsedData = parsedReceipt;
       _parsed = ParsedExpenseInputModel(
         amount: parsedReceipt.amount,
-        currency: parsedReceipt.currency,
+        currency: parsedReceipt.currency ?? _userCurrency,
         category: _selectedCategory ?? parsedReceipt.category ?? widget.initialCategory ?? ExpenseCategory.other,
         merchant: parsedReceipt.merchant,
         rawText: text.replaceAll('\n', ' '),
@@ -174,32 +177,28 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     });
   }
 
-  // Выбор системной категории
   void _selectSystemCategory(ExpenseCategory cat) {
+    HapticFeedback.selectionClick();
     setState(() {
       _selectedCategory = cat;
-      _selectedCustomCategoryId = null; // Сбрасываем кастомную
+      _selectedCustomCategoryId = null;
       if (_parsed != null) {
-        _parsed = ParsedExpenseInputModel(
-          amount: _parsed!.amount, currency: _parsed!.currency, category: cat, merchant: _parsed!.merchant, rawText: _parsed!.rawText,
-        );
+        _parsed = ParsedExpenseInputModel(amount: _parsed!.amount, currency: _parsed!.currency, category: cat, merchant: _parsed!.merchant, rawText: _parsed!.rawText);
       } else {
-        _parsed = ParsedExpenseInputModel(amount: null, currency: 'KGS', category: cat, merchant: null, rawText: '');
+        _parsed = ParsedExpenseInputModel(amount: null, currency: _userCurrency, category: cat, merchant: null, rawText: '');
       }
     });
   }
 
-  // Выбор кастомной категории
   void _selectCustomCategory(String id) {
+    HapticFeedback.selectionClick();
     setState(() {
       _selectedCategory = ExpenseCategory.custom;
       _selectedCustomCategoryId = id;
       if (_parsed != null) {
-        _parsed = ParsedExpenseInputModel(
-          amount: _parsed!.amount, currency: _parsed!.currency, category: ExpenseCategory.custom, merchant: _parsed!.merchant, rawText: _parsed!.rawText,
-        );
+        _parsed = ParsedExpenseInputModel(amount: _parsed!.amount, currency: _parsed!.currency, category: ExpenseCategory.custom, merchant: _parsed!.merchant, rawText: _parsed!.rawText);
       } else {
-        _parsed = ParsedExpenseInputModel(amount: null, currency: 'KGS', category: ExpenseCategory.custom, merchant: null, rawText: '');
+        _parsed = ParsedExpenseInputModel(amount: null, currency: _userCurrency, category: ExpenseCategory.custom, merchant: null, rawText: '');
       }
     });
   }
@@ -208,15 +207,11 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     showCupertinoModalPopup(
       context: context,
       builder: (_) => Container(
-        height: 280,
-        color: Theme.of(context).colorScheme.surface,
+        height: 280, color: Theme.of(context).colorScheme.surface,
         child: SafeArea(
           top: false,
           child: CupertinoDatePicker(
-            initialDateTime: _selectedDate,
-            mode: CupertinoDatePickerMode.dateAndTime,
-            use24hFormat: true,
-            maximumDate: DateTime.now().add(const Duration(days: 1)),
+            initialDateTime: _selectedDate, mode: CupertinoDatePickerMode.dateAndTime, use24hFormat: true, maximumDate: DateTime.now().add(const Duration(days: 1)),
             onDateTimeChanged: (val) => setState(() => _selectedDate = val),
           ),
         ),
@@ -231,14 +226,12 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
   Future<void> _handleVoiceTap(BuildContext context) async {
     final l10n = AppLocalizations.of(context);
+    HapticFeedback.lightImpact();
     if (_isVoiceListening) {
       setState(() => _isVoiceLoading = true);
       final result = await _voiceInputService.stopListening();
       if (!mounted) return;
-      setState(() {
-        _isVoiceLoading = false;
-        _isVoiceListening = false;
-      });
+      setState(() { _isVoiceLoading = false; _isVoiceListening = false; });
       if (result.hasText) _parseVoiceText(result.recognizedText);
       else if (result.errorMessage != null) _showSnack(context, l10n.voiceErrorMessage(result.errorMessage!));
       return;
@@ -246,55 +239,40 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     setState(() => _isVoiceLoading = true);
     final result = await _voiceInputService.startListening(localeId: _selectedLocaleId ?? '');
     if (!mounted) return;
-    setState(() {
-      _isVoiceLoading = false;
-      _isVoiceListening = result.isAvailable;
-    });
+    setState(() { _isVoiceLoading = false; _isVoiceListening = result.isAvailable; });
     if (!result.isAvailable) _showSnack(context, l10n.voiceUnavailableMessage);
   }
 
   Future<void> _scanPickedFile(BuildContext context, XFile file) async {
     final l10n = AppLocalizations.of(context);
-    setState(() {
-      _isReceiptLoading = true;
-      _pickedReceiptFile = file;
-    });
+    setState(() { _isReceiptLoading = true; _pickedReceiptFile = file; });
     final ReceiptScanResultModel result = await _receiptScanService.scanFile(file);
     if (!mounted) return;
     setState(() => _isReceiptLoading = false);
 
-    if (!result.isSuccess) {
-      _showSnack(context, l10n.receiptScanErrorMessage(result.errorMessage ?? l10n.notAvailableShort));
-      return;
-    }
-    if (!result.hasText) {
-      _showSnack(context, l10n.receiptNoTextFoundMessage);
-      return;
-    }
+    if (!result.isSuccess) { _showSnack(context, l10n.receiptScanErrorMessage(result.errorMessage ?? l10n.notAvailableShort)); return; }
+    if (!result.hasText) { _showSnack(context, l10n.receiptNoTextFoundMessage); return; }
 
     _parseReceiptText(result.recognizedText);
     if (_receiptParsedData == null) return;
 
-    final review = await Navigator.of(context).push<ReceiptReviewModel>(
-      CupertinoPageRoute(builder: (_) => ReceiptReviewScreen(parsedData: _receiptParsedData!)),
-    );
-
+    final review = await Navigator.of(context).push<ReceiptReviewModel>(CupertinoPageRoute(builder: (_) => ReceiptReviewScreen(parsedData: _receiptParsedData!)));
     if (!mounted || review == null) return;
     setState(() {
-      _parsed = ParsedExpenseInputModel(
-        amount: review.amount, currency: review.currency, category: review.category, merchant: review.merchant, rawText: review.rawText,
-      );
+      _parsed = ParsedExpenseInputModel(amount: review.amount, currency: review.currency ?? _userCurrency, category: review.category, merchant: review.merchant, rawText: review.rawText);
       _receiptPreviewText = review.rawText;
     });
   }
 
   Future<void> _handleReceiptCameraTap(BuildContext context) async {
+    HapticFeedback.lightImpact();
     final file = await _receiptScanService.pickFromCamera();
     if (file == null || !mounted) return;
     await _scanPickedFile(context, file);
   }
 
   Future<void> _handleReceiptGalleryTap(BuildContext context) async {
+    HapticFeedback.lightImpact();
     final file = await _receiptScanService.pickFromGallery();
     if (file == null || !mounted) return;
     await _scanPickedFile(context, file);
@@ -304,14 +282,16 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     final parsed = _parsed;
     if (parsed == null || !parsed.isValid) return;
 
+    HapticFeedback.mediumImpact();
+
     final provider = context.read<HomeProvider>();
     await provider.addExpense(
       ExpenseModel(
         id: const Uuid().v4(),
         amount: parsed.amount!,
-        currency: parsed.currency ?? 'KGS',
+        currency: parsed.currency ?? _userCurrency, // ИСПОЛЬЗУЕМ ВАЛЮТУ ПОЛЬЗОВАТЕЛЯ
         category: _selectedCategory ?? parsed.category ?? ExpenseCategory.other,
-        customCategoryId: _selectedCustomCategoryId, // Сохраняем ID своей категории!
+        customCategoryId: _selectedCustomCategoryId,
         merchant: parsed.merchant ?? '',
         note: parsed.rawText.isEmpty ? null : parsed.rawText,
         date: _selectedDate,
@@ -319,6 +299,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         isRecurring: false,
         recurringGroupId: null,
         createdAt: DateTime.now(),
+        isIncome: _isIncome,
       ),
     );
 
@@ -343,12 +324,21 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     final now = DateTime.now();
     final isToday = date.year == now.year && date.month == now.month && date.day == now.day;
     final time = '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
-    if (isToday) return 'Today, $time';
+    if (isToday) return '${_t('Today', 'Сегодня')}, $time';
     return '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}, $time';
   }
 
   String _categoryLabel(BuildContext context, ExpenseCategory category) {
     final l10n = AppLocalizations.of(context);
+
+    if (_isIncome) {
+      switch (category) {
+        case ExpenseCategory.other: return '💼 ${_t('Salary / Income', 'Зарплата / Доход')}';
+        case ExpenseCategory.gifts: return '🎁 ${_t('Gift / Transfer', 'Подарок / Перевод')}';
+        default: return '📦 ${_t('Other', 'Другое')}';
+      }
+    }
+
     switch (category) {
       case ExpenseCategory.food: return '🍔 ${l10n.categoryFood}';
       case ExpenseCategory.transport: return '🚕 ${l10n.categoryTransport}';
@@ -376,13 +366,23 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
     final provider = context.watch<HomeProvider>();
     final customCategories = provider.customCategories;
-    final systemCategories = ExpenseCategory.values.where((c) => c != ExpenseCategory.custom).toList();
+
+    final systemCategories = _isIncome
+        ? [ExpenseCategory.other, ExpenseCategory.gifts]
+        : ExpenseCategory.values.where((c) => c != ExpenseCategory.custom).toList();
 
     return Scaffold(
       backgroundColor: backgroundColor,
       appBar: CupertinoNavigationBar(
         backgroundColor: backgroundColor.withOpacity(0.8),
-        middle: Text(l10n.addExpense, style: TextStyle(color: theme.colorScheme.onSurface)),
+        middle: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          child: Text(
+              _isIncome ? _t('Add Income', 'Добавить Доход') : l10n.addExpense,
+              key: ValueKey(_isIncome),
+              style: TextStyle(color: theme.colorScheme.onSurface)
+          ),
+        ),
         leading: CupertinoButton(
           padding: EdgeInsets.zero,
           child: Text(l10n.cancelButton ?? 'Cancel', style: TextStyle(color: theme.colorScheme.primary)),
@@ -420,24 +420,34 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               },
             ),
 
+            const SizedBox(height: 24),
+
+            _buildTypeToggle(theme),
+
             const SizedBox(height: 32),
 
-            // 1. HERO AMOUNT AREA
+            // HERO AMOUNT AREA
             Column(
               children: [
                 AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 200),
+                  duration: const Duration(milliseconds: 300),
+                  transitionBuilder: (Widget child, Animation<double> animation) {
+                    return ScaleTransition(scale: animation, child: child);
+                  },
                   child: Text(
-                    _parsed?.amount != null ? _formatNumber(_parsed!.amount!) : '0',
-                    key: ValueKey(_parsed?.amount),
+                    '${_isIncome && _parsed?.amount != null ? '+' : ''}${_parsed?.amount != null ? _formatNumber(_parsed!.amount!) : '0'}',
+                    key: ValueKey('${_parsed?.amount}_$_isIncome'),
                     style: TextStyle(
-                      fontSize: 64, fontWeight: FontWeight.w800, letterSpacing: -2.5,
-                      color: theme.colorScheme.onSurface, height: 1.1,
+                      fontSize: 64,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -2.5,
+                      color: _isIncome ? CupertinoColors.systemGreen : theme.colorScheme.onSurface,
+                      height: 1.1,
                     ),
                   ),
                 ),
                 Text(
-                  _parsed?.currency ?? 'KGS',
+                  _parsed?.currency ?? _userCurrency, // ПОКАЗЫВАЕМ ВАЛЮТУ ПОЛЬЗОВАТЕЛЯ!
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface.withOpacity(0.4)),
                 ),
               ],
@@ -451,14 +461,13 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
             const SizedBox(height: 32),
 
-            // 3. ЕДИНАЯ КАРУСЕЛЬ КАТЕГОРИЙ (Системные + Кастомные + Кнопка New)
+            // КАРУСЕЛЬ КАТЕГОРИЙ
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               physics: const BouncingScrollPhysics(),
               padding: EdgeInsets.symmetric(horizontal: Responsive.cardPadding(context)),
               child: Row(
                 children: [
-                  // СИСТЕМНЫЕ КАТЕГОРИИ
                   ...systemCategories.map((cat) {
                     final isSelected = _selectedCustomCategoryId == null && (_selectedCategory ?? _parsed?.category ?? widget.initialCategory ?? ExpenseCategory.other) == cat;
 
@@ -470,7 +479,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                           duration: const Duration(milliseconds: 200),
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                           decoration: BoxDecoration(
-                            color: isSelected ? theme.colorScheme.primary : theme.colorScheme.surface,
+                            color: isSelected ? (_isIncome ? CupertinoColors.systemGreen : theme.colorScheme.primary) : theme.colorScheme.surface,
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(color: isSelected ? Colors.transparent : theme.colorScheme.surfaceVariant),
                           ),
@@ -486,7 +495,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     );
                   }),
 
-                  // КАСТОМНЫЕ КАТЕГОРИИ ПОЛЬЗОВАТЕЛЯ
                   ...customCategories.map((cat) {
                     final isSelected = _selectedCustomCategoryId == cat.id;
                     final catColor = Color(cat.colorValue);
@@ -507,8 +515,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                             children: [
                               Icon(
                                 IconData(cat.iconCodePoint, fontFamily: 'CupertinoIcons', fontPackage: CupertinoIcons.iconFontPackage),
-                                size: 16,
-                                color: isSelected ? Colors.white : catColor,
+                                size: 16, color: isSelected ? Colors.white : catColor,
                               ),
                               const SizedBox(width: 6),
                               Text(
@@ -525,13 +532,10 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     );
                   }),
 
-                  // КНОПКА СОЗДАНИЯ НОВОЙ КАТЕГОРИИ
                   GestureDetector(
                     onTap: () async {
                       final newCat = await CustomCategorySheet.show(context);
-                      if (newCat != null) {
-                        _selectCustomCategory(newCat.id);
-                      }
+                      if (newCat != null) _selectCustomCategory(newCat.id);
                     },
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
@@ -555,7 +559,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
             const SizedBox(height: 32),
 
-            // 4. СВОЙСТВА ТРАНЗАКЦИИ
+            // СВОЙСТВА ТРАНЗАКЦИИ
             Padding(
               padding: EdgeInsets.symmetric(horizontal: Responsive.cardPadding(context)),
               child: Container(
@@ -568,15 +572,15 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     _SettingsRow(
                       icon: CupertinoIcons.calendar,
                       iconColor: CupertinoColors.systemRed,
-                      title: 'Date',
+                      title: _t('Date', 'Дата'),
                       value: _formatDate(_selectedDate),
                       onTap: _showDatePicker,
                     ),
                     _SettingsRow(
                       icon: CupertinoIcons.building_2_fill,
                       iconColor: CupertinoColors.systemBlue,
-                      title: l10n.previewMerchant,
-                      value: _parsed?.merchant?.isNotEmpty == true ? _parsed!.merchant! : 'Optional',
+                      title: _isIncome ? _t('Source', 'Источник') : l10n.previewMerchant,
+                      value: _parsed?.merchant?.isNotEmpty == true ? _parsed!.merchant! : _t('Optional', 'Необязательно'),
                       isLast: true,
                     ),
                   ],
@@ -587,6 +591,87 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
             SizedBox(height: MediaQuery.of(context).padding.bottom + 100),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildTypeToggle(ThemeData theme) {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: Responsive.cardPadding(context)),
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceVariant.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: GestureDetector(
+              onTap: () {
+                if (_isIncome) {
+                  HapticFeedback.selectionClick();
+                  setState(() {
+                    _isIncome = false;
+                    if (_selectedCategory == ExpenseCategory.other || _selectedCategory == ExpenseCategory.gifts) {
+                      _selectedCategory = widget.initialCategory ?? ExpenseCategory.food;
+                    }
+                  });
+                }
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: !_isIncome ? theme.colorScheme.surface : Colors.transparent,
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: !_isIncome ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))] : [],
+                ),
+                child: Center(
+                  child: Text(
+                    _t('Expense', 'Расход'),
+                    style: TextStyle(
+                      fontWeight: !_isIncome ? FontWeight.w700 : FontWeight.w500,
+                      color: !_isIncome ? theme.colorScheme.onSurface : theme.colorScheme.onSurface.withOpacity(0.5),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: GestureDetector(
+              onTap: () {
+                if (!_isIncome) {
+                  HapticFeedback.selectionClick();
+                  setState(() {
+                    _isIncome = true;
+                    if (_selectedCustomCategoryId == null) {
+                      _selectedCategory = ExpenseCategory.other;
+                    }
+                  });
+                }
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: _isIncome ? CupertinoColors.systemGreen : Colors.transparent,
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: _isIncome ? [BoxShadow(color: CupertinoColors.systemGreen.withOpacity(0.3), blurRadius: 4, offset: const Offset(0, 2))] : [],
+                ),
+                child: Center(
+                  child: Text(
+                    _t('Income', 'Доход'),
+                    style: TextStyle(
+                      fontWeight: _isIncome ? FontWeight.w700 : FontWeight.w500,
+                      color: _isIncome ? Colors.white : theme.colorScheme.onSurface.withOpacity(0.5),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -609,7 +694,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           style: TextStyle(fontSize: 18, color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w500),
           decoration: InputDecoration(
             border: InputBorder.none,
-            hintText: widget.initialCategory == null ? l10n.smartInputExample : '500 for taxi',
+            hintText: _isIncome
+                ? _t('5000 from client', '5000 от клиента')
+                : (widget.initialCategory == null ? l10n.smartInputExample : '500 for taxi'),
             hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3)),
           ),
           onChanged: (_) => _parseInput(),
@@ -668,7 +755,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               Expanded(
                 child: _ReceiptButton(
                   icon: CupertinoIcons.camera_fill,
-                  label: 'Camera',
+                  label: _t('Camera', 'Камера'),
                   onTap: _isReceiptLoading ? null : () => _handleReceiptCameraTap(context),
                 ),
               ),
@@ -676,7 +763,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               Expanded(
                 child: _ReceiptButton(
                   icon: CupertinoIcons.photo_fill_on_rectangle_fill,
-                  label: 'Gallery',
+                  label: _t('Gallery', 'Галерея'),
                   onTap: _isReceiptLoading ? null : () => _handleReceiptGalleryTap(context),
                 ),
               ),
@@ -696,7 +783,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   }
 }
 
-// Вспомогательный виджет для свойств транзакции (Apple List)
 class _SettingsRow extends StatelessWidget {
   final IconData icon;
   final Color iconColor;

@@ -26,7 +26,6 @@ extension ExpenseSourceTypeSerializer on ExpenseSourceType {
   }
 }
 
-// Найди класс ExpenseModelSerializer и обнови его так:
 class ExpenseModelSerializer {
   static Map<String, dynamic> toMap(ExpenseModel model) {
     return {
@@ -34,7 +33,7 @@ class ExpenseModelSerializer {
       'amount': model.amount,
       'currency': model.currency,
       'category': model.category.name,
-      'customCategoryId': model.customCategoryId, // <-- ДОБАВЛЕНО
+      'customCategoryId': model.customCategoryId,
       'merchant': model.merchant,
       'note': model.note,
       'date': model.date.toIso8601String(),
@@ -42,6 +41,7 @@ class ExpenseModelSerializer {
       'isRecurring': model.isRecurring,
       'recurringGroupId': model.recurringGroupId,
       'createdAt': model.createdAt.toIso8601String(),
+      'isIncome': model.isIncome, // <-- ДОБАВЛЕНО: Сохраняем флаг дохода!
     };
   }
 
@@ -52,9 +52,9 @@ class ExpenseModelSerializer {
       currency: map['currency'] as String,
       category: ExpenseCategory.values.firstWhere(
             (e) => e.name == map['category'],
-        orElse: () => ExpenseCategory.other, // Fallback
+        orElse: () => ExpenseCategory.other,
       ),
-      customCategoryId: map['customCategoryId'] as String?, // <-- ДОБАВЛЕНО
+      customCategoryId: map['customCategoryId'] as String?,
       merchant: map['merchant'] as String,
       note: map['note'] as String?,
       date: DateTime.parse(map['date'] as String),
@@ -67,6 +67,7 @@ class ExpenseModelSerializer {
       createdAt: map['createdAt'] != null
           ? DateTime.parse(map['createdAt'] as String)
           : DateTime.now(),
+      isIncome: map['isIncome'] as bool? ?? false, // <-- Читаем флаг дохода (по умолчанию расход)
     );
   }
 }
@@ -74,17 +75,35 @@ class ExpenseModelSerializer {
 extension IncomeProfileModelSerializer on IncomeProfileModel {
   Map<String, dynamic> toMap() {
     return {
-      'monthlyIncome': monthlyIncome,
+      'expectedMonthlyIncome': expectedMonthlyIncome,
+      'incomeType': incomeType.name,
       'workingDaysPerMonth': workingDaysPerMonth,
       'workingHoursPerDay': workingHoursPerDay,
+      'hourlyRate': hourlyRate,
+      'workingHoursPerWeek': workingHoursPerWeek,
+      'currency': currency,
     };
   }
 
   static IncomeProfileModel fromMap(Map<dynamic, dynamic> map) {
+    // Миграция со старой версии (если есть old `monthlyIncome`)
+    final monthlyIncome = ((map['expectedMonthlyIncome'] ?? map['monthlyIncome']) as num?)?.toDouble() ?? 0.0;
+
+    // Парсим тип занятости
+    final typeString = map['incomeType'] as String?;
+    IncomeType type = IncomeType.salary;
+    if (typeString != null) {
+      type = IncomeType.values.firstWhere((e) => e.name == typeString, orElse: () => IncomeType.salary);
+    }
+
     return IncomeProfileModel(
-      monthlyIncome: (map['monthlyIncome'] as num).toDouble(),
-      workingDaysPerMonth: map['workingDaysPerMonth'] as int,
-      workingHoursPerDay: (map['workingHoursPerDay'] as num).toDouble(),
+      expectedMonthlyIncome: monthlyIncome,
+      incomeType: type,
+      workingDaysPerMonth: (map['workingDaysPerMonth'] as num?)?.toInt(),
+      workingHoursPerDay: (map['workingHoursPerDay'] as num?)?.toInt(),
+      hourlyRate: (map['hourlyRate'] as num?)?.toDouble(),
+      workingHoursPerWeek: (map['workingHoursPerWeek'] as num?)?.toInt(),
+      currency: map['currency'] as String? ?? 'KGS',
     );
   }
 }

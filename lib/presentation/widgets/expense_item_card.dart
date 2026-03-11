@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart'; // <-- Обязательно для иконок Cupertino
+import 'package:flutter/cupertino.dart';
 
 import '../../core/utils/category_extension.dart';
 import '../../data/models/expense_model.dart';
@@ -22,18 +22,16 @@ class ExpenseItemCard extends StatelessWidget {
     return value.toStringAsFixed(2);
   }
 
-  // КИЛЛЕР ФИЧА: Считаем часы и минуты жизни
+  // КИЛЛЕР ФИЧА: Считаем часы и минуты жизни через новый универсальный алгоритм!
   String _lifeCost() {
     final profile = incomeProfile;
-    if (profile == null || profile.monthlyIncome <= 0) return '';
+    if (profile == null) return '';
 
-    final minutesPerMonth = profile.workingDaysPerMonth * profile.workingHoursPerDay * 60;
-    if (minutesPerMonth <= 0) return '';
+    // Используем наш новый умный метод, который сам знает архетип пользователя
+    final minuteValue = profile.valuePerMinute();
+    if (minuteValue <= 0) return '';
 
-    final valuePerMinute = profile.monthlyIncome / minutesPerMonth;
-    if (valuePerMinute <= 0) return '';
-
-    final totalMinutes = (expense.amount / valuePerMinute).round();
+    final totalMinutes = (expense.amount / minuteValue).round();
     if (totalMinutes <= 0) return '';
 
     final hours = totalMinutes ~/ 60;
@@ -52,7 +50,6 @@ class ExpenseItemCard extends StatelessWidget {
     final catColor = expense.category.dynamicColor(context, customCategoryId: expense.customCategoryId);
     final catName = expense.category.localizedName(context, customCategoryId: expense.customCategoryId);
 
-    // Убрали _lifeCost() отсюда, чтобы не писать его мелким серым текстом
     final subtitleParts = <String>[
       if (expense.merchant.isNotEmpty) expense.merchant,
       if ((expense.note ?? '').trim().isNotEmpty) expense.note!.trim(),
@@ -115,14 +112,20 @@ class ExpenseItemCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    '-${_formatNumber(expense.amount)}',
+                    // Если это доход - ставим +, если расход - минус
+                    '${expense.isIncome ? '+' : '-'}${_formatNumber(expense.amount)}',
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w800,
-                      color: theme.colorScheme.onSurface,
+                      // Доходы подсвечиваем зеленым
+                      color: expense.isIncome
+                          ? CupertinoColors.systemGreen
+                          : theme.colorScheme.onSurface,
                     ),
                   ),
-                  if (lifeCostStr.isNotEmpty) ...[
+
+                  // Показываем потраченное время ТОЛЬКО если это расход
+                  if (!expense.isIncome && lifeCostStr.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     // НОВЫЙ ЯРКИЙ БЕЙДЖ ВРЕМЕНИ ЖИЗНИ
                     Container(

@@ -456,9 +456,14 @@ class _HomeScreenState extends State<HomeScreen> {
               MorphingFab(
                 isExpanded: _isFabExpanded,
                 onToggle: () => setState(() => _isFabExpanded = !_isFabExpanded),
-                onSelectSource: (mode) {
+                // ИЗМЕНЕНО: Теперь мы принимаем два параметра из FAB и передаем в экран!
+                onSelectSource: (mode, isIncome) {
                   setState(() => _isFabExpanded = false);
-                  Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const AddExpenseScreen()));
+                  Navigator.of(context).push(CupertinoPageRoute(
+                      builder: (_) => AddExpenseScreen(
+                        initialIsIncome: isIncome, // Передаем флаг Доход/Расход
+                      )
+                  ));
                 },
               ),
             ],

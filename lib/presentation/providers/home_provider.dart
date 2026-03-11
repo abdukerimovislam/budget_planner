@@ -36,7 +36,7 @@ import '../../domain/services/savings_goal_service.dart';
 import '../../domain/services/streak_service.dart';
 import '../../domain/services/streak_summary_model.dart';
 import '../../domain/services/subscription_detector_service.dart';
-import '../widgets/expense_edit_sheet.dart'; // <-- ВОТ ЭТОТ ИМПОРТ СТЕРСЯ
+import '../widgets/expense_edit_sheet.dart';
 
 class HomeProvider extends ChangeNotifier {
   final FinancialForecastService forecastService;
@@ -148,7 +148,7 @@ class HomeProvider extends ChangeNotifier {
     if (profile == null || budget == null) return 0;
 
     return scoreService.calculate(
-      income: profile.monthlyIncome,
+      income: profile.expectedMonthlyIncome, // Используем новое поле из профиля
       totalSpent: totalSpentForMonth(previousMonth),
       totalBudget: budget.totalBudget,
       subscriptionsSpent: subscriptionsSpentForMonth(previousMonth),
@@ -336,25 +336,39 @@ class HomeProvider extends ChangeNotifier {
     return list;
   }
 
+  // --- НОВЫЙ БЛОК: СЧИТАЕМ РАСХОДЫ ОТДЕЛЬНО ОТ ДОХОДОВ ---
+
+  // Считаем ТОЛЬКО траты
   double totalSpentForMonth(DateTime date) {
-    return expensesForMonth(date).fold<double>(0, (sum, e) => sum + e.amount);
+    return expensesForMonth(date)
+        .where((e) => !e.isIncome)
+        .fold<double>(0, (sum, e) => sum + e.amount);
+  }
+
+  // Считаем ТОЛЬКО фактические доходы за месяц
+  double actualIncomeForMonth(DateTime date) {
+    return expensesForMonth(date)
+        .where((e) => e.isIncome)
+        .fold<double>(0, (sum, e) => sum + e.amount);
   }
 
   double subscriptionsSpentForMonth(DateTime date) {
     return expensesForMonth(date)
-        .where((e) => e.category == ExpenseCategory.subscriptions)
+        .where((e) => !e.isIncome && e.category == ExpenseCategory.subscriptions)
         .fold<double>(0, (sum, e) => sum + e.amount);
   }
 
   Map<ExpenseCategory, double> categoryTotalsForMonth(DateTime date) {
     final Map<ExpenseCategory, double> totals = {};
 
-    for (final expense in expensesForMonth(date)) {
+    for (final expense in expensesForMonth(date).where((e) => !e.isIncome)) {
       totals[expense.category] = (totals[expense.category] ?? 0) + expense.amount;
     }
 
     return totals;
   }
+
+  // --- КОНЕЦ БЛОКА ---
 
   double totalSpentThisMonth(DateTime now) {
     return totalSpentForMonth(now);
@@ -370,7 +384,7 @@ class HomeProvider extends ChangeNotifier {
     if (currentBudget == null) return null;
 
     return forecastService.calculate(
-      expenses: _expenses,
+      expenses: _expenses.where((e) => !e.isIncome).toList(), // Прогноз только по тратам
       now: now,
       monthlyBudget: currentBudget,
     );
@@ -382,7 +396,7 @@ class HomeProvider extends ChangeNotifier {
     if (profile == null || budget == null) return 0;
 
     return scoreService.calculate(
-      income: profile.monthlyIncome,
+      income: profile.expectedMonthlyIncome, // Используем ожидаемый для скоринга
       totalSpent: totalSpentForMonth(now),
       totalBudget: budget.totalBudget,
       subscriptionsSpent: subscriptionsSpentForMonth(now),
@@ -390,14 +404,20 @@ class HomeProvider extends ChangeNotifier {
     );
   }
 
+  // НОВЫЙ МЕТОД: Использует реальные доходы для расчета
   Duration spentLifeDurationForMonth(DateTime now) {
     final profile = _incomeProfile;
     if (profile == null) return Duration.zero;
 
-    return lifeValueService.calculateDurationSpent(
-      amount: totalSpentForMonth(now),
-      profile: profile,
-    );
+    final actualIncome = actualIncomeForMonth(now);
+    final minuteValue = profile.valuePerMinute(actualIncomeThisMonth: actualIncome);
+
+    if (minuteValue <= 0) return Duration.zero;
+
+    final totalSpent = totalSpentForMonth(now);
+    final minutes = (totalSpent / minuteValue).round();
+
+    return Duration(minutes: minutes);
   }
 
   String currentMonthKey(DateTime now) => buildMonthKey(now);
@@ -415,7 +435,7 @@ class HomeProvider extends ChangeNotifier {
     final healthScore = healthScoreFor(now);
 
     return insightService.generate(
-      currentMonthExpenses: expensesForMonth(now),
+      currentMonthExpenses: expensesForMonth(now).where((e) => !e.isIncome).toList(),
       totalBudget: totalBudget,
       totalSpent: totalSpent,
       remainingBudget: remainingBudget,
@@ -427,7 +447,7 @@ class HomeProvider extends ChangeNotifier {
 
   List<ExpenseModel> expensesLast30Days(DateTime now) {
     final start = now.subtract(const Duration(days: 30));
-    return _expenses.where((e) => e.date.isAfter(start)).toList();
+    return _expenses.where((e) => e.date.isAfter(start) && !e.isIncome).toList();
   }
 
   AutoBudgetRecommendation autoBudgetRecommendation(DateTime now) {
@@ -442,7 +462,7 @@ class HomeProvider extends ChangeNotifier {
     }
 
     return subscriptionDetectorService.detect(
-      expenses: List<ExpenseModel>.from(_expenses),
+      expenses: List<ExpenseModel>.from(_expenses.where((e) => !e.isIncome)),
     );
   }
 
@@ -475,7 +495,7 @@ class HomeProvider extends ChangeNotifier {
 
   double spentForCategoryThisMonth(DateTime now, ExpenseCategory category) {
     return expensesForMonth(now)
-        .where((e) => e.category == category)
+        .where((e) => !e.isIncome && e.category == category)
         .fold<double>(0, (sum, e) => sum + e.amount);
   }
 
@@ -512,7 +532,7 @@ class HomeProvider extends ChangeNotifier {
 
   MonthlyReportModel monthlyReport(DateTime now) {
     return monthlyReportService.generate(
-      monthExpenses: expensesForMonth(now),
+      monthExpenses: expensesForMonth(now).where((e) => !e.isIncome).toList(),
       incomeProfile: _incomeProfile,
       budget: _budget?.totalBudget ?? 0,
       healthScore: healthScoreFor(now),
@@ -569,7 +589,7 @@ class HomeProvider extends ChangeNotifier {
     return cashflowTimelineService.buildTimeline(
       now: now,
       salaryDay: _salaryDay,
-      monthlyIncome: _incomeProfile?.monthlyIncome ?? 0,
+      monthlyIncome: _incomeProfile?.expectedMonthlyIncome ?? 0,
       recurringBills: _recurringBills,
       daysAhead: 30,
     );

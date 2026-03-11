@@ -1,20 +1,29 @@
 import '../../data/models/income_profile_model.dart';
 
 class LifeValueService {
+
+  /// Считает, сколько часов жизни потрачено
   double calculateHoursSpent({
     required double amount,
     required IncomeProfileModel profile,
+    double? actualIncomeThisMonth,
   }) {
-    if (profile.hourlyIncome <= 0) return 0;
-    return amount / profile.hourlyIncome;
+    final minuteValue = profile.valuePerMinute(actualIncomeThisMonth: actualIncomeThisMonth);
+    if (minuteValue <= 0) return 0.0;
+
+    return amount / (minuteValue * 60);
   }
 
+  /// Возвращает удобный объект Duration (Часы и Минуты)
   Duration calculateDurationSpent({
     required double amount,
     required IncomeProfileModel profile,
+    double? actualIncomeThisMonth,
   }) {
-    final hours = calculateHoursSpent(amount: amount, profile: profile);
-    final totalMinutes = (hours * 60).round();
+    final minuteValue = profile.valuePerMinute(actualIncomeThisMonth: actualIncomeThisMonth);
+    if (minuteValue <= 0) return Duration.zero;
+
+    final totalMinutes = (amount / minuteValue).round();
     return Duration(minutes: totalMinutes);
   }
 }

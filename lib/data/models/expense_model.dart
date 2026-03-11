@@ -6,7 +6,7 @@ class ExpenseModel {
   final double amount;
   final String currency;
   final ExpenseCategory category;
-  final String? customCategoryId; // <-- ДОБАВЛЕНО: Ссылка на созданную категорию
+  final String? customCategoryId;
   final String merchant;
   final String? note;
   final DateTime date;
@@ -15,12 +15,15 @@ class ExpenseModel {
   final String? recurringGroupId;
   final DateTime createdAt;
 
+  // ДОБАВЛЕНО: Флаг дохода
+  final bool isIncome;
+
   const ExpenseModel({
     required this.id,
     required this.amount,
     required this.currency,
     required this.category,
-    this.customCategoryId, // <-- Добавлено в конструктор
+    this.customCategoryId,
     required this.merchant,
     required this.note,
     required this.date,
@@ -28,6 +31,7 @@ class ExpenseModel {
     required this.isRecurring,
     required this.recurringGroupId,
     required this.createdAt,
+    this.isIncome = false, // По умолчанию это расход, старые данные не сломаются
   });
 
   ExpenseModel copyWith({
@@ -43,6 +47,7 @@ class ExpenseModel {
     bool? isRecurring,
     String? recurringGroupId,
     DateTime? createdAt,
+    bool? isIncome,
   }) {
     return ExpenseModel(
       id: id ?? this.id,
@@ -57,6 +62,7 @@ class ExpenseModel {
       isRecurring: isRecurring ?? this.isRecurring,
       recurringGroupId: recurringGroupId ?? this.recurringGroupId,
       createdAt: createdAt ?? this.createdAt,
+      isIncome: isIncome ?? this.isIncome,
     );
   }
 }
