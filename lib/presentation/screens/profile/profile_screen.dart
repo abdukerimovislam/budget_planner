@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart'; // <-- ДОБАВЛЕНО ДЛЯ ВИБРАЦИИ
 import 'package:provider/provider.dart';
 
 import '../../../app/app_state.dart';
@@ -9,13 +10,54 @@ import '../../../l10n/app_localizations.dart';
 import '../../monthly_report/monthly_report_screen.dart';
 import '../../providers/home_provider.dart';
 import '../../widgets/financial_level_card.dart';
-import '../../widgets/premium_background.dart'; // <-- ИМПОРТ ФОНА
+import '../../widgets/premium_background.dart';
 import '../../widgets/streak_card.dart';
 import '../achievements/achievements_screen.dart';
 import '../premium/premium_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
+
+  String _t(BuildContext context, String en, String ru) {
+    final isRu = Localizations.localeOf(context).languageCode == 'ru';
+    return isRu ? ru : en;
+  }
+
+  void _showCurrencyPicker(BuildContext context, HomeProvider provider) {
+    final currencies = ['USD', 'EUR', 'GBP', 'RUB', 'KZT', 'KGS', 'UZS', 'UAH', 'BYN'];
+    final currentCurrency = provider.incomeProfile?.currency ?? 'USD';
+    int selectedIndex = currencies.indexOf(currentCurrency);
+    if (selectedIndex == -1) selectedIndex = 0;
+
+    HapticFeedback.lightImpact();
+
+    showCupertinoModalPopup(
+      context: context,
+      builder: (_) => Container(
+        height: 250,
+        color: Theme.of(context).colorScheme.surface,
+        child: SafeArea(
+          top: false,
+          child: CupertinoPicker(
+            itemExtent: 40,
+            scrollController: FixedExtentScrollController(initialItem: selectedIndex),
+            onSelectedItemChanged: (index) {
+              HapticFeedback.selectionClick();
+              if (provider.incomeProfile != null) {
+                // СОХРАНЯЕМ НОВУЮ ВАЛЮТУ В ПРОФИЛЬ
+                provider.setIncomeProfile(
+                    provider.incomeProfile!.copyWith(currency: currencies[index])
+                );
+              }
+            },
+            children: currencies.map((c) => Center(
+              child: Text(c, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w600)),
+            )).toList(),
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -25,18 +67,16 @@ class ProfileScreen extends StatelessWidget {
     final streak = provider.streakSummary();
     final report = provider.monthlyReport(DateTime.now());
     final isPremium = provider.isPremium;
+    final currentCurrency = provider.incomeProfile?.currency ?? 'USD';
 
-    // ОБОРАЧИВАЕМ ЭКРАН В НАШ ФОН
     return PremiumBackground(
       child: Scaffold(
-        // ПРОЗРАЧНЫЙ ФОН СКЭФФОЛДА
         backgroundColor: Colors.transparent,
         body: CustomScrollView(
           physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
           slivers: [
             SliverAppBar.large(
               stretch: true,
-              // ПРОЗРАЧНЫЙ АППБАР
               backgroundColor: Colors.transparent,
               surfaceTintColor: Colors.transparent,
               title: Text(
@@ -46,10 +86,7 @@ class ProfileScreen extends StatelessWidget {
             ),
 
             SliverPadding(
-              padding: EdgeInsets.symmetric(
-                horizontal: Responsive.cardPadding(context),
-                vertical: 16,
-              ),
+              padding: EdgeInsets.symmetric(horizontal: Responsive.cardPadding(context), vertical: 16),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
 
@@ -96,6 +133,17 @@ class ProfileScreen extends StatelessWidget {
                         iconColor: CupertinoColors.activeBlue,
                         title: l10n.language,
                         trailing: _buildLanguageSelector(context),
+                      ),
+                      // ДОБАВЛЕН ВЫБОР ВАЛЮТЫ В ПРОФИЛЬ
+                      _SettingsRow(
+                        icon: CupertinoIcons.money_dollar_circle_fill,
+                        iconColor: CupertinoColors.systemGreen,
+                        title: _t(context, 'Currency', 'Валюта'),
+                        trailing: Text(
+                          currentCurrency,
+                          style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5), fontSize: 16, fontWeight: FontWeight.w600),
+                        ),
+                        onTap: () => _showCurrencyPicker(context, provider),
                         isLast: true,
                       ),
                     ],
@@ -145,10 +193,7 @@ class ProfileScreen extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          currentLang,
-          style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5), fontSize: 16),
-        ),
+        Text(currentLang, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5), fontSize: 16)),
         const SizedBox(width: 4),
         PopupMenuButton<String>(
           icon: Icon(CupertinoIcons.chevron_up_chevron_down, size: 16, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
@@ -173,24 +218,13 @@ class ProfileScreen extends StatelessWidget {
         title: Text(l10n.clearDataDialogTitle),
         content: Text(l10n.clearDataDialogContent),
         actions: [
+          CupertinoDialogAction(isDefaultAction: true, child: Text(l10n.cancelButton), onPressed: () => Navigator.pop(ctx)),
           CupertinoDialogAction(
-            isDefaultAction: true,
-            child: Text(l10n.cancelButton),
-            onPressed: () => Navigator.pop(ctx),
-          ),
-          CupertinoDialogAction(
-            isDestructiveAction: true,
-            child: Text(l10n.deleteButton),
+            isDestructiveAction: true, child: Text(l10n.deleteButton),
             onPressed: () {
               context.read<HomeProvider>().clearAllData();
               Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(l10n.dataClearedMessage),
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  )
-              );
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.dataClearedMessage), behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
             },
           ),
         ],
@@ -209,12 +243,7 @@ class _SectionTitle extends StatelessWidget {
       padding: const EdgeInsets.only(left: 16, bottom: 6),
       child: Text(
         title,
-        style: TextStyle(
-          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-          fontWeight: FontWeight.w600,
-          fontSize: 13,
-          letterSpacing: 0.5,
-        ),
+        style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5), fontWeight: FontWeight.w600, fontSize: 13, letterSpacing: 0.5),
       ),
     );
   }
@@ -228,7 +257,6 @@ class _SettingsGroup extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        // ДЕЛАЕМ ФОН КАРТОЧКИ ПОЛУПРОЗРАЧНЫМ, ЧТОБЫ ПРОСВЕЧИВАЛ ГРАДИЕНТ
         color: Theme.of(context).colorScheme.surface.withOpacity(0.8),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5)),
@@ -239,25 +267,8 @@ class _SettingsGroup extends StatelessWidget {
 }
 
 class _SettingsRow extends StatelessWidget {
-  final IconData icon;
-  final Color iconColor;
-  final String title;
-  final String? subtitle;
-  final Color? textColor;
-  final Widget? trailing;
-  final VoidCallback? onTap;
-  final bool isLast;
-
-  const _SettingsRow({
-    required this.icon,
-    required this.iconColor,
-    required this.title,
-    this.subtitle,
-    this.textColor,
-    this.trailing,
-    this.onTap,
-    this.isLast = false,
-  });
+  final IconData icon; final Color iconColor; final String title; final String? subtitle; final Color? textColor; final Widget? trailing; final VoidCallback? onTap; final bool isLast;
+  const _SettingsRow({required this.icon, required this.iconColor, required this.title, this.subtitle, this.textColor, this.trailing, this.onTap, this.isLast = false});
 
   @override
   Widget build(BuildContext context) {
@@ -265,48 +276,22 @@ class _SettingsRow extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.vertical(
-          top: !isLast && childrenCountIsOne() ? const Radius.circular(20) : Radius.zero,
-          bottom: isLast ? const Radius.circular(20) : Radius.zero,
-        ),
+        borderRadius: BorderRadius.vertical(top: !isLast ? const Radius.circular(20) : Radius.zero, bottom: isLast ? const Radius.circular(20) : Radius.zero),
         child: Column(
           children: [
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: iconColor,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(icon, color: Colors.white, size: 20),
-                  ),
+                  Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: iconColor, borderRadius: BorderRadius.circular(8)), child: Icon(icon, color: Colors.white, size: 20)),
                   const SizedBox(width: 16),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                            title,
-                            style: TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w500,
-                              letterSpacing: -0.4,
-                              color: textColor ?? Theme.of(context).colorScheme.onSurface,
-                            )
-                        ),
+                        Text(title, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w500, letterSpacing: -0.4, color: textColor ?? Theme.of(context).colorScheme.onSurface)),
                         if (subtitle != null) ...[
-                          const SizedBox(height: 2),
-                          Text(
-                              subtitle!,
-                              style: TextStyle(
-                                fontSize: 13,
-                                letterSpacing: -0.1,
-                                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-                              )
-                          ),
+                          const SizedBox(height: 2), Text(subtitle!, style: TextStyle(fontSize: 13, letterSpacing: -0.1, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
                         ],
                       ],
                     ),
@@ -316,15 +301,10 @@ class _SettingsRow extends StatelessWidget {
                 ],
               ),
             ),
-            if (!isLast) Padding(
-              padding: const EdgeInsets.only(left: 56),
-              child: Divider(height: 1, color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5)),
-            ),
+            if (!isLast) Padding(padding: const EdgeInsets.only(left: 56), child: Divider(height: 1, color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5))),
           ],
         ),
       ),
     );
   }
-
-  bool childrenCountIsOne() => true;
 }

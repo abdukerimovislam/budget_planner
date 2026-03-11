@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/utils/category_extension.dart';
 import '../../data/models/expense_category.dart';
@@ -12,6 +13,7 @@ class ExpenseEditResult {
   final String note;
   final ExpenseCategory category;
   final DateTime date;
+  final bool isIncome; // <-- ДОБАВЛЕНО В РЕЗУЛЬТАТ
 
   const ExpenseEditResult({
     required this.amount,
@@ -19,6 +21,7 @@ class ExpenseEditResult {
     required this.note,
     required this.category,
     required this.date,
+    required this.isIncome,
   });
 }
 
@@ -41,6 +44,7 @@ class _ExpenseEditSheetState extends State<ExpenseEditSheet> {
 
   late ExpenseCategory _category;
   late DateTime _date;
+  late bool _isIncome; // <-- ДОБАВЛЕНО СОСТОЯНИЕ
 
   @override
   void initState() {
@@ -53,6 +57,7 @@ class _ExpenseEditSheetState extends State<ExpenseEditSheet> {
     _noteController = TextEditingController(text: widget.expense.note ?? '');
     _category = widget.expense.category;
     _date = widget.expense.date;
+    _isIncome = widget.expense.isIncome; // Берем начальное значение из транзакции
   }
 
   @override
@@ -100,6 +105,7 @@ class _ExpenseEditSheetState extends State<ExpenseEditSheet> {
         note: _noteController.text.trim(),
         category: _category,
         date: _date,
+        isIncome: _isIncome, // Сохраняем и передаем обратно
       ),
     );
   }
@@ -108,7 +114,7 @@ class _ExpenseEditSheetState extends State<ExpenseEditSheet> {
   String _categoryLabel(ExpenseCategory category) {
     final l10n = AppLocalizations.of(context);
 
-    if (widget.expense.isIncome) {
+    if (_isIncome) {
       switch (category) {
         case ExpenseCategory.other: return '💼 ${_t('Salary / Income', 'Зарплата / Доход')}';
         case ExpenseCategory.gifts: return '🎁 ${_t('Gift / Transfer', 'Подарок / Перевод')}';
@@ -138,13 +144,12 @@ class _ExpenseEditSheetState extends State<ExpenseEditSheet> {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
 
-    // ИСПРАВЛЕНИЕ ЛОВУШКИ: Динамический список категорий + сохранение Custom
-    List<ExpenseCategory> availableCategories = widget.expense.isIncome
+    List<ExpenseCategory> availableCategories = _isIncome
         ? [ExpenseCategory.other, ExpenseCategory.gifts]
         : ExpenseCategory.values.where((c) => c != ExpenseCategory.custom).toList();
 
     // Защита от краша Dropdown: если транзакция была "Своей категорией", мы обязаны добавить её в список
-    if (widget.expense.category == ExpenseCategory.custom && !availableCategories.contains(ExpenseCategory.custom)) {
+    if (_category == ExpenseCategory.custom && !availableCategories.contains(ExpenseCategory.custom)) {
       availableCategories.insert(0, ExpenseCategory.custom);
     }
 
@@ -180,9 +185,91 @@ class _ExpenseEditSheetState extends State<ExpenseEditSheet> {
 
             // ЗАГОЛОВОК
             Text(
-              widget.expense.isIncome ? _t('Edit Income', 'Редактировать доход') : l10n.expenseEditTitle,
+              _isIncome ? _t('Edit Income', 'Редактировать доход') : l10n.expenseEditTitle,
               style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
               textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+
+            // СВИТЧЕР ДОХОД/РАСХОД
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceVariant.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        if (_isIncome) {
+                          HapticFeedback.selectionClick();
+                          setState(() {
+                            _isIncome = false;
+                            // Сбрасываем на дефолтный расход, чтобы не осталась "Зарплата" в расходах
+                            if (_category == ExpenseCategory.other || _category == ExpenseCategory.gifts) {
+                              _category = ExpenseCategory.food;
+                            }
+                          });
+                        }
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          color: !_isIncome ? theme.colorScheme.surface : Colors.transparent,
+                          borderRadius: BorderRadius.circular(10),
+                          boxShadow: !_isIncome ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))] : [],
+                        ),
+                        child: Center(
+                          child: Text(
+                            _t('Expense', 'Расход'),
+                            style: TextStyle(
+                              fontWeight: !_isIncome ? FontWeight.w700 : FontWeight.w500,
+                              color: !_isIncome ? theme.colorScheme.onSurface : theme.colorScheme.onSurface.withOpacity(0.5),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        if (!_isIncome) {
+                          HapticFeedback.selectionClick();
+                          setState(() {
+                            _isIncome = true;
+                            // Если переключили на доход, ставим дефолт (Зарплата), если это не кастом
+                            if (_category != ExpenseCategory.custom) {
+                              _category = ExpenseCategory.other;
+                            }
+                          });
+                        }
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          color: _isIncome ? CupertinoColors.systemGreen : Colors.transparent,
+                          borderRadius: BorderRadius.circular(10),
+                          boxShadow: _isIncome ? [BoxShadow(color: CupertinoColors.systemGreen.withOpacity(0.3), blurRadius: 4, offset: const Offset(0, 2))] : [],
+                        ),
+                        child: Center(
+                          child: Text(
+                            _t('Income', 'Доход'),
+                            style: TextStyle(
+                              fontWeight: _isIncome ? FontWeight.w700 : FontWeight.w500,
+                              color: _isIncome ? Colors.white : theme.colorScheme.onSurface.withOpacity(0.5),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 32),
 
@@ -192,14 +279,14 @@ class _ExpenseEditSheetState extends State<ExpenseEditSheet> {
               label: l10n.previewAmount,
               icon: CupertinoIcons.money_dollar,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              color: widget.expense.isIncome ? CupertinoColors.systemGreen : theme.colorScheme.primary,
+              color: _isIncome ? CupertinoColors.systemGreen : theme.colorScheme.primary,
             ),
             const SizedBox(height: 16),
 
             // ИСТОЧНИК / ПРОДАВЕЦ
             _buildTextField(
               controller: _merchantController,
-              label: widget.expense.isIncome ? _t('Source', 'Источник') : l10n.previewMerchant,
+              label: _isIncome ? _t('Source', 'Источник') : l10n.previewMerchant,
               icon: CupertinoIcons.building_2_fill,
             ),
             const SizedBox(height: 16),
@@ -276,7 +363,7 @@ class _ExpenseEditSheetState extends State<ExpenseEditSheet> {
               onPressed: _save,
               style: FilledButton.styleFrom(
                 minimumSize: const Size.fromHeight(56),
-                backgroundColor: widget.expense.isIncome ? CupertinoColors.systemGreen : theme.colorScheme.primary,
+                backgroundColor: _isIncome ? CupertinoColors.systemGreen : theme.colorScheme.primary,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               ),
               child: Text(

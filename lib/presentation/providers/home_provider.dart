@@ -256,6 +256,7 @@ class HomeProvider extends ChangeNotifier {
       note: result.note.isEmpty ? null : result.note,
       category: result.category,
       date: result.date,
+      isIncome: result.isIncome, // <-- ДОБАВЛЕНА ЭТА СТРОКА!
     );
 
     await LocalStorageService.instance.saveExpenses(_expenses);

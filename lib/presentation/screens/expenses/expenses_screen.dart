@@ -15,7 +15,7 @@ import '../../widgets/adaptive_page_padding.dart';
 import '../../widgets/expense_edit_sheet.dart';
 import '../../widgets/expense_filter_bar.dart';
 import '../../widgets/expense_item_card.dart';
-import '../../widgets/premium_background.dart'; // <-- ИМПОРТ ФОНА
+import '../../widgets/premium_background.dart';
 
 class ExpensesScreen extends StatefulWidget {
   const ExpensesScreen({super.key});
@@ -161,6 +161,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
             merchant: expense.merchant,
             note: expense.note ?? '',
             date: expense.date,
+            isIncome: expense.isIncome, // <-- ИСПРАВЛЕНИЕ ЗДЕСЬ! Передаем статус дохода
           ),
         );
       }
@@ -220,7 +221,6 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
             physics: const BouncingScrollPhysics(),
             children: [
               if (!_isSelectionMode) ...[
-                // Фильтры в стильной полупрозрачной карточке
                 Container(
                   margin: const EdgeInsets.only(bottom: 24),
                   padding: const EdgeInsets.all(16),
@@ -258,7 +258,6 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                   ),
                 )
               else
-              // Единый блок-список транзакций (Apple Wallet Style)
                 Container(
                   decoration: BoxDecoration(
                     color: colorScheme.surface.withOpacity(0.8),
