@@ -69,6 +69,7 @@ class VoiceInputService {
     _recognizedText = '';
     _lastError = null;
 
+    // ИСПРАВЛЕНИЕ: Использование современного API (SpeechListenOptions)
     await _speech.listen(
       onResult: (result) {
         _recognizedText = result.recognizedWords;
@@ -76,9 +77,11 @@ class VoiceInputService {
       listenFor: listenFor,
       pauseFor: pauseFor,
       localeId: localeId.isEmpty ? null : localeId,
-      partialResults: true,
-      cancelOnError: true,
-      listenMode: ListenMode.confirmation,
+      listenOptions: SpeechListenOptions(
+        partialResults: true,
+        cancelOnError: true,
+        listenMode: ListenMode.confirmation,
+      ),
     );
 
     _isListening = true;

@@ -13,15 +13,13 @@ class AppTheme {
       secondary: AppColors.secondary,
       onSecondary: AppColors.onSecondary,
       error: AppColors.error,
-      background: AppColors.backgroundLight,
       surface: AppColors.surfaceLight,
-      surfaceVariant: AppColors.surfaceVariantLight,
-      onBackground: AppColors.textLight,
+      surfaceContainerHighest: AppColors.surfaceVariantLight,
       onSurface: AppColors.textLight,
       brightness: Brightness.light,
     );
 
-    return _buildTheme(colorScheme);
+    return _buildTheme(colorScheme, AppColors.backgroundLight);
   }
 
   static ThemeData dark() {
@@ -32,18 +30,16 @@ class AppTheme {
       secondary: AppColors.secondary,
       onSecondary: AppColors.onSecondary,
       error: AppColors.error,
-      background: AppColors.backgroundDark,
       surface: AppColors.surfaceDark,
-      surfaceVariant: AppColors.surfaceVariantDark,
-      onBackground: AppColors.textDark,
+      surfaceContainerHighest: AppColors.surfaceVariantDark,
       onSurface: AppColors.textDark,
       brightness: Brightness.dark,
     );
 
-    return _buildTheme(colorScheme);
+    return _buildTheme(colorScheme, AppColors.backgroundDark);
   }
 
-  static ThemeData _buildTheme(ColorScheme colorScheme) {
+  static ThemeData _buildTheme(ColorScheme colorScheme, Color backgroundColor) {
     final isLight = colorScheme.brightness == Brightness.light;
     final textColor = isLight ? AppColors.textLight : AppColors.textDark;
     final textFaded = isLight ? AppColors.textFadedLight : AppColors.textFadedDark;
@@ -51,14 +47,14 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
-      scaffoldBackgroundColor: colorScheme.background,
-      fontFamily: 'Inter', // Если у тебя подключен шрифт, если нет - Flutter использует системный (San Francisco/Roboto), что тоже отлично
+      scaffoldBackgroundColor: backgroundColor,
+      fontFamily: 'Inter',
 
       appBarTheme: AppBarTheme(
-        backgroundColor: colorScheme.background,
+        backgroundColor: backgroundColor,
         elevation: 0,
         centerTitle: true,
-        scrolledUnderElevation: 0, // Убирает затемнение при скролле
+        scrolledUnderElevation: 0,
         iconTheme: IconThemeData(color: textColor),
         titleTextStyle: TextStyle(
           color: textColor,
@@ -70,12 +66,12 @@ class AppTheme {
 
       cardTheme: CardThemeData(
         color: colorScheme.surface,
-        elevation: 0, // Никаких грязных теней
+        elevation: 0,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
           borderRadius: AppRadii.lgBorder,
           side: BorderSide(
-            color: colorScheme.surfaceVariant.withOpacity(isLight ? 0.5 : 0.1),
+            color: colorScheme.surfaceContainerHighest.withValues(alpha: isLight ? 0.5 : 0.1),
             width: 1,
           ),
         ),
@@ -97,7 +93,7 @@ class AppTheme {
           backgroundColor: colorScheme.primary,
           foregroundColor: colorScheme.onPrimary,
           elevation: 0,
-          minimumSize: const Size(double.infinity, 56), // Большие удобные кнопки
+          minimumSize: const Size(double.infinity, 56),
           shape: const RoundedRectangleBorder(borderRadius: AppRadii.mdBorder),
           textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
@@ -113,14 +109,14 @@ class AppTheme {
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: AppRadii.mdBorder,
-          borderSide: BorderSide(color: colorScheme.surfaceVariant, width: 1),
+          borderSide: BorderSide(color: colorScheme.surfaceContainerHighest, width: 1),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: AppRadii.mdBorder,
           borderSide: BorderSide(color: colorScheme.primary, width: 2),
         ),
         labelStyle: TextStyle(color: textFaded),
-        hintStyle: TextStyle(color: textFaded.withOpacity(0.5)),
+        hintStyle: TextStyle(color: textFaded.withValues(alpha: 0.5)),
       ),
 
       bottomSheetTheme: BottomSheetThemeData(
@@ -134,9 +130,9 @@ class AppTheme {
       navigationBarTheme: NavigationBarThemeData(
         elevation: 0,
         backgroundColor: colorScheme.surface,
-        indicatorColor: colorScheme.primary.withOpacity(0.1),
-        labelTextStyle: MaterialStateProperty.resolveWith((states) {
-          if (states.contains(MaterialState.selected)) {
+        indicatorColor: colorScheme.primary.withValues(alpha: 0.1),
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
             return TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: colorScheme.primary);
           }
           return TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: textFaded);

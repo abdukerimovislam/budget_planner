@@ -5,8 +5,8 @@ import '../../models/budget_model.dart';
 import '../../models/expense_model.dart';
 import '../../models/income_profile_model.dart';
 import '../../models/custom_category_model.dart';
-import '../../models/saving_goal_model.dart'; // <-- ИМПОРТ ЦЕЛЕЙ
-import '../../models/recurring_bill_model.dart'; // <-- ИМПОРТ ПОДПИСОК
+import '../../models/saving_goal_model.dart';
+import '../../models/recurring_bill_model.dart';
 import '../../models/model_serializers.dart';
 
 class LocalStorageService {
@@ -91,9 +91,8 @@ class LocalStorageService {
     await _box.put(StorageKeys.customCategories, data);
   }
 
-  // --- НОВЫЕ МЕТОДЫ: ЦЕЛИ ---
   SavingsGoalModel? getSavingsGoal() {
-    final map = _box.get('savingsGoal'); // Ключ напрямую, так как мы не добавляли его в StorageKeys
+    final map = _box.get('savingsGoal');
     if (map is Map) {
       return SavingsGoalModelSerializer.fromMap(map);
     }
@@ -108,7 +107,6 @@ class LocalStorageService {
     await _box.delete('savingsGoal');
   }
 
-  // --- НОВЫЕ МЕТОДЫ: ПОДПИСКИ ---
   List<RecurringBillModel> getRecurringBills() {
     final rawList = _box.get('recurringBills', defaultValue: <dynamic>[]) as List<dynamic>;
     return rawList
@@ -122,13 +120,69 @@ class LocalStorageService {
     await _box.put('recurringBills', data);
   }
 
-  // --- ДЕНЬ ЗАРПЛАТЫ ---
   int? getSalaryDay() {
     return _box.get('salaryDay') as int?;
   }
 
   Future<void> saveSalaryDay(int day) async {
     await _box.put('salaryDay', day);
+  }
+
+  // =======================================================
+  // НОВЫЕ МЕТОДЫ: ЗАЩИТА AI ОТ СПАМА (КВОТЫ)
+  // =======================================================
+
+  static const int _dailyParserLimit = 50; // Максимум 50 запросов парсера в день
+  static const int _dailyAdvisorLimit = 5; // Максимум 5 советов от ИИ в день
+
+  /// Проверяет, не исчерпан ли лимит на парсинг транзакций
+  bool canUseAiParser() {
+    final lastDateStr = _box.get('ai_parser_date') as String?;
+    final count = _box.get('ai_parser_count', defaultValue: 0) as int;
+    final todayStr = DateTime.now().toIso8601String().split('T').first;
+
+    if (lastDateStr != todayStr) return true; // Новый день — новые лимиты
+    return count < _dailyParserLimit;
+  }
+
+  /// Увеличивает счетчик использований парсера
+  Future<void> incrementAiParserUsage() async {
+    final lastDateStr = _box.get('ai_parser_date') as String?;
+    final todayStr = DateTime.now().toIso8601String().split('T').first;
+    int count = _box.get('ai_parser_count', defaultValue: 0) as int;
+
+    if (lastDateStr != todayStr) {
+      count = 1;
+      await _box.put('ai_parser_date', todayStr);
+    } else {
+      count++;
+    }
+    await _box.put('ai_parser_count', count);
+  }
+
+  /// Проверяет, не исчерпан ли лимит на советы от ИИ (AI Advisor)
+  bool canUseAiAdvisor() {
+    final lastDateStr = _box.get('ai_advisor_date') as String?;
+    final count = _box.get('ai_advisor_count', defaultValue: 0) as int;
+    final todayStr = DateTime.now().toIso8601String().split('T').first;
+
+    if (lastDateStr != todayStr) return true;
+    return count < _dailyAdvisorLimit;
+  }
+
+  /// Увеличивает счетчик использований советника
+  Future<void> incrementAiAdvisorUsage() async {
+    final lastDateStr = _box.get('ai_advisor_date') as String?;
+    final todayStr = DateTime.now().toIso8601String().split('T').first;
+    int count = _box.get('ai_advisor_count', defaultValue: 0) as int;
+
+    if (lastDateStr != todayStr) {
+      count = 1;
+      await _box.put('ai_advisor_date', todayStr);
+    } else {
+      count++;
+    }
+    await _box.put('ai_advisor_count', count);
   }
 
   Future<void> clearAll() async {

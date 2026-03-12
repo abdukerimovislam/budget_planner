@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'dart:math'; // <-- ДОБАВЛЕНО: для умного расчета дохода
 
 enum IncomeType {

@@ -4,30 +4,27 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-import '../../../app/theme/app_spacing.dart';
 import '../../../core/utils/category_extension.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../data/models/expense_category.dart';
 import '../../../data/models/expense_model.dart';
-import '../../../data/models/expense_source_type.dart';
 import '../../../data/models/insight_model.dart';
 import '../../../data/models/insight_type.dart';
 import '../../../domain/services/premium_feature.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../providers/home_provider.dart';
 import '../../widgets/action_plan_card.dart';
-import '../../widgets/adaptive_page_padding.dart';
 import '../../widgets/apple_section_header.dart';
 import '../../widgets/expense_item_card.dart';
 import '../../widgets/hero_dashboard_card.dart';
 import '../../widgets/insight_card.dart';
 import '../../widgets/morphing_fab.dart';
 import '../../widgets/premium_background.dart';
-import '../../widgets/premium_lock_card.dart';
 import '../../widgets/quick_add_chips.dart';
 import '../../widgets/spending_pace_card.dart';
 import '../add_expense/add_expense_screen.dart';
-import '../analytics/analytics_screen.dart';
+// ИСПРАВЛЕНИЕ: Импортируем правильный экран для AI Advisor
+import '../ai_advisor/ai_advisor_screen.dart';
 import '../expenses/expenses_screen.dart';
 import '../premium/premium_screen.dart';
 import '../profile/profile_screen.dart';
@@ -108,7 +105,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(width: 48, height: 4, decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceVariant, borderRadius: BorderRadius.circular(4))),
+              Container(width: 48, height: 4, decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(4))),
               const SizedBox(height: 24),
               InsightCard(insight: insight),
               const SizedBox(height: 24),
@@ -162,7 +159,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return sections;
   }
 
-  // НОВОЕ: ВЫБОР АКТИВНОГО СЧЕТА (МУЛЬТИВАЛЮТНОСТЬ)
   void _showCurrencyAccountSelector(BuildContext context, HomeProvider provider) {
     if (!provider.canUseFeature(PremiumFeature.multiCurrency)) {
       Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const PremiumScreen()));
@@ -170,7 +166,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     final available = provider.availableUserCurrencies;
-    if (available.length <= 1) return; // Нет смысла показывать, если только одна валюта
+    if (available.length <= 1) return;
 
     HapticFeedback.lightImpact();
     int initialIndex = available.indexOf(provider.activeCurrency);
@@ -187,7 +183,7 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                child: Text('Select Account', style: TextStyle(fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
+                child: Text('Select Account', style: TextStyle(fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5))),
               ),
               Expanded(
                 child: CupertinoPicker(
@@ -234,7 +230,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final safeToSpendDaily = forecast != null && forecast.expectedRemaining > 0
         ? forecast.expectedRemaining / daysLeft : 0.0;
 
-    // ПЕРЕМЕННЫЕ ДЛЯ КНОПКИ ВАЛЮТЫ
     final activeCurrency = provider.activeCurrency;
     final hasMultipleCurrencies = provider.availableUserCurrencies.length > 1;
     final hasPremium = provider.canUseFeature(PremiumFeature.multiCurrency);
@@ -265,7 +260,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
                     actions: [
-                      // НОВОЕ: ПЕРЕКЛЮЧАТЕЛЬ СЧЕТОВ НА APPBAR
                       Padding(
                         padding: const EdgeInsets.only(right: 8.0),
                         child: GestureDetector(
@@ -275,7 +269,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             decoration: BoxDecoration(
                               color: Theme.of(context).colorScheme.surface,
                               borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: Theme.of(context).colorScheme.surfaceVariant),
+                              border: Border.all(color: Theme.of(context).colorScheme.surfaceContainerHighest),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -290,7 +284,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                                 if (hasPremium && hasMultipleCurrencies) ...[
                                   const SizedBox(width: 4),
-                                  Icon(CupertinoIcons.chevron_up_chevron_down, size: 12, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
+                                  Icon(CupertinoIcons.chevron_up_chevron_down, size: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5)),
                                 ]
                               ],
                             ),
@@ -335,7 +329,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                 child: HeroDashboardCard(
                                   metal: CardMetal.platinum,
                                   label: _showRemaining ? l10n.leftToSpend : l10n.spentThisMonth.toUpperCase(),
-                                  // ИСПРАВЛЕНИЕ: ДОБАВЛЯЕМ ВАЛЮТУ ПРЯМО НА ГЛАВНУЮ КАРТОЧКУ
                                   value: '${_formatNumber(_showRemaining ? (forecast?.expectedRemaining ?? 0) : totalSpent)} $activeCurrency',
                                   isWarning: _showRemaining && (forecast?.isOverBudget ?? false),
                                   bottomWidget: _GlassMetricRow(
@@ -352,7 +345,6 @@ class _HomeScreenState extends State<HomeScreen> {
                               HeroDashboardCard(
                                 metal: CardMetal.gold,
                                 label: l10n.safeToSpendToday,
-                                // ВАЛЮТА ЗДЕСЬ ТОЖЕ
                                 value: '${_formatNumber(safeToSpendDaily)} $activeCurrency',
                                 withSparkline: true,
                                 bottomWidget: _GlassTextBanner(text: l10n.keepPaceBudget, isGold: true),
@@ -369,7 +361,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             margin: const EdgeInsets.symmetric(horizontal: 4),
                             height: 6, width: _currentHeroPage == index ? 24 : 6,
                             decoration: BoxDecoration(
-                              color: _currentHeroPage == index ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface.withOpacity(0.2),
+                              color: _currentHeroPage == index ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(4),
                             ),
                           )),
@@ -394,8 +386,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             title: l10n.aiInsightsTitle,
                             action: 'Ask AI',
                             onActionTap: () {
+                              // ИСПРАВЛЕНИЕ: ВЕДЕМ НА ЭКРАН AI ADVISOR!
                               Navigator.of(context).push(
-                                CupertinoPageRoute(builder: (_) => const AnalyticsScreen()),
+                                CupertinoPageRoute(builder: (_) => const AiAdvisorScreen()),
                               );
                             },
                           ),
@@ -420,9 +413,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                     width: 260,
                                     padding: const EdgeInsets.all(20),
                                     decoration: BoxDecoration(
-                                      color: Theme.of(context).colorScheme.surface.withOpacity(0.8),
+                                      color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.8),
                                       borderRadius: BorderRadius.circular(28),
-                                      border: Border.all(color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5)),
+                                      border: Border.all(color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)),
                                     ),
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -431,7 +424,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                           children: [
                                             Container(
                                               padding: const EdgeInsets.all(8),
-                                              decoration: BoxDecoration(color: color.withOpacity(0.15), shape: BoxShape.circle),
+                                              decoration: BoxDecoration(color: color.withValues(alpha: 0.15), shape: BoxShape.circle),
                                               child: Icon(icon, color: color, size: 16),
                                             ),
                                             const SizedBox(width: 12),
@@ -486,7 +479,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         SizedBox(height: itemGap),
                         if (latestExpenses.isNotEmpty)
                           Container(
-                            decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface.withOpacity(0.8), borderRadius: BorderRadius.circular(24), border: Border.all(color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5))),
+                            decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.8), borderRadius: BorderRadius.circular(24), border: Border.all(color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5))),
                             child: Column(
                               children: _buildSections(context, latestExpenses).expand((section) {
                                 return [
@@ -496,7 +489,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     child: Text(
                                       section.title.toUpperCase(),
                                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
                                         fontWeight: FontWeight.w700,
                                         letterSpacing: 1.2,
                                       ),
@@ -519,7 +512,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                           onDismissed: (_) => context.read<HomeProvider>().deleteExpense(expense.id),
                                           child: ExpenseItemCard(expense: expense, incomeProfile: provider.incomeProfile, onTap: () => provider.openExpenseEditor(context, expense)),
                                         ),
-                                        if (!isLast) Padding(padding: const EdgeInsets.only(left: 64), child: Divider(height: 1, color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5))),
+                                        if (!isLast) Padding(padding: const EdgeInsets.only(left: 64), child: Divider(height: 1, color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5))),
                                       ],
                                     );
                                   }),
@@ -531,9 +524,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         if (latestExpenses.isEmpty)
                           Container(
                             padding: const EdgeInsets.all(32),
-                            decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface.withOpacity(0.8), borderRadius: BorderRadius.circular(24), border: Border.all(color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5))),
+                            decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.8), borderRadius: BorderRadius.circular(24), border: Border.all(color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5))),
                             child: Center(
-                              child: Text('No transactions in $activeCurrency yet', style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
+                              child: Text('No transactions in $activeCurrency yet', style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5))),
                             ),
                           ),
 
@@ -583,14 +576,14 @@ class _GlassMetricRow extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-              color: isGold ? Colors.white.withOpacity(0.3) : Colors.white.withOpacity(0.1),
+              color: isGold ? Colors.white.withValues(alpha: 0.3) : Colors.white.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.white.withOpacity(isGold ? 0.4 : 0.1), width: 1)
+              border: Border.all(color: Colors.white.withValues(alpha: isGold ? 0.4 : 0.1), width: 1)
           ),
           child: Row(
             children: [
               Expanded(child: _buildItem(leftIcon, leftLabel, leftValue, isGold ? CupertinoColors.systemRed : CupertinoColors.systemPink, textColor, subTextColor)),
-              Container(width: 1, height: 35, color: textColor.withOpacity(0.2)),
+              Container(width: 1, height: 35, color: textColor.withValues(alpha: 0.2)),
               const SizedBox(width: 16),
               Expanded(child: _buildItem(rightIcon, rightLabel, rightValue, isGold ? CupertinoColors.systemBlue : CupertinoColors.activeBlue, textColor, subTextColor)),
             ],
@@ -627,8 +620,8 @@ class _GlassTextBanner extends StatelessWidget {
         child: Container(
           width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
           decoration: BoxDecoration(
-              color: isGold ? Colors.white.withOpacity(0.3) : Colors.white.withOpacity(0.1),
-              border: Border.all(color: Colors.white.withOpacity(isGold ? 0.4 : 0.1), width: 1)
+              color: isGold ? Colors.white.withValues(alpha: 0.3) : Colors.white.withValues(alpha: 0.1),
+              border: Border.all(color: Colors.white.withValues(alpha: isGold ? 0.4 : 0.1), width: 1)
           ),
           child: Row(children: [
             Icon(CupertinoIcons.sparkles, color: isGold ? Colors.deepOrange : Colors.amber, size: 16),

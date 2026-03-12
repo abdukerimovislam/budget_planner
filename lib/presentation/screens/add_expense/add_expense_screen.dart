@@ -1,3 +1,4 @@
+import 'dart:async'; // Для Timer
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
@@ -70,14 +71,16 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   bool _isVoiceLoading = false;
   bool _isVoiceListening = false;
   String _voicePreviewText = '';
-  List<LocaleName> _availableLocales = const [];
   String? _selectedLocaleId;
 
   bool _isReceiptLoading = false;
   String _receiptPreviewText = '';
-  XFile? _pickedReceiptFile;
 
   bool _isConverting = false;
+
+  // НОВОЕ: Для ИИ парсера
+  bool _isAiParsing = false;
+  Timer? _debounceTimer;
 
   @override
   void initState() {
@@ -110,7 +113,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Инициализируем голос в didChangeDependencies, чтобы иметь доступ к контексту и локали
     _initVoice();
   }
 
@@ -126,23 +128,19 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       final locales = await _voiceInputService.locales();
       if (!mounted) return;
       setState(() {
-        _availableLocales = locales;
         _selectedLocaleId = _pickPreferredLocale(locales, context);
       });
     }
   }
 
-  // ИСПРАВЛЕНИЕ БАГА №9 (Russian Bias в голосе)
   String? _pickPreferredLocale(List<LocaleName> locales, BuildContext context) {
     if (locales.isEmpty) return null;
     final currentLang = Localizations.localeOf(context).languageCode.toLowerCase();
 
-    // Сначала ищем язык, который совпадает с языком интерфейса
     for (final locale in locales) {
       if (locale.localeId.toLowerCase().startsWith(currentLang)) return locale.localeId;
     }
 
-    // Fallback на английский
     for (final locale in locales) {
       if (locale.localeId.toLowerCase().startsWith('en')) return locale.localeId;
     }
@@ -152,42 +150,91 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _smartInputController.dispose();
     _voiceInputService.cancelListening();
     _receiptScanService.dispose();
     super.dispose();
   }
 
+  // ОБНОВЛЕННЫЙ МЕТОД ПАРСИНГА С ИИ (С ДЕБАУНСОМ)
   void _parseInput() {
-    final parsed = _parser.parse(_smartInputController.text);
+    final text = _smartInputController.text;
+
+    // 1. Мгновенный локальный парсинг для отзывчивости интерфейса
+    final localParsed = _parser.parse(text);
     setState(() {
       final hasPremium = context.read<HomeProvider>().canUseFeature(PremiumFeature.multiCurrency);
-      if (parsed.currency != null && hasPremium) {
-        _selectedCurrency = parsed.currency!;
+      if (localParsed.currency != null && hasPremium) {
+        _selectedCurrency = localParsed.currency!;
       }
 
       _parsed = ParsedExpenseInputModel(
-        amount: parsed.amount,
-        currency: hasPremium ? (parsed.currency ?? _selectedCurrency) : _userCurrency,
-        category: _selectedCategory ?? parsed.category ?? widget.initialCategory ?? ExpenseCategory.other,
-        merchant: parsed.merchant,
-        rawText: parsed.rawText,
+        amount: localParsed.amount,
+        currency: hasPremium ? (localParsed.currency ?? _selectedCurrency) : _userCurrency,
+        category: _selectedCategory ?? localParsed.category ?? widget.initialCategory ?? ExpenseCategory.other,
+        merchant: localParsed.merchant,
+        rawText: localParsed.rawText,
       );
     });
+
+    // 2. Дебаунс для вызова ИИ (ждет 1.5 секунды после последнего нажатия)
+    _debounceTimer?.cancel();
+    if (text.trim().length > 3) {
+      _debounceTimer = Timer(const Duration(milliseconds: 1500), () async {
+        if (!mounted) return;
+
+        setState(() => _isAiParsing = true);
+
+        // Вызываем ИИ
+        final aiParsed = await _parser.parseWithAI(text, _selectedCurrency);
+
+        if (!mounted) return;
+
+        setState(() {
+          _isAiParsing = false;
+          final hasPremium = context.read<HomeProvider>().canUseFeature(PremiumFeature.multiCurrency);
+
+          if (aiParsed.currency != null && hasPremium) {
+            _selectedCurrency = aiParsed.currency!;
+          }
+
+          // Обновляем данные, отдавая приоритет тому, что нашел ИИ
+          _parsed = ParsedExpenseInputModel(
+            amount: aiParsed.amount ?? _parsed?.amount,
+            currency: hasPremium ? (aiParsed.currency ?? _selectedCurrency) : _userCurrency,
+            // Если ИИ уверенно нашел категорию, используем её. Если нет — оставляем ту, что выбрал юзер вручную
+            category: _selectedCategory != null ? _selectedCategory! : (aiParsed.category ?? ExpenseCategory.other),
+            merchant: aiParsed.merchant ?? _parsed?.merchant,
+            rawText: aiParsed.rawText,
+          );
+        });
+      });
+    }
   }
 
-  void _parseVoiceText(String text) {
-    final parsed = _parser.parse(text);
+  // ОБНОВЛЕНО: Подключен ИИ для голоса
+  Future<void> _parseVoiceText(String text) async {
+    setState(() {
+      _voicePreviewText = text;
+      _isAiParsing = true;
+    });
+
+    final aiParsed = await _parser.parseWithAI(text, _selectedCurrency);
+
+    if (!mounted) return;
+
     final hasPremium = context.read<HomeProvider>().canUseFeature(PremiumFeature.multiCurrency);
 
     setState(() {
-      _voicePreviewText = text;
-      if (parsed.currency != null && hasPremium) _selectedCurrency = parsed.currency!;
+      _isAiParsing = false;
+      if (aiParsed.currency != null && hasPremium) _selectedCurrency = aiParsed.currency!;
+
       _parsed = ParsedExpenseInputModel(
-        amount: parsed.amount,
-        currency: hasPremium ? (parsed.currency ?? _selectedCurrency) : _userCurrency,
-        category: _selectedCategory ?? parsed.category ?? widget.initialCategory ?? ExpenseCategory.other,
-        merchant: parsed.merchant,
+        amount: aiParsed.amount,
+        currency: hasPremium ? (aiParsed.currency ?? _selectedCurrency) : _userCurrency,
+        category: _selectedCategory ?? aiParsed.category ?? widget.initialCategory ?? ExpenseCategory.other,
+        merchant: aiParsed.merchant,
         rawText: text,
       );
     });
@@ -248,7 +295,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
             initialDateTime: _selectedDate,
             mode: CupertinoDatePickerMode.dateAndTime,
             use24hFormat: true,
-            // ИСПРАВЛЕНИЕ БАГА №10: Согласуем максимальную дату с экраном редактирования
             maximumDate: DateTime.now().add(const Duration(days: 365)),
             onDateTimeChanged: (val) => setState(() => _selectedDate = val),
           ),
@@ -349,43 +395,65 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   Future<void> _handleVoiceTap(BuildContext context) async {
     final l10n = AppLocalizations.of(context);
     HapticFeedback.lightImpact();
+
     if (_isVoiceListening) {
       setState(() => _isVoiceLoading = true);
       final result = await _voiceInputService.stopListening();
+
       if (!mounted) return;
+
       setState(() { _isVoiceLoading = false; _isVoiceListening = false; });
-      if (result.hasText) _parseVoiceText(result.recognizedText);
-      else if (result.errorMessage != null) _showSnack(context, l10n.voiceErrorMessage(result.errorMessage!));
+      if (result.hasText) {
+        await _parseVoiceText(result.recognizedText); // Дождаться парсинга ИИ
+      }
+      else if (result.errorMessage != null) {
+        _showSnack(context, l10n.voiceErrorMessage(result.errorMessage!));
+      }
       return;
     }
+
     setState(() => _isVoiceLoading = true);
     final result = await _voiceInputService.startListening(localeId: _selectedLocaleId ?? '');
+
     if (!mounted) return;
+
     setState(() { _isVoiceLoading = false; _isVoiceListening = result.isAvailable; });
     if (!result.isAvailable) _showSnack(context, l10n.voiceUnavailableMessage);
   }
 
   Future<void> _scanPickedFile(BuildContext context, XFile file) async {
     final l10n = AppLocalizations.of(context);
-    setState(() { _isReceiptLoading = true; _pickedReceiptFile = file; });
-    final ReceiptScanResultModel result = await _receiptScanService.scanFile(file);
+    setState(() { _isReceiptLoading = true; });
+    final result = await _receiptScanService.scanFile(file);
+
     if (!mounted) return;
     setState(() => _isReceiptLoading = false);
 
-    if (!result.isSuccess) { _showSnack(context, l10n.receiptScanErrorMessage(result.errorMessage ?? l10n.notAvailableShort)); return; }
-    if (!result.hasText) { _showSnack(context, l10n.receiptNoTextFoundMessage); return; }
+    if (!result.isSuccess) {
+      _showSnack(context, l10n.receiptScanErrorMessage(result.errorMessage ?? l10n.notAvailableShort));
+      return;
+    }
 
     _parseReceiptText(result.recognizedText);
     if (_receiptParsedData == null) return;
 
-    final review = await Navigator.of(context).push<ReceiptReviewModel>(CupertinoPageRoute(builder: (_) => ReceiptReviewScreen(parsedData: _receiptParsedData!)));
+    final review = await Navigator.of(context).push<ReceiptReviewModel>(
+        CupertinoPageRoute(builder: (_) => ReceiptReviewScreen(parsedData: _receiptParsedData!))
+    );
+
     if (!mounted || review == null) return;
 
     final hasPremium = context.read<HomeProvider>().canUseFeature(PremiumFeature.multiCurrency);
 
     setState(() {
       if (hasPremium && review.currency != null) _selectedCurrency = review.currency!;
-      _parsed = ParsedExpenseInputModel(amount: review.amount, currency: hasPremium ? _selectedCurrency : _userCurrency, category: review.category, merchant: review.merchant, rawText: review.rawText);
+      _parsed = ParsedExpenseInputModel(
+          amount: review.amount,
+          currency: hasPremium ? _selectedCurrency : _userCurrency,
+          category: review.category,
+          merchant: review.merchant,
+          rawText: review.rawText
+      );
       _receiptPreviewText = review.rawText;
     });
   }
@@ -483,7 +551,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     }
   }
 
-  bool get _canSave => _parsed != null && _parsed!.isValid;
+  bool get _canSave => _parsed != null && _parsed!.isValid && !_isAiParsing;
 
   @override
   Widget build(BuildContext context) {
@@ -502,7 +570,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     return Scaffold(
       backgroundColor: backgroundColor,
       appBar: CupertinoNavigationBar(
-        backgroundColor: backgroundColor.withOpacity(0.8),
+        backgroundColor: backgroundColor.withValues(alpha: 0.8),
         middle: AnimatedSwitcher(
           duration: const Duration(milliseconds: 200),
           child: Text(
@@ -519,7 +587,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         trailing: CupertinoButton(
           padding: EdgeInsets.zero,
           onPressed: _canSave ? () => _saveExpense(context) : null,
-          child: Text(
+          child: _isAiParsing
+              ? CupertinoActivityIndicator(radius: 10, color: theme.colorScheme.primary)
+              : Text(
             l10n.saveExpenseButton,
             style: TextStyle(fontWeight: FontWeight.w700, color: _canSave ? theme.colorScheme.primary : CupertinoColors.systemGrey),
           ),
@@ -580,7 +650,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceVariant.withOpacity(0.5),
+                      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
@@ -595,7 +665,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: theme.colorScheme.onSurface),
                         ),
                         const SizedBox(width: 4),
-                        Icon(CupertinoIcons.chevron_down, size: 14, color: theme.colorScheme.onSurface.withOpacity(0.5)),
+                        Icon(CupertinoIcons.chevron_down, size: 14, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
                       ],
                     ),
                   ),
@@ -608,9 +678,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
-                        color: CupertinoColors.activeOrange.withOpacity(0.15),
+                        color: CupertinoColors.activeOrange.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: CupertinoColors.activeOrange.withOpacity(0.3)),
+                        border: Border.all(color: CupertinoColors.activeOrange.withValues(alpha: 0.3)),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -665,7 +735,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                           decoration: BoxDecoration(
                             color: isSelected ? (_isIncome ? CupertinoColors.systemGreen : theme.colorScheme.primary) : theme.colorScheme.surface,
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: isSelected ? Colors.transparent : theme.colorScheme.surfaceVariant),
+                            border: Border.all(color: isSelected ? Colors.transparent : theme.colorScheme.surfaceContainerHighest),
                           ),
                           child: Text(
                             _categoryLabel(context, cat),
@@ -693,7 +763,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                           decoration: BoxDecoration(
                             color: isSelected ? catColor : theme.colorScheme.surface,
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: isSelected ? Colors.transparent : theme.colorScheme.surfaceVariant),
+                            border: Border.all(color: isSelected ? Colors.transparent : theme.colorScheme.surfaceContainerHighest),
                           ),
                           child: Row(
                             children: [
@@ -725,7 +795,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                       duration: const Duration(milliseconds: 200),
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                       decoration: BoxDecoration(
-                        color: theme.colorScheme.primary.withOpacity(0.15),
+                        color: theme.colorScheme.primary.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Row(
@@ -784,7 +854,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       margin: EdgeInsets.symmetric(horizontal: Responsive.cardPadding(context)),
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceVariant.withOpacity(0.5),
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -808,14 +878,14 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 decoration: BoxDecoration(
                   color: !_isIncome ? theme.colorScheme.surface : Colors.transparent,
                   borderRadius: BorderRadius.circular(10),
-                  boxShadow: !_isIncome ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))] : [],
+                  boxShadow: !_isIncome ? [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, 2))] : [],
                 ),
                 child: Center(
                   child: Text(
                     _t('Expense', 'Расход'),
                     style: TextStyle(
                       fontWeight: !_isIncome ? FontWeight.w700 : FontWeight.w500,
-                      color: !_isIncome ? theme.colorScheme.onSurface : theme.colorScheme.onSurface.withOpacity(0.5),
+                      color: !_isIncome ? theme.colorScheme.onSurface : theme.colorScheme.onSurface.withValues(alpha: 0.5),
                     ),
                   ),
                 ),
@@ -841,14 +911,14 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 decoration: BoxDecoration(
                   color: _isIncome ? CupertinoColors.systemGreen : Colors.transparent,
                   borderRadius: BorderRadius.circular(10),
-                  boxShadow: _isIncome ? [BoxShadow(color: CupertinoColors.systemGreen.withOpacity(0.3), blurRadius: 4, offset: const Offset(0, 2))] : [],
+                  boxShadow: _isIncome ? [BoxShadow(color: CupertinoColors.systemGreen.withValues(alpha: 0.3), blurRadius: 4, offset: const Offset(0, 2))] : [],
                 ),
                 child: Center(
                   child: Text(
                     _t('Income', 'Доход'),
                     style: TextStyle(
                       fontWeight: _isIncome ? FontWeight.w700 : FontWeight.w500,
-                      color: _isIncome ? Colors.white : theme.colorScheme.onSurface.withOpacity(0.5),
+                      color: _isIncome ? Colors.white : theme.colorScheme.onSurface.withValues(alpha: 0.5),
                     ),
                   ),
                 ),
@@ -869,21 +939,32 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: Theme.of(context).colorScheme.surfaceVariant),
+          border: Border.all(color: Theme.of(context).colorScheme.surfaceContainerHighest),
         ),
-        child: TextField(
-          controller: _smartInputController,
-          autofocus: true,
-          textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 18, color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w500),
-          decoration: InputDecoration(
-            border: InputBorder.none,
-            hintText: _isIncome
-                ? _t('5000 from client', '5000 от клиента')
-                : (widget.initialCategory == null ? l10n.smartInputExample : '500 for taxi'),
-            hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3)),
-          ),
-          onChanged: (_) => _parseInput(),
+        child: Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _smartInputController,
+                autofocus: true,
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 18, color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w500),
+                decoration: InputDecoration(
+                  border: InputBorder.none,
+                  hintText: _isIncome
+                      ? _t('5000 from client', '5000 от клиента')
+                      : (widget.initialCategory == null ? l10n.smartInputExample : '500 for taxi'),
+                  hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3)),
+                ),
+                onChanged: (_) => _parseInput(),
+              ),
+            ),
+            if (_isAiParsing)
+              Padding(
+                padding: const EdgeInsets.only(left: 8.0),
+                child: CupertinoActivityIndicator(color: Theme.of(context).colorScheme.primary),
+              ),
+          ],
         ),
       ),
     );
@@ -902,12 +983,14 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     color: _isVoiceListening ? CupertinoColors.destructiveRed : Theme.of(context).colorScheme.primary,
                     boxShadow: [
                       BoxShadow(
-                        color: (_isVoiceListening ? CupertinoColors.destructiveRed : Theme.of(context).colorScheme.primary).withOpacity(0.4),
+                        color: (_isVoiceListening ? CupertinoColors.destructiveRed : Theme.of(context).colorScheme.primary).withValues(alpha: 0.4),
                         blurRadius: 30, spreadRadius: _isVoiceListening ? 10 : 0,
                       )
                     ]
                 ),
-                child: Icon(
+                child: _isAiParsing
+                    ? const CupertinoActivityIndicator(color: Colors.white, radius: 16)
+                    : Icon(
                   _isVoiceListening ? CupertinoIcons.stop_fill : CupertinoIcons.mic_fill,
                   size: 42, color: Colors.white,
                 )
@@ -920,7 +1003,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
             child: Text(
               '"$_voicePreviewText"',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 16, fontStyle: FontStyle.italic, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
+              style: TextStyle(fontSize: 16, fontStyle: FontStyle.italic, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
             ),
           ),
         ]
@@ -1006,16 +1089,16 @@ class _SettingsRow extends StatelessWidget {
                   const Spacer(),
                   Text(
                       value,
-                      style: TextStyle(fontSize: 16, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))
+                      style: TextStyle(fontSize: 16, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5))
                   ),
                   const SizedBox(width: 8),
-                  Icon(CupertinoIcons.chevron_forward, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3), size: 18),
+                  Icon(CupertinoIcons.chevron_forward, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3), size: 18),
                 ],
               ),
             ),
             if (!isLast) Padding(
               padding: const EdgeInsets.only(left: 56),
-              child: Divider(height: 1, color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5)),
+              child: Divider(height: 1, color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)),
             ),
           ],
         ),
