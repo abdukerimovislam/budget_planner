@@ -14,8 +14,6 @@ class ExpenseModel {
   final bool isRecurring;
   final String? recurringGroupId;
   final DateTime createdAt;
-
-  // ДОБАВЛЕНО: Флаг дохода
   final bool isIncome;
 
   const ExpenseModel({
@@ -31,7 +29,7 @@ class ExpenseModel {
     required this.isRecurring,
     required this.recurringGroupId,
     required this.createdAt,
-    this.isIncome = false, // По умолчанию это расход, старые данные не сломаются
+    this.isIncome = false,
   });
 
   ExpenseModel copyWith({
@@ -40,6 +38,7 @@ class ExpenseModel {
     String? currency,
     ExpenseCategory? category,
     String? customCategoryId,
+    bool clearCustomCategory = false, // ИСПРАВЛЕНИЕ БАГА №1: Флаг принудительной очистки
     String? merchant,
     String? note,
     DateTime? date,
@@ -54,7 +53,8 @@ class ExpenseModel {
       amount: amount ?? this.amount,
       currency: currency ?? this.currency,
       category: category ?? this.category,
-      customCategoryId: customCategoryId ?? this.customCategoryId,
+      // Если просят очистить - ставим null, иначе берем новое значение или старое
+      customCategoryId: clearCustomCategory ? null : (customCategoryId ?? this.customCategoryId),
       merchant: merchant ?? this.merchant,
       note: note ?? this.note,
       date: date ?? this.date,

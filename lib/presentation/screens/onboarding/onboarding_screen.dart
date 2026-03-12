@@ -184,6 +184,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         BudgetModel(
           monthKey: buildMonthKey(now),
           totalBudget: budget,
+          currency: _selectedCurrency, // <-- ИСПРАВЛЕНИЕ: Передали валюту в бюджет!
           categoryBudgets: const {},
         ),
       );

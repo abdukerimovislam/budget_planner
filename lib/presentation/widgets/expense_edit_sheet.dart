@@ -6,7 +6,7 @@ import 'package:provider/provider.dart';
 import '../../core/utils/category_extension.dart';
 import '../../data/models/expense_category.dart';
 import '../../data/models/expense_model.dart';
-import '../../domain/services/curency_conversion_service.dart';
+import '../../domain/services/currency_conversion_service.dart';
 import '../../domain/services/premium_feature.dart';
 import '../../l10n/app_localizations.dart';
 import '../providers/home_provider.dart';

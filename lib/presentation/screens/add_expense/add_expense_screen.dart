@@ -14,7 +14,7 @@ import '../../../data/models/parsed_expense_input_model.dart';
 import '../../../data/models/receipt_parsed_data_model.dart';
 import '../../../data/models/receipt_review_model.dart';
 import '../../../data/models/receipt_scan_result_model.dart';
-import '../../../domain/services/curency_conversion_service.dart';
+import '../../../domain/services/currency_conversion_service.dart';
 import '../../../domain/services/premium_feature.dart';
 import '../../../domain/services/receipt_parser_service.dart';
 import '../../../domain/services/receipt_scan_service.dart';

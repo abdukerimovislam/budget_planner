@@ -49,7 +49,6 @@ class ExpenseModelSerializer {
     return ExpenseModel(
       id: map['id'] as String,
       amount: (map['amount'] as num).toDouble(),
-      // ИСПРАВЛЕНИЕ УГРОЗЫ КРАША: Защита старых данных, у которых нет валюты
       currency: map['currency'] as String? ?? 'USD',
       category: ExpenseCategory.values.firstWhere(
             (e) => e.name == map['category'],
@@ -68,7 +67,6 @@ class ExpenseModelSerializer {
       createdAt: map['createdAt'] != null
           ? DateTime.parse(map['createdAt'] as String)
           : DateTime.now(),
-      // Защита старых данных, у которых нет флага дохода
       isIncome: map['isIncome'] as bool? ?? false,
     );
   }
@@ -88,10 +86,8 @@ extension IncomeProfileModelSerializer on IncomeProfileModel {
   }
 
   static IncomeProfileModel fromMap(Map<dynamic, dynamic> map) {
-    // Миграция со старой версии
     final monthlyIncome = ((map['expectedMonthlyIncome'] ?? map['monthlyIncome']) as num?)?.toDouble() ?? 0.0;
 
-    // Парсим тип занятости
     final typeString = map['incomeType'] as String?;
     IncomeType type = IncomeType.salary;
     if (typeString != null) {
@@ -105,7 +101,6 @@ extension IncomeProfileModelSerializer on IncomeProfileModel {
       workingHoursPerDay: (map['workingHoursPerDay'] as num?)?.toInt(),
       hourlyRate: (map['hourlyRate'] as num?)?.toDouble(),
       workingHoursPerWeek: (map['workingHoursPerWeek'] as num?)?.toInt(),
-      // ИСПРАВЛЕНИЕ: Дефолтная валюта теперь USD (международный стандарт), а не хардкод KGS
       currency: map['currency'] as String? ?? 'USD',
     );
   }
@@ -116,6 +111,7 @@ extension BudgetModelSerializer on BudgetModel {
     return {
       'monthKey': monthKey,
       'totalBudget': totalBudget,
+      'currency': currency, // СОХРАНЯЕМ ВАЛЮТУ БЮДЖЕТА
       'categoryBudgets': categoryBudgets.map(
             (key, value) => MapEntry(key.storageValue, value),
       ),
@@ -129,6 +125,7 @@ extension BudgetModelSerializer on BudgetModel {
     return BudgetModel(
       monthKey: map['monthKey'] as String,
       totalBudget: (map['totalBudget'] as num).toDouble(),
+      currency: map['currency'] as String? ?? 'USD', // ЗАЩИТА: Старые бюджеты станут USD
       categoryBudgets: rawCategoryBudgets.map(
             (key, value) => MapEntry(
           ExpenseCategorySerializer.fromStorage(key as String),

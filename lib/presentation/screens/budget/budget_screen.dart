@@ -27,7 +27,11 @@ class BudgetScreen extends StatelessWidget {
   Future<void> _showEditBudgetDialog(BuildContext context) async {
     final provider = context.read<HomeProvider>();
     final l10n = AppLocalizations.of(context);
-    final currentBudget = provider.budget?.totalBudget;
+
+    // Если бюджет есть и он в той же валюте, подставляем его в поле
+    final bool hasValidBudget = provider.budget != null && provider.budget!.currency == provider.activeCurrency;
+    final currentBudget = hasValidBudget ? provider.budget!.totalBudget : null;
+
     final controller = TextEditingController(
       text: currentBudget == null ? '' : _formatNumber(currentBudget),
     );
@@ -42,7 +46,7 @@ class BudgetScreen extends StatelessWidget {
             child: CupertinoTextField(
               controller: controller,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              placeholder: l10n.monthlyBudgetLabel,
+              placeholder: '${l10n.monthlyBudgetLabel} (${provider.activeCurrency})',
               autofocus: true,
             ),
           ),
@@ -76,13 +80,19 @@ class BudgetScreen extends StatelessWidget {
     final now = DateTime.now();
     final theme = Theme.of(context);
 
-    // ИСПРАВЛЕНИЕ: Берем валюту из единого источника правды (Профиля), а не из старых транзакций!
-    final String currency = provider.incomeProfile?.currency ?? 'USD';
+    // Берем активную валюту дашборда
+    final String currency = provider.activeCurrency;
 
-    final totalBudget = provider.budget?.totalBudget ?? 0;
+    // Проверяем, существует ли бюджет для этой конкретной валюты
+    final bool hasBudgetForCurrency = provider.budget != null && provider.budget!.currency == currency;
+
+    // Если бюджет в другой валюте, мы считаем его равным 0 для текущего экрана
+    final totalBudget = hasBudgetForCurrency ? provider.budget!.totalBudget : 0.0;
+
     final spent = provider.totalSpentThisMonth(now);
-    final remaining = provider.remainingBudgetFor(now);
+    final remaining = totalBudget > 0 ? (totalBudget - spent) : 0.0;
     final autoBudget = provider.autoBudgetRecommendation(now);
+
     final categoryBudgets = provider.effectiveCategoryBudgetsForMonth(now).entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
     final dangerousCategory = provider.mostDangerousCategoryThisMonth(now);
@@ -139,76 +149,104 @@ class BudgetScreen extends StatelessWidget {
                                 strokeWidth: 16,
                                 color: theme.colorScheme.surfaceVariant,
                               ),
-                              CircularProgressIndicator(
-                                value: overallProgress,
-                                strokeWidth: 16,
-                                strokeCap: StrokeCap.round,
-                                color: isOverOverall ? CupertinoColors.systemRed : theme.colorScheme.primary,
-                              ),
+                              if (totalBudget > 0)
+                                CircularProgressIndicator(
+                                  value: overallProgress,
+                                  strokeWidth: 16,
+                                  strokeCap: StrokeCap.round,
+                                  color: isOverOverall ? CupertinoColors.systemRed : theme.colorScheme.primary,
+                                ),
                               Center(
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Text(
-                                      isOverOverall ? 'Overspent' : 'Remaining',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: 1.2,
-                                        color: theme.colorScheme.onSurface.withOpacity(0.5),
+                                    if (totalBudget == 0) ...[
+                                      Icon(CupertinoIcons.chart_pie, size: 32, color: theme.colorScheme.primary),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        'No Budget',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w700,
+                                          color: theme.colorScheme.onSurface.withOpacity(0.5),
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      _formatNumber(remaining.abs()),
-                                      style: TextStyle(
-                                        fontSize: 28,
-                                        fontWeight: FontWeight.w800,
-                                        color: isOverOverall ? CupertinoColors.systemRed : theme.colorScheme.onSurface,
-                                        height: 1.1,
+                                    ] else ...[
+                                      Text(
+                                        isOverOverall ? 'Overspent' : 'Remaining',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: 1.2,
+                                          color: theme.colorScheme.onSurface.withOpacity(0.5),
+                                        ),
                                       ),
-                                    ),
-                                    Text(
-                                      currency, // <-- ВАЛЮТА ТЕПЕРЬ ВСЕГДА ВЕРНАЯ
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                        color: theme.colorScheme.onSurface.withOpacity(0.4),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        _formatNumber(remaining.abs()),
+                                        style: TextStyle(
+                                          fontSize: 28,
+                                          fontWeight: FontWeight.w800,
+                                          color: isOverOverall ? CupertinoColors.systemRed : theme.colorScheme.onSurface,
+                                          height: 1.1,
+                                        ),
                                       ),
-                                    ),
+                                      Text(
+                                        currency,
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: theme.colorScheme.onSurface.withOpacity(0.4),
+                                        ),
+                                      ),
+                                    ],
                                   ],
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        const SizedBox(height: 24),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(l10n.currentMonthlyBudgetTitle, style: const TextStyle(fontSize: 12, color: CupertinoColors.systemGrey, fontWeight: FontWeight.w600)),
-                                Text('${_formatNumber(totalBudget)} $currency', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-                              ],
+
+                        if (totalBudget == 0) ...[
+                          const SizedBox(height: 24),
+                          FilledButton.icon(
+                            onPressed: () => _showEditBudgetDialog(context),
+                            icon: const Icon(CupertinoIcons.add),
+                            label: Text('Set Budget in $currency'),
+                            style: FilledButton.styleFrom(
+                              minimumSize: const Size.fromHeight(48),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                             ),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text(l10n.spentThisMonth, style: const TextStyle(fontSize: 12, color: CupertinoColors.systemGrey, fontWeight: FontWeight.w600)),
-                                Text('${_formatNumber(spent)} $currency', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-                              ],
-                            ),
-                          ],
-                        ),
+                          )
+                        ] else ...[
+                          const SizedBox(height: 24),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(l10n.currentMonthlyBudgetTitle, style: const TextStyle(fontSize: 12, color: CupertinoColors.systemGrey, fontWeight: FontWeight.w600)),
+                                  Text('${_formatNumber(totalBudget)} $currency', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                                ],
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(l10n.spentThisMonth, style: const TextStyle(fontSize: 12, color: CupertinoColors.systemGrey, fontWeight: FontWeight.w600)),
+                                  Text('${_formatNumber(spent)} $currency', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),
 
                   SizedBox(height: Responsive.sectionGap(context)),
 
-                  if (dangerousCategory != null) ...[
+                  if (dangerousCategory != null && totalBudget > 0) ...[
                     SpendingPaceCard(
                       title: l10n.budgetDangerTitle(dangerousCategory.localizedName(context)),
                       subtitle: l10n.budgetDangerSubtitle,
@@ -217,7 +255,7 @@ class BudgetScreen extends StatelessWidget {
                     SizedBox(height: Responsive.sectionGap(context)),
                   ],
 
-                  if (autoBudget.recommendedTotalBudget > 0) ...[
+                  if (autoBudget.recommendedTotalBudget > 0 && totalBudget == 0) ...[
                     AutoBudgetCard(
                       recommendation: autoBudget,
                       onApplyTap: () async {
@@ -231,94 +269,96 @@ class BudgetScreen extends StatelessWidget {
                   ],
 
                   // 2. ДЕТАЛИЗАЦИЯ БЮДЖЕТОВ ПО КАТЕГОРИЯМ
-                  Padding(
-                    padding: const EdgeInsets.only(left: 8, bottom: 16),
-                    child: Text(
-                      l10n.categoryBudgetsTitle,
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: -0.5, color: theme.colorScheme.onSurface),
-                    ),
-                  ),
-
-                  if (categoryBudgets.isEmpty)
-                    Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(color: theme.colorScheme.surface.withOpacity(0.8), borderRadius: BorderRadius.circular(24)),
-                      child: Center(child: Text(l10n.categoryBudgetsEmpty, style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.5)))),
-                    )
-                  else
-                    Container(
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.surface.withOpacity(0.8),
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: theme.colorScheme.surfaceVariant.withOpacity(0.5)),
+                  if (totalBudget > 0) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8, bottom: 16),
+                      child: Text(
+                        l10n.categoryBudgetsTitle,
+                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: -0.5, color: theme.colorScheme.onSurface),
                       ),
-                      child: Column(
-                        children: categoryBudgets.asMap().entries.map((entry) {
-                          final isLast = entry.key == categoryBudgets.length - 1;
-                          final category = entry.value.key;
-                          final budget = entry.value.value;
-                          final spentForCategory = provider.spentForCategoryThisMonth(now, category);
-                          final isOverBudget = spentForCategory > budget;
-                          final progress = budget > 0 ? (spentForCategory / budget).clamp(0.0, 1.0) : 0.0;
+                    ),
 
-                          final catColor = category.dynamicColor(context);
+                    if (categoryBudgets.isEmpty)
+                      Container(
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(color: theme.colorScheme.surface.withOpacity(0.8), borderRadius: BorderRadius.circular(24)),
+                        child: Center(child: Text(l10n.categoryBudgetsEmpty, style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.5)))),
+                      )
+                    else
+                      Container(
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.surface.withOpacity(0.8),
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(color: theme.colorScheme.surfaceVariant.withOpacity(0.5)),
+                        ),
+                        child: Column(
+                          children: categoryBudgets.asMap().entries.map((entry) {
+                            final isLast = entry.key == categoryBudgets.length - 1;
+                            final category = entry.value.key;
+                            final budget = entry.value.value;
+                            final spentForCategory = provider.spentForCategoryThisMonth(now, category);
+                            final isOverBudget = spentForCategory > budget;
+                            final progress = budget > 0 ? (spentForCategory / budget).clamp(0.0, 1.0) : 0.0;
 
-                          return Column(
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.all(16.0),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(12),
-                                      decoration: BoxDecoration(color: catColor.withOpacity(0.15), shape: BoxShape.circle),
-                                      child: Icon(category.dynamicIcon(context), color: catColor, size: 20),
-                                    ),
-                                    const SizedBox(width: 16),
+                            final catColor = category.dynamicColor(context);
 
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              Text(category.localizedName(context), style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: theme.colorScheme.onSurface)),
-                                              Text(
-                                                '${_formatNumber(spentForCategory)} / ${_formatNumber(budget)}',
-                                                style: TextStyle(
-                                                    fontSize: 13,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: isOverBudget ? CupertinoColors.systemRed : theme.colorScheme.onSurface.withOpacity(0.5)
+                            return Column(
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.all(16.0),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(12),
+                                        decoration: BoxDecoration(color: catColor.withOpacity(0.15), shape: BoxShape.circle),
+                                        child: Icon(category.dynamicIcon(context), color: catColor, size: 20),
+                                      ),
+                                      const SizedBox(width: 16),
+
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                              children: [
+                                                Text(category.localizedName(context), style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: theme.colorScheme.onSurface)),
+                                                Text(
+                                                  '${_formatNumber(spentForCategory)} / ${_formatNumber(budget)}',
+                                                  style: TextStyle(
+                                                      fontSize: 13,
+                                                      fontWeight: FontWeight.w600,
+                                                      color: isOverBudget ? CupertinoColors.systemRed : theme.colorScheme.onSurface.withOpacity(0.5)
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 8),
+                                            ClipRRect(
+                                              borderRadius: BorderRadius.circular(4),
+                                              child: Container(
+                                                height: 6, width: double.infinity, color: theme.colorScheme.surfaceVariant,
+                                                child: FractionallySizedBox(
+                                                  alignment: Alignment.centerLeft, widthFactor: progress,
+                                                  child: Container(decoration: BoxDecoration(color: isOverBudget ? CupertinoColors.systemRed : catColor, borderRadius: BorderRadius.circular(4))),
                                                 ),
                                               ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 8),
-                                          ClipRRect(
-                                            borderRadius: BorderRadius.circular(4),
-                                            child: Container(
-                                              height: 6, width: double.infinity, color: theme.colorScheme.surfaceVariant,
-                                              child: FractionallySizedBox(
-                                                alignment: Alignment.centerLeft, widthFactor: progress,
-                                                child: Container(decoration: BoxDecoration(color: isOverBudget ? CupertinoColors.systemRed : catColor, borderRadius: BorderRadius.circular(4))),
-                                              ),
                                             ),
-                                          ),
-                                        ],
+                                          ],
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              if (!isLast) Padding(padding: const EdgeInsets.only(left: 64), child: Divider(height: 1, color: theme.colorScheme.surfaceVariant.withOpacity(0.5))),
-                            ],
-                          );
-                        }).toList(),
+                                if (!isLast) Padding(padding: const EdgeInsets.only(left: 64), child: Divider(height: 1, color: theme.colorScheme.surfaceVariant.withOpacity(0.5))),
+                              ],
+                            );
+                          }).toList(),
+                        ),
                       ),
-                    ),
 
-                  SizedBox(height: Responsive.sectionGap(context)),
+                    SizedBox(height: Responsive.sectionGap(context)),
+                  ],
 
                   // 3. ПОДПИСКИ
                   if (!provider.canUseFeature(PremiumFeature.advancedSubscriptions))

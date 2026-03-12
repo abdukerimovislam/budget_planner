@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
@@ -9,6 +10,7 @@ import '../../../core/utils/responsive.dart';
 import '../../../data/models/expense_category.dart';
 import '../../../data/models/expense_filter_model.dart';
 import '../../../data/models/expense_model.dart';
+import '../../../domain/services/premium_feature.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../providers/home_provider.dart';
 import '../../widgets/adaptive_page_padding.dart';
@@ -16,6 +18,7 @@ import '../../widgets/expense_edit_sheet.dart';
 import '../../widgets/expense_filter_bar.dart';
 import '../../widgets/expense_item_card.dart';
 import '../../widgets/premium_background.dart';
+import '../premium/premium_screen.dart';
 
 class ExpensesScreen extends StatefulWidget {
   const ExpensesScreen({super.key});
@@ -161,8 +164,8 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
             merchant: expense.merchant,
             note: expense.note ?? '',
             date: expense.date,
-            isIncome: expense.isIncome, // <-- ИСПРАВЛЕНИЕ
-            currency: expense.currency, // <-- ИСПРАВЛЕНИЕ
+            isIncome: expense.isIncome,
+            currency: expense.currency,
           ),
         );
       }
@@ -176,6 +179,53 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     }
   }
 
+  // НОВОЕ: ВЫБОР АКТИВНОГО СЧЕТА В ИСТОРИИ
+  void _showCurrencyAccountSelector(BuildContext context, HomeProvider provider) {
+    if (!provider.canUseFeature(PremiumFeature.multiCurrency)) {
+      Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const PremiumScreen()));
+      return;
+    }
+
+    final available = provider.availableUserCurrencies;
+    if (available.length <= 1) return;
+
+    HapticFeedback.lightImpact();
+    int initialIndex = available.indexOf(provider.activeCurrency);
+    if (initialIndex == -1) initialIndex = 0;
+
+    showCupertinoModalPopup(
+      context: context,
+      builder: (_) => Container(
+        height: 250,
+        color: Theme.of(context).colorScheme.surface,
+        child: SafeArea(
+          top: false,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Text('Select Account', style: TextStyle(fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
+              ),
+              Expanded(
+                child: CupertinoPicker(
+                  itemExtent: 40,
+                  scrollController: FixedExtentScrollController(initialItem: initialIndex),
+                  onSelectedItemChanged: (index) {
+                    HapticFeedback.selectionClick();
+                    provider.setActiveCurrency(available[index]);
+                  },
+                  children: available.map((c) => Center(
+                    child: Text('$c Account', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w600)),
+                  )).toList(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<HomeProvider>();
@@ -183,6 +233,11 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
 
     final filtered = provider.filteredExpenses(_filter);
     final colorScheme = Theme.of(context).colorScheme;
+
+    // ПЕРЕМЕННЫЕ ДЛЯ КНОПКИ ВАЛЮТЫ
+    final activeCurrency = provider.activeCurrency;
+    final hasMultipleCurrencies = provider.availableUserCurrencies.length > 1;
+    final hasPremium = provider.canUseFeature(PremiumFeature.multiCurrency);
 
     return PremiumBackground(
       child: Scaffold(
@@ -215,6 +270,40 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
           backgroundColor: Colors.transparent,
           surfaceTintColor: Colors.transparent,
           title: Text(l10n.expensesHistoryTitle, style: const TextStyle(fontWeight: FontWeight.w700)),
+          actions: [
+            // ПЕРЕКЛЮЧАТЕЛЬ СЧЕТОВ НА APPBAR ИСТОРИИ
+            Padding(
+              padding: const EdgeInsets.only(right: 16.0),
+              child: GestureDetector(
+                onTap: () => _showCurrencyAccountSelector(context, provider),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surface,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Theme.of(context).colorScheme.surfaceVariant),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (!hasPremium) ...[
+                        const Icon(CupertinoIcons.lock_fill, size: 12, color: CupertinoColors.systemYellow),
+                        const SizedBox(width: 4),
+                      ],
+                      Text(
+                        activeCurrency,
+                        style: TextStyle(fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurface, fontSize: 14),
+                      ),
+                      if (hasPremium && hasMultipleCurrencies) ...[
+                        const SizedBox(width: 4),
+                        Icon(CupertinoIcons.chevron_up_chevron_down, size: 12, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
+                      ]
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
         body: AdaptivePagePadding(
           addBottomSafeArea: false,
