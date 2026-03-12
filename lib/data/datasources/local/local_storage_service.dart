@@ -4,7 +4,9 @@ import '../../../core/constants/storage_keys.dart';
 import '../../models/budget_model.dart';
 import '../../models/expense_model.dart';
 import '../../models/income_profile_model.dart';
-import '../../models/custom_category_model.dart'; // <-- Импорт новой модели
+import '../../models/custom_category_model.dart';
+import '../../models/saving_goal_model.dart'; // <-- ИМПОРТ ЦЕЛЕЙ
+import '../../models/recurring_bill_model.dart'; // <-- ИМПОРТ ПОДПИСОК
 import '../../models/model_serializers.dart';
 
 class LocalStorageService {
@@ -72,12 +74,10 @@ class LocalStorageService {
   }
 
   Future<void> saveExpenses(List<ExpenseModel> expenses) async {
-    // Используем ExpenseModelSerializer вместо e.toMap()
     final data = expenses.map((e) => ExpenseModelSerializer.toMap(e)).toList();
     await _box.put(StorageKeys.expenses, data);
   }
 
-  // --- НОВЫЕ МЕТОДЫ ДЛЯ КАСТОМНЫХ КАТЕГОРИЙ ---
   List<CustomCategoryModel> getCustomCategories() {
     final rawList = _box.get(StorageKeys.customCategories, defaultValue: <dynamic>[]) as List<dynamic>;
     return rawList
@@ -90,7 +90,46 @@ class LocalStorageService {
     final data = categories.map((c) => c.toMap()).toList();
     await _box.put(StorageKeys.customCategories, data);
   }
-  // ---------------------------------------------
+
+  // --- НОВЫЕ МЕТОДЫ: ЦЕЛИ ---
+  SavingsGoalModel? getSavingsGoal() {
+    final map = _box.get('savingsGoal'); // Ключ напрямую, так как мы не добавляли его в StorageKeys
+    if (map is Map) {
+      return SavingsGoalModelSerializer.fromMap(map);
+    }
+    return null;
+  }
+
+  Future<void> saveSavingsGoal(SavingsGoalModel goal) async {
+    await _box.put('savingsGoal', goal.toMap());
+  }
+
+  Future<void> deleteSavingsGoal() async {
+    await _box.delete('savingsGoal');
+  }
+
+  // --- НОВЫЕ МЕТОДЫ: ПОДПИСКИ ---
+  List<RecurringBillModel> getRecurringBills() {
+    final rawList = _box.get('recurringBills', defaultValue: <dynamic>[]) as List<dynamic>;
+    return rawList
+        .whereType<Map>()
+        .map(RecurringBillModelSerializer.fromMap)
+        .toList();
+  }
+
+  Future<void> saveRecurringBills(List<RecurringBillModel> bills) async {
+    final data = bills.map((b) => b.toMap()).toList();
+    await _box.put('recurringBills', data);
+  }
+
+  // --- ДЕНЬ ЗАРПЛАТЫ ---
+  int? getSalaryDay() {
+    return _box.get('salaryDay') as int?;
+  }
+
+  Future<void> saveSalaryDay(int day) async {
+    await _box.put('salaryDay', day);
+  }
 
   Future<void> clearAll() async {
     await _box.clear();

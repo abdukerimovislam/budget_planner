@@ -3,6 +3,8 @@ import 'expense_category.dart';
 import 'expense_model.dart';
 import 'expense_source_type.dart';
 import 'income_profile_model.dart';
+import 'saving_goal_model.dart';
+import 'recurring_bill_model.dart'; // <-- ИМПОРТ ПОДПИСОК
 
 extension ExpenseCategorySerializer on ExpenseCategory {
   String get storageValue => name;
@@ -111,7 +113,7 @@ extension BudgetModelSerializer on BudgetModel {
     return {
       'monthKey': monthKey,
       'totalBudget': totalBudget,
-      'currency': currency, // СОХРАНЯЕМ ВАЛЮТУ БЮДЖЕТА
+      'currency': currency,
       'categoryBudgets': categoryBudgets.map(
             (key, value) => MapEntry(key.storageValue, value),
       ),
@@ -125,13 +127,66 @@ extension BudgetModelSerializer on BudgetModel {
     return BudgetModel(
       monthKey: map['monthKey'] as String,
       totalBudget: (map['totalBudget'] as num).toDouble(),
-      currency: map['currency'] as String? ?? 'USD', // ЗАЩИТА: Старые бюджеты станут USD
+      currency: map['currency'] as String? ?? 'USD',
       categoryBudgets: rawCategoryBudgets.map(
             (key, value) => MapEntry(
           ExpenseCategorySerializer.fromStorage(key as String),
           (value as num).toDouble(),
         ),
       ),
+    );
+  }
+}
+
+extension SavingsGoalModelSerializer on SavingsGoalModel {
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'title': title,
+      'targetAmount': targetAmount,
+      'currentAmount': currentAmount,
+      'currency': currency,
+      'targetDate': targetDate?.toIso8601String(),
+      'createdAt': createdAt.toIso8601String(),
+    };
+  }
+
+  static SavingsGoalModel fromMap(Map<dynamic, dynamic> map) {
+    return SavingsGoalModel(
+      id: map['id'] as String,
+      title: map['title'] as String,
+      targetAmount: (map['targetAmount'] as num).toDouble(),
+      currentAmount: (map['currentAmount'] as num).toDouble(),
+      currency: map['currency'] as String? ?? 'USD',
+      targetDate: map['targetDate'] != null ? DateTime.parse(map['targetDate'] as String) : null,
+      createdAt: map['createdAt'] != null ? DateTime.parse(map['createdAt'] as String) : DateTime.now(),
+    );
+  }
+}
+
+// ИСПРАВЛЕННЫЙ СЕРИАЛИЗАТОР ДЛЯ ПОДПИСОК (под твою модель)
+extension RecurringBillModelSerializer on RecurringBillModel {
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'title': title,
+      'amount': amount,
+      'currency': currency,
+      'dayOfMonth': dayOfMonth,
+      'isActive': isActive,
+      'createdAt': createdAt.toIso8601String(),
+    };
+  }
+
+  static RecurringBillModel fromMap(Map<dynamic, dynamic> map) {
+    return RecurringBillModel(
+      id: map['id'] as String,
+      title: map['title'] as String,
+      amount: (map['amount'] as num).toDouble(),
+      currency: map['currency'] as String? ?? 'USD',
+      dayOfMonth: (map['dayOfMonth'] as num).toInt(),
+      isActive: map['isActive'] as bool? ?? true,
+      createdAt: map['createdAt'] != null ? DateTime.parse(map['createdAt'] as String) : DateTime.now(),
     );
   }
 }

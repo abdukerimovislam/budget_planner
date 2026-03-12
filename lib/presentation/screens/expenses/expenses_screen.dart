@@ -161,6 +161,8 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
           ExpenseEditResult(
             amount: expense.amount,
             category: category,
+            customCategoryId: null, // <-- ИСПРАВЛЕНИЕ: очищаем кастомную категорию
+            clearCustomCategory: true, // <-- ИСПРАВЛЕНИЕ: подтверждаем очистку
             merchant: expense.merchant,
             note: expense.note ?? '',
             date: expense.date,
@@ -179,7 +181,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     }
   }
 
-  // НОВОЕ: ВЫБОР АКТИВНОГО СЧЕТА В ИСТОРИИ
+  // ВЫБОР АКТИВНОГО СЧЕТА В ИСТОРИИ
   void _showCurrencyAccountSelector(BuildContext context, HomeProvider provider) {
     if (!provider.canUseFeature(PremiumFeature.multiCurrency)) {
       Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const PremiumScreen()));

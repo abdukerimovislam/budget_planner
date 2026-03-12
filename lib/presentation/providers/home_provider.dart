@@ -71,7 +71,7 @@ class HomeProvider extends ChangeNotifier {
   bool _isPremium = false;
   SavingsGoalModel? _savingsGoal;
   int? _salaryDay;
-  final List<RecurringBillModel> _recurringBills = [];
+  final List<RecurringBillModel> _recurringBills = []; // Исправляем амнезию подписок
 
   String? _activeCurrency;
   // ИСПРАВЛЕНИЕ БАГА №6 (FPS Drop): Кэшируем список валют
@@ -112,6 +112,8 @@ class HomeProvider extends ChangeNotifier {
   Future<void> load() async {
     _incomeProfile = LocalStorageService.instance.getIncomeProfile();
     _budget = LocalStorageService.instance.getBudget();
+    _savingsGoal = LocalStorageService.instance.getSavingsGoal(); // <-- ДОБАВЛЕНО
+    _salaryDay = LocalStorageService.instance.getSalaryDay(); // <-- ДОБАВЛЕНО
 
     _expenses.clear();
     final loadedExpenses = LocalStorageService.instance.getExpenses();
@@ -122,8 +124,12 @@ class HomeProvider extends ChangeNotifier {
       ..clear()
       ..addAll(LocalStorageService.instance.getCustomCategories());
 
+    // ЗАГРУЗКА ПОДПИСОК
+    _recurringBills.clear();
+    _recurringBills.addAll(LocalStorageService.instance.getRecurringBills());
+
     _activeCurrency = _incomeProfile?.currency ?? 'USD';
-    _updateCurrencyCache(); // Инициализируем кэш
+    _updateCurrencyCache();
 
     _isInitialized = true;
     notifyListeners();
@@ -190,7 +196,7 @@ class HomeProvider extends ChangeNotifier {
 
     if (profile == null || budget == null) return 0;
 
-    // ИСПРАВЛЕНИЕ: Если валюта бюджета не совпадает с активной валютой, баллы не считаем (чтобы не было галлюцинаций)
+    // ИСПРАВЛЕНИЕ: Если валюта бюджета не совпадает с активной валютой, баллы не считаем
     if (budget.currency != activeCurrency) return 0;
 
     final actualIncomePrevMonth = actualIncomeForMonth(previousMonth);
@@ -244,7 +250,7 @@ class HomeProvider extends ChangeNotifier {
     await LocalStorageService.instance.saveIncomeProfile(profile);
 
     _activeCurrency = profile.currency;
-    _updateCurrencyCache(); // Обновляем кэш
+    _updateCurrencyCache();
     notifyListeners();
   }
 
@@ -270,7 +276,7 @@ class HomeProvider extends ChangeNotifier {
   Future<void> addExpense(ExpenseModel expense) async {
     _expenses.insert(0, expense);
     await LocalStorageService.instance.saveExpenses(_expenses);
-    _updateCurrencyCache(); // Обновляем кэш при добавлении новой транзакции
+    _updateCurrencyCache();
     notifyListeners();
   }
 
@@ -285,13 +291,15 @@ class HomeProvider extends ChangeNotifier {
       merchant: result.merchant,
       note: result.note.isEmpty ? null : result.note,
       category: result.category,
+      customCategoryId: result.customCategoryId,
+      clearCustomCategory: result.clearCustomCategory,
       date: result.date,
       isIncome: result.isIncome,
       currency: result.currency,
     );
 
     await LocalStorageService.instance.saveExpenses(_expenses);
-    _updateCurrencyCache(); // Вдруг валюта поменялась
+    _updateCurrencyCache();
     notifyListeners();
   }
 
@@ -315,15 +323,18 @@ class HomeProvider extends ChangeNotifier {
   Future<void> deleteExpense(String expenseId) async {
     _expenses.removeWhere((e) => e.id == expenseId);
     await LocalStorageService.instance.saveExpenses(_expenses);
-    _updateCurrencyCache(); // Вдруг мы удалили последнюю транзакцию в этой валюте
+    _updateCurrencyCache();
     notifyListeners();
   }
 
   Future<void> clearAllData() async {
     _expenses.clear();
     _customCategories.clear();
+    _recurringBills.clear(); // ИСПРАВЛЕНИЕ: Очищаем подписки
     _incomeProfile = null;
     _budget = null;
+    _savingsGoal = null; // ИСПРАВЛЕНИЕ: Очищаем цели
+    _salaryDay = null; // ИСПРАВЛЕНИЕ: Очищаем день зарплаты
     _activeCurrency = null;
     _cachedCurrencies.clear();
     await LocalStorageService.instance.clearAll();
@@ -617,6 +628,7 @@ class HomeProvider extends ChangeNotifier {
     return monthlyReportService.generate(
       monthTransactions: expensesForMonth(now),
       incomeProfile: _incomeProfile,
+      activeCurrency: activeCurrency,
       budget: _budget?.currency == activeCurrency ? (_budget?.totalBudget ?? 0) : 0.0,
       healthScore: healthScoreFor(now),
       lifeSpent: spentLifeDurationForMonth(now),
@@ -626,11 +638,14 @@ class HomeProvider extends ChangeNotifier {
 
   Future<void> setSavingsGoal(SavingsGoalModel goal) async {
     _savingsGoal = goal;
+    await LocalStorageService.instance.saveSavingsGoal(goal); // <-- ДОБАВЛЕНО СОХРАНЕНИЕ
     notifyListeners();
   }
 
   Future<void> updateSavingsGoalProgress(String goalId, double amount) async {
+    // ИСПРАВЛЕНИЕ БАГА №4: Защищаем цель от попадания в нее чужой валюты
     if (_savingsGoal == null || _savingsGoal!.id != goalId) return;
+    if (_savingsGoal!.currency != activeCurrency) return;
 
     _savingsGoal = _savingsGoal!.copyWith(
       currentAmount: (_savingsGoal!.currentAmount + amount)
@@ -638,6 +653,7 @@ class HomeProvider extends ChangeNotifier {
           .toDouble(),
     );
 
+    await LocalStorageService.instance.saveSavingsGoal(_savingsGoal!); // <-- ДОБАВЛЕНО СОХРАНЕНИЕ
     notifyListeners();
   }
 
@@ -656,13 +672,31 @@ class HomeProvider extends ChangeNotifier {
 
   Future<void> setSalaryDay(int day) async {
     _salaryDay = day;
+    await LocalStorageService.instance.saveSalaryDay(day); // <-- ДОБАВЛЕНО СОХРАНЕНИЕ
     notifyListeners();
   }
 
+  // --- ИСПРАВЛЕНИЕ БАГА №8: Полный CRUD для подписок ---
   Future<void> addRecurringBill(RecurringBillModel bill) async {
     _recurringBills.add(bill);
+    await LocalStorageService.instance.saveRecurringBills(_recurringBills);
     notifyListeners();
   }
+
+  Future<void> updateRecurringBill(String billId, RecurringBillModel updatedBill) async {
+    final index = _recurringBills.indexWhere((b) => b.id == billId);
+    if (index == -1) return;
+    _recurringBills[index] = updatedBill;
+    await LocalStorageService.instance.saveRecurringBills(_recurringBills);
+    notifyListeners();
+  }
+
+  Future<void> deleteRecurringBill(String billId) async {
+    _recurringBills.removeWhere((b) => b.id == billId);
+    await LocalStorageService.instance.saveRecurringBills(_recurringBills);
+    notifyListeners();
+  }
+  // ----------------------------------------------------
 
   List<CashflowEventModel> cashflowTimeline(DateTime now) {
     if (!canUseFeature(PremiumFeature.cashflowTimeline)) {

@@ -17,6 +17,8 @@ class ExpenseEditResult {
   final String merchant;
   final String note;
   final ExpenseCategory category;
+  final String? customCategoryId; // <-- ДОБАВЛЕНО
+  final bool clearCustomCategory; // <-- ДОБАВЛЕНО
   final DateTime date;
   final bool isIncome;
   final String currency;
@@ -26,6 +28,8 @@ class ExpenseEditResult {
     required this.merchant,
     required this.note,
     required this.category,
+    this.customCategoryId,
+    required this.clearCustomCategory,
     required this.date,
     required this.isIncome,
     required this.currency,
@@ -50,10 +54,11 @@ class _ExpenseEditSheetState extends State<ExpenseEditSheet> {
   late final TextEditingController _noteController;
 
   late ExpenseCategory _category;
+  String? _customCategoryId; // <-- ДОБАВЛЕНО СОСТОЯНИЕ
   late DateTime _date;
   late bool _isIncome;
   late String _selectedCurrency;
-  late String _userCurrency; // Базовая валюта
+  late String _userCurrency;
 
   final CurrencyConversionService _conversionService = CurrencyConversionService();
   bool _isConverting = false;
@@ -69,6 +74,7 @@ class _ExpenseEditSheetState extends State<ExpenseEditSheet> {
     _merchantController = TextEditingController(text: widget.expense.merchant);
     _noteController = TextEditingController(text: widget.expense.note ?? '');
     _category = widget.expense.category;
+    _customCategoryId = widget.expense.customCategoryId; // Берем из транзакции
     _date = widget.expense.date;
     _isIncome = widget.expense.isIncome;
     _selectedCurrency = widget.expense.currency;
@@ -149,8 +155,6 @@ class _ExpenseEditSheetState extends State<ExpenseEditSheet> {
     );
   }
 
-  // НОВОЕ: ЛОГИКА АВТОКОНВЕРТАЦИИ В РЕДАКТИРОВАНИИ
-  // НОВОЕ: ЛОГИКА АВТОКОНВЕРТАЦИИ В РЕДАКТИРОВАНИИ
   Future<void> _handleAutoConvert() async {
     final provider = context.read<HomeProvider>();
     if (!provider.canUseFeature(PremiumFeature.multiCurrency)) {
@@ -178,13 +182,13 @@ class _ExpenseEditSheetState extends State<ExpenseEditSheet> {
     });
 
     if (convertedAmount != null) {
-      HapticFeedback.mediumImpact(); // ИСПРАВЛЕНО
+      HapticFeedback.mediumImpact();
       setState(() {
         _selectedCurrency = _userCurrency;
         _amountController.text = convertedAmount.toStringAsFixed(2).replaceAll(RegExp(r'\.00$'), '');
       });
     } else {
-      HapticFeedback.heavyImpact(); // ИСПРАВЛЕНО
+      HapticFeedback.heavyImpact();
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(_t('Failed to fetch exchange rates', 'Не удалось получить курс валют. Проверьте интернет.'))),
@@ -202,6 +206,8 @@ class _ExpenseEditSheetState extends State<ExpenseEditSheet> {
         merchant: _merchantController.text.trim(),
         note: _noteController.text.trim(),
         category: _category,
+        customCategoryId: _category == ExpenseCategory.custom ? _customCategoryId : null,
+        clearCustomCategory: _category != ExpenseCategory.custom, // Очищаем, если убрали кастомную категорию
         date: _date,
         isIncome: _isIncome,
         currency: _selectedCurrency,
@@ -209,8 +215,13 @@ class _ExpenseEditSheetState extends State<ExpenseEditSheet> {
     );
   }
 
-  String _categoryLabel(ExpenseCategory category) {
+  // ОБНОВЛЕНО: Читаем имя кастомной категории, если она есть
+  String _categoryLabel(ExpenseCategory category, BuildContext context) {
     final l10n = AppLocalizations.of(context);
+
+    if (category == ExpenseCategory.custom && _customCategoryId != null) {
+      return ExpenseCategory.custom.localizedName(context, customCategoryId: _customCategoryId);
+    }
 
     if (_isIncome) {
       switch (category) {
@@ -294,7 +305,10 @@ class _ExpenseEditSheetState extends State<ExpenseEditSheet> {
                           HapticFeedback.selectionClick();
                           setState(() {
                             _isIncome = false;
-                            if (_category == ExpenseCategory.other || _category == ExpenseCategory.gifts) _category = ExpenseCategory.food;
+                            if (_category == ExpenseCategory.other || _category == ExpenseCategory.gifts) {
+                              _category = ExpenseCategory.food;
+                              _customCategoryId = null; // Сброс
+                            }
                           });
                         }
                       },
@@ -312,7 +326,10 @@ class _ExpenseEditSheetState extends State<ExpenseEditSheet> {
                           HapticFeedback.selectionClick();
                           setState(() {
                             _isIncome = true;
-                            if (_category != ExpenseCategory.custom) _category = ExpenseCategory.other;
+                            if (_category != ExpenseCategory.custom) {
+                              _category = ExpenseCategory.other;
+                              _customCategoryId = null; // Сброс
+                            }
                           });
                         }
                       },
@@ -328,7 +345,6 @@ class _ExpenseEditSheetState extends State<ExpenseEditSheet> {
             ),
             const SizedBox(height: 32),
 
-            // СУММА И ВАЛЮТА
             Row(
               children: [
                 Expanded(
@@ -362,7 +378,6 @@ class _ExpenseEditSheetState extends State<ExpenseEditSheet> {
               ],
             ),
 
-            // КНОПКА КОНВЕРТАЦИИ
             if (_selectedCurrency != _userCurrency) ...[
               const SizedBox(height: 12),
               GestureDetector(
@@ -409,8 +424,16 @@ class _ExpenseEditSheetState extends State<ExpenseEditSheet> {
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<ExpenseCategory>(
                   value: _category, isExpanded: true, icon: Icon(CupertinoIcons.chevron_down, color: theme.colorScheme.primary, size: 20),
-                  items: availableCategories.map((category) => DropdownMenuItem(value: category, child: Row(children: [Icon(CupertinoIcons.tag_fill, size: 18, color: theme.colorScheme.primary), const SizedBox(width: 12), Text(_categoryLabel(category), style: TextStyle(fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface))]))).toList(),
-                  onChanged: (value) { if (value != null) setState(() => _category = value); },
+                  items: availableCategories.map((category) => DropdownMenuItem(value: category, child: Row(children: [Icon(CupertinoIcons.tag_fill, size: 18, color: theme.colorScheme.primary), const SizedBox(width: 12), Text(_categoryLabel(category, context), style: TextStyle(fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface))]))).toList(),
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() {
+                        _category = value;
+                        // Сбрасываем кастомный ID, если выбрали системную категорию
+                        if (value != ExpenseCategory.custom) _customCategoryId = null;
+                      });
+                    }
+                  },
                 ),
               ),
             ),

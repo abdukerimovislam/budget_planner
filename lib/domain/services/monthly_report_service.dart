@@ -9,19 +9,22 @@ class MonthlyReportService {
   final FinancialLevelService _levelService = FinancialLevelService();
 
   MonthlyReportModel generate({
-    required List<ExpenseModel> monthTransactions, // <-- Переименовано для ясности
+    required List<ExpenseModel> monthTransactions,
     required IncomeProfileModel? incomeProfile,
+    required String activeCurrency, // <-- ДОБАВЛЕНО: для защиты от смешивания
     required double budget,
     required int healthScore,
     required Duration lifeSpent,
     required Map<ExpenseCategory, double> categoryTotals,
   }) {
-    // ИСПРАВЛЕНИЕ: Считаем реальный заработок и реальные траты
     final actualIncome = monthTransactions.where((e) => e.isIncome).fold<double>(0.0, (sum, e) => sum + e.amount);
     final spent = monthTransactions.where((e) => !e.isIncome).fold<double>(0.0, (sum, e) => sum + e.amount);
 
-    // Для отчета берем максимум между тем, что ожидали, и тем, что реально пришло (чтобы в начале месяца отчет не был нулевым)
-    final expectedIncome = incomeProfile?.expectedMonthlyIncome ?? 0.0;
+    // ИСПРАВЛЕНИЕ БАГА №3: Берем "ожидаемый" доход ТОЛЬКО если смотрим на базовую валюту
+    final expectedIncome = (incomeProfile != null && incomeProfile.currency == activeCurrency)
+        ? incomeProfile.expectedMonthlyIncome
+        : 0.0;
+
     final incomeToUse = max(expectedIncome, actualIncome);
 
     final saved = (incomeToUse - spent).clamp(0, double.infinity).toDouble();
@@ -43,7 +46,7 @@ class MonthlyReportService {
     );
 
     return MonthlyReportModel(
-      totalIncome: incomeToUse, // <-- Теперь тут точная цифра!
+      totalIncome: incomeToUse,
       totalSpent: spent,
       totalSaved: saved,
       savingsRate: savingsRate,

@@ -51,7 +51,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   final ReceiptScanService _receiptScanService = ReceiptScanService();
   final ReceiptParserService _receiptParserService = ReceiptParserService();
 
-  // ИНИЦИАЛИЗАЦИЯ СЕРВИСА КОНВЕРТАЦИИ
   final CurrencyConversionService _conversionService = CurrencyConversionService();
 
   ParsedExpenseInputModel? _parsed;
@@ -63,8 +62,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   String? _selectedCustomCategoryId;
 
   late bool _isIncome;
-  late String _userCurrency; // Базовая валюта (активного дашборда)
-  late String _selectedCurrency; // Валюта конкретной транзакции
+  late String _userCurrency;
+  late String _selectedCurrency;
 
   final List<String> _availableCurrencies = ['USD', 'EUR', 'GBP', 'RUB', 'KZT', 'KGS', 'UZS', 'UAH', 'BYN'];
 
@@ -78,7 +77,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   String _receiptPreviewText = '';
   XFile? _pickedReceiptFile;
 
-  bool _isConverting = false; // Состояние загрузки конвертации
+  bool _isConverting = false;
 
   @override
   void initState() {
@@ -86,7 +85,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     _isIncome = widget.initialIsIncome;
 
     final provider = context.read<HomeProvider>();
-    _userCurrency = provider.activeCurrency; // Берем активную валюту дашборда
+    _userCurrency = provider.activeCurrency;
 
     if (provider.canUseFeature(PremiumFeature.multiCurrency)) {
       _selectedCurrency = _userCurrency;
@@ -106,7 +105,12 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         _selectedCategory = ExpenseCategory.other;
       }
     }
+  }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Инициализируем голос в didChangeDependencies, чтобы иметь доступ к контексту и локали
     _initVoice();
   }
 
@@ -123,15 +127,27 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       if (!mounted) return;
       setState(() {
         _availableLocales = locales;
-        _selectedLocaleId = _pickPreferredLocale(locales);
+        _selectedLocaleId = _pickPreferredLocale(locales, context);
       });
     }
   }
 
-  String? _pickPreferredLocale(List<LocaleName> locales) {
-    for (final locale in locales) { if (locale.localeId.toLowerCase().startsWith('ru')) return locale.localeId; }
-    for (final locale in locales) { if (locale.localeId.toLowerCase().startsWith('en')) return locale.localeId; }
-    return locales.isNotEmpty ? locales.first.localeId : null;
+  // ИСПРАВЛЕНИЕ БАГА №9 (Russian Bias в голосе)
+  String? _pickPreferredLocale(List<LocaleName> locales, BuildContext context) {
+    if (locales.isEmpty) return null;
+    final currentLang = Localizations.localeOf(context).languageCode.toLowerCase();
+
+    // Сначала ищем язык, который совпадает с языком интерфейса
+    for (final locale in locales) {
+      if (locale.localeId.toLowerCase().startsWith(currentLang)) return locale.localeId;
+    }
+
+    // Fallback на английский
+    for (final locale in locales) {
+      if (locale.localeId.toLowerCase().startsWith('en')) return locale.localeId;
+    }
+
+    return locales.first.localeId;
   }
 
   @override
@@ -229,7 +245,11 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         child: SafeArea(
           top: false,
           child: CupertinoDatePicker(
-            initialDateTime: _selectedDate, mode: CupertinoDatePickerMode.dateAndTime, use24hFormat: true, maximumDate: DateTime.now().add(const Duration(days: 1)),
+            initialDateTime: _selectedDate,
+            mode: CupertinoDatePickerMode.dateAndTime,
+            use24hFormat: true,
+            // ИСПРАВЛЕНИЕ БАГА №10: Согласуем максимальную дату с экраном редактирования
+            maximumDate: DateTime.now().add(const Duration(days: 365)),
             onDateTimeChanged: (val) => setState(() => _selectedDate = val),
           ),
         ),
@@ -278,11 +298,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     );
   }
 
-  // НОВОЕ: ЛОГИКА АВТОКОНВЕРТАЦИИ
-  // НОВОЕ: ЛОГИКА АВТОКОНВЕРТАЦИИ
   Future<void> _handleAutoConvert() async {
     final provider = context.read<HomeProvider>();
-    // Проверка премиума
     if (!provider.canUseFeature(PremiumFeature.multiCurrency)) {
       Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const PremiumScreen()));
       return;
@@ -307,7 +324,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     });
 
     if (convertedAmount != null) {
-      HapticFeedback.mediumImpact(); // ИСПРАВЛЕНО
+      HapticFeedback.mediumImpact();
       setState(() {
         _selectedCurrency = _userCurrency;
         _parsed = ParsedExpenseInputModel(
@@ -319,7 +336,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         );
       });
     } else {
-      HapticFeedback.heavyImpact(); // ИСПРАВЛЕНО
+      HapticFeedback.heavyImpact();
       _showSnack(context, _t('Failed to fetch exchange rates', 'Не удалось получить курс валют. Проверьте интернет.'));
     }
   }
@@ -558,7 +575,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   ),
                 ),
 
-                // КНОПКА ВЫБОРА ВАЛЮТЫ (С ПРЕМИУМ-ЗАМКОМ)
                 GestureDetector(
                   onTap: _handleCurrencyTap,
                   child: Container(
@@ -585,7 +601,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   ),
                 ),
 
-                // НОВОЕ: КНОПКА АВТОКОНВЕРТАЦИИ
                 if (_selectedCurrency != _userCurrency && (_parsed?.amount ?? 0) > 0) ...[
                   const SizedBox(height: 16),
                   GestureDetector(

@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart'; // ИСПРАВЛЕН ИМПОРТ
 
 class CurrencyConversionService {
   /// Конвертирует сумму из одной валюты в другую по актуальному курсу из сети
@@ -14,8 +14,10 @@ class CurrencyConversionService {
 
     try {
       final url = Uri.parse('https://open.er-api.com/v6/latest/$fromCurrency');
-      final request = await HttpClient().getUrl(url);
-      final response = await request.close();
+
+      // ИСПРАВЛЕНИЕ БАГА: ДОБАВЛЕН ТАЙМАУТ ДЛЯ ЗАЩИТЫ ОТ ЗАВИСАНИЙ
+      final request = await HttpClient().getUrl(url).timeout(const Duration(seconds: 10));
+      final response = await request.close().timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final responseBody = await response.transform(utf8.decoder).join();
@@ -31,8 +33,9 @@ class CurrencyConversionService {
         }
       }
     } catch (e) {
-      // Тихо ловим ошибку (например, если нет интернета)
-      debugPrint('Currency conversion error: $e');
+      if (kDebugMode) {
+        debugPrint('Currency conversion error: $e');
+      }
     }
 
     return null;
