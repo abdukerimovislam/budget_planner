@@ -10,7 +10,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../providers/home_provider.dart';
 import '../../widgets/adaptive_page_padding.dart';
 import '../../widgets/auto_budget_card.dart';
-import '../../widgets/premium_background.dart'; // <-- Наш премиум фон
+import '../../widgets/premium_background.dart';
 import '../../widgets/premium_lock_card.dart';
 import '../../widgets/spending_pace_card.dart';
 import '../premium/premium_screen.dart';
@@ -55,7 +55,7 @@ class BudgetScreen extends StatelessWidget {
             CupertinoDialogAction(
               onPressed: () async {
                 final value = double.tryParse(controller.text.trim().replaceAll(',', '.'));
-                if (value == null || value <= 0) return; // Простая валидация
+                if (value == null || value <= 0) return;
 
                 await provider.updateMonthlyBudget(value, DateTime.now());
                 if (dialogContext.mounted) Navigator.of(dialogContext).pop();
@@ -76,7 +76,8 @@ class BudgetScreen extends StatelessWidget {
     final now = DateTime.now();
     final theme = Theme.of(context);
 
-    final String currency = provider.expenses.isNotEmpty ? provider.expenses.first.currency : 'KGS';
+    // ИСПРАВЛЕНИЕ: Берем валюту из единого источника правды (Профиля), а не из старых транзакций!
+    final String currency = provider.incomeProfile?.currency ?? 'USD';
 
     final totalBudget = provider.budget?.totalBudget ?? 0;
     final spent = provider.totalSpentThisMonth(now);
@@ -86,13 +87,12 @@ class BudgetScreen extends StatelessWidget {
       ..sort((a, b) => b.value.compareTo(a.value));
     final dangerousCategory = provider.mostDangerousCategoryThisMonth(now);
 
-    // Вычисляем общий прогресс
     final double overallProgress = totalBudget > 0 ? (spent / totalBudget).clamp(0.0, 1.0) : 0.0;
     final bool isOverOverall = spent > totalBudget && totalBudget > 0;
 
     return PremiumBackground(
       child: Scaffold(
-        backgroundColor: Colors.transparent, // Важно: прозрачный фон
+        backgroundColor: Colors.transparent,
         body: CustomScrollView(
           physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
           slivers: [
@@ -118,7 +118,7 @@ class BudgetScreen extends StatelessWidget {
                 delegate: SliverChildListDelegate([
                   const SizedBox(height: 8),
 
-                  // 1. ГЛАВНЫЙ КРУГОВОЙ ПРОГРЕСС БЮДЖЕТА (APPLE RINGS STYLE)
+                  // 1. ГЛАВНЫЙ КРУГОВОЙ ПРОГРЕСС БЮДЖЕТА
                   Container(
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
@@ -169,7 +169,7 @@ class BudgetScreen extends StatelessWidget {
                                       ),
                                     ),
                                     Text(
-                                      currency,
+                                      currency, // <-- ВАЛЮТА ТЕПЕРЬ ВСЕГДА ВЕРНАЯ
                                       style: TextStyle(
                                         fontSize: 14,
                                         fontWeight: FontWeight.w600,
@@ -269,7 +269,6 @@ class BudgetScreen extends StatelessWidget {
                                 padding: const EdgeInsets.all(16.0),
                                 child: Row(
                                   children: [
-                                    // Иконка категории
                                     Container(
                                       padding: const EdgeInsets.all(12),
                                       decoration: BoxDecoration(color: catColor.withOpacity(0.15), shape: BoxShape.circle),
@@ -277,7 +276,6 @@ class BudgetScreen extends StatelessWidget {
                                     ),
                                     const SizedBox(width: 16),
 
-                                    // Инфо и Прогресс-бар
                                     Expanded(
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,

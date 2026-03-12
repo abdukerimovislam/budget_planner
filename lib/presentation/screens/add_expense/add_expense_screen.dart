@@ -14,6 +14,7 @@ import '../../../data/models/parsed_expense_input_model.dart';
 import '../../../data/models/receipt_parsed_data_model.dart';
 import '../../../data/models/receipt_review_model.dart';
 import '../../../data/models/receipt_scan_result_model.dart';
+import '../../../domain/services/curency_conversion_service.dart';
 import '../../../domain/services/premium_feature.dart';
 import '../../../domain/services/receipt_parser_service.dart';
 import '../../../domain/services/receipt_scan_service.dart';
@@ -50,19 +51,22 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   final ReceiptScanService _receiptScanService = ReceiptScanService();
   final ReceiptParserService _receiptParserService = ReceiptParserService();
 
+  // ИНИЦИАЛИЗАЦИЯ СЕРВИСА КОНВЕРТАЦИИ
+  final CurrencyConversionService _conversionService = CurrencyConversionService();
+
   ParsedExpenseInputModel? _parsed;
   ReceiptParsedDataModel? _receiptParsedData;
   AddExpenseSourceMode _sourceMode = AddExpenseSourceMode.smartText;
 
   DateTime _selectedDate = DateTime.now();
-
   ExpenseCategory? _selectedCategory;
   String? _selectedCustomCategoryId;
 
   late bool _isIncome;
+  late String _userCurrency; // Базовая валюта (активного дашборда)
+  late String _selectedCurrency; // Валюта конкретной транзакции
 
-  // ДОБАВЛЕНО: Валюта пользователя
-  late String _userCurrency;
+  final List<String> _availableCurrencies = ['USD', 'EUR', 'GBP', 'RUB', 'KZT', 'KGS', 'UZS', 'UAH', 'BYN'];
 
   bool _isVoiceLoading = false;
   bool _isVoiceListening = false;
@@ -74,27 +78,30 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   String _receiptPreviewText = '';
   XFile? _pickedReceiptFile;
 
+  bool _isConverting = false; // Состояние загрузки конвертации
+
   @override
   void initState() {
     super.initState();
-
     _isIncome = widget.initialIsIncome;
 
-    // ДОБАВЛЕНО: Достаем валюту из профиля пользователя (по умолчанию USD)
     final provider = context.read<HomeProvider>();
-    _userCurrency = provider.incomeProfile?.currency ?? 'USD';
+    _userCurrency = provider.activeCurrency; // Берем активную валюту дашборда
+
+    if (provider.canUseFeature(PremiumFeature.multiCurrency)) {
+      _selectedCurrency = _userCurrency;
+    } else {
+      _selectedCurrency = _userCurrency;
+    }
 
     if (widget.initialCustomCategoryId != null) {
       _selectedCategory = ExpenseCategory.custom;
       _selectedCustomCategoryId = widget.initialCustomCategoryId;
-
-      // ИСПОЛЬЗУЕМ _userCurrency
-      _parsed = ParsedExpenseInputModel(amount: null, currency: _userCurrency, category: ExpenseCategory.custom, merchant: null, rawText: '');
+      _parsed = ParsedExpenseInputModel(amount: null, currency: _selectedCurrency, category: ExpenseCategory.custom, merchant: null, rawText: '');
     } else {
       _selectedCategory = widget.initialCategory;
       if (widget.initialCategory != null) {
-        // ИСПОЛЬЗУЕМ _userCurrency
-        _parsed = ParsedExpenseInputModel(amount: null, currency: _userCurrency, category: widget.initialCategory, merchant: null, rawText: '');
+        _parsed = ParsedExpenseInputModel(amount: null, currency: _selectedCurrency, category: widget.initialCategory, merchant: null, rawText: '');
       } else if (_isIncome) {
         _selectedCategory = ExpenseCategory.other;
       }
@@ -138,9 +145,14 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   void _parseInput() {
     final parsed = _parser.parse(_smartInputController.text);
     setState(() {
+      final hasPremium = context.read<HomeProvider>().canUseFeature(PremiumFeature.multiCurrency);
+      if (parsed.currency != null && hasPremium) {
+        _selectedCurrency = parsed.currency!;
+      }
+
       _parsed = ParsedExpenseInputModel(
         amount: parsed.amount,
-        currency: parsed.currency ?? _userCurrency, // Если парсер не нашел валюту, ставим дефолтную
+        currency: hasPremium ? (parsed.currency ?? _selectedCurrency) : _userCurrency,
         category: _selectedCategory ?? parsed.category ?? widget.initialCategory ?? ExpenseCategory.other,
         merchant: parsed.merchant,
         rawText: parsed.rawText,
@@ -150,11 +162,14 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
   void _parseVoiceText(String text) {
     final parsed = _parser.parse(text);
+    final hasPremium = context.read<HomeProvider>().canUseFeature(PremiumFeature.multiCurrency);
+
     setState(() {
       _voicePreviewText = text;
+      if (parsed.currency != null && hasPremium) _selectedCurrency = parsed.currency!;
       _parsed = ParsedExpenseInputModel(
         amount: parsed.amount,
-        currency: parsed.currency ?? _userCurrency,
+        currency: hasPremium ? (parsed.currency ?? _selectedCurrency) : _userCurrency,
         category: _selectedCategory ?? parsed.category ?? widget.initialCategory ?? ExpenseCategory.other,
         merchant: parsed.merchant,
         rawText: text,
@@ -164,12 +179,15 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
   void _parseReceiptText(String text) {
     final parsedReceipt = _receiptParserService.parse(text);
+    final hasPremium = context.read<HomeProvider>().canUseFeature(PremiumFeature.multiCurrency);
+
     setState(() {
       _receiptPreviewText = text;
       _receiptParsedData = parsedReceipt;
+      if (parsedReceipt.currency != null && hasPremium) _selectedCurrency = parsedReceipt.currency!;
       _parsed = ParsedExpenseInputModel(
         amount: parsedReceipt.amount,
-        currency: parsedReceipt.currency ?? _userCurrency,
+        currency: hasPremium ? (parsedReceipt.currency ?? _selectedCurrency) : _userCurrency,
         category: _selectedCategory ?? parsedReceipt.category ?? widget.initialCategory ?? ExpenseCategory.other,
         merchant: parsedReceipt.merchant,
         rawText: text.replaceAll('\n', ' '),
@@ -183,9 +201,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       _selectedCategory = cat;
       _selectedCustomCategoryId = null;
       if (_parsed != null) {
-        _parsed = ParsedExpenseInputModel(amount: _parsed!.amount, currency: _parsed!.currency, category: cat, merchant: _parsed!.merchant, rawText: _parsed!.rawText);
+        _parsed = ParsedExpenseInputModel(amount: _parsed!.amount, currency: _selectedCurrency, category: cat, merchant: _parsed!.merchant, rawText: _parsed!.rawText);
       } else {
-        _parsed = ParsedExpenseInputModel(amount: null, currency: _userCurrency, category: cat, merchant: null, rawText: '');
+        _parsed = ParsedExpenseInputModel(amount: null, currency: _selectedCurrency, category: cat, merchant: null, rawText: '');
       }
     });
   }
@@ -196,9 +214,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       _selectedCategory = ExpenseCategory.custom;
       _selectedCustomCategoryId = id;
       if (_parsed != null) {
-        _parsed = ParsedExpenseInputModel(amount: _parsed!.amount, currency: _parsed!.currency, category: ExpenseCategory.custom, merchant: _parsed!.merchant, rawText: _parsed!.rawText);
+        _parsed = ParsedExpenseInputModel(amount: _parsed!.amount, currency: _selectedCurrency, category: ExpenseCategory.custom, merchant: _parsed!.merchant, rawText: _parsed!.rawText);
       } else {
-        _parsed = ParsedExpenseInputModel(amount: null, currency: _userCurrency, category: ExpenseCategory.custom, merchant: null, rawText: '');
+        _parsed = ParsedExpenseInputModel(amount: null, currency: _selectedCurrency, category: ExpenseCategory.custom, merchant: null, rawText: '');
       }
     });
   }
@@ -217,6 +235,93 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         ),
       ),
     );
+  }
+
+  void _handleCurrencyTap() {
+    final provider = context.read<HomeProvider>();
+    if (!provider.canUseFeature(PremiumFeature.multiCurrency)) {
+      Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const PremiumScreen()));
+      return;
+    }
+
+    HapticFeedback.lightImpact();
+    int initialIndex = _availableCurrencies.indexOf(_selectedCurrency);
+    if (initialIndex == -1) initialIndex = 0;
+
+    showCupertinoModalPopup(
+      context: context,
+      builder: (_) => Container(
+        height: 250,
+        color: Theme.of(context).colorScheme.surface,
+        child: SafeArea(
+          top: false,
+          child: CupertinoPicker(
+            itemExtent: 40,
+            scrollController: FixedExtentScrollController(initialItem: initialIndex),
+            onSelectedItemChanged: (index) {
+              HapticFeedback.selectionClick();
+              setState(() {
+                _selectedCurrency = _availableCurrencies[index];
+                if (_parsed != null) {
+                  _parsed = ParsedExpenseInputModel(
+                    amount: _parsed!.amount, currency: _selectedCurrency, category: _parsed!.category, merchant: _parsed!.merchant, rawText: _parsed!.rawText,
+                  );
+                }
+              });
+            },
+            children: _availableCurrencies.map((c) => Center(
+              child: Text(c, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w600)),
+            )).toList(),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // НОВОЕ: ЛОГИКА АВТОКОНВЕРТАЦИИ
+  // НОВОЕ: ЛОГИКА АВТОКОНВЕРТАЦИИ
+  Future<void> _handleAutoConvert() async {
+    final provider = context.read<HomeProvider>();
+    // Проверка премиума
+    if (!provider.canUseFeature(PremiumFeature.multiCurrency)) {
+      Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const PremiumScreen()));
+      return;
+    }
+
+    if (_parsed == null || _parsed!.amount == null) return;
+
+    setState(() {
+      _isConverting = true;
+    });
+
+    final convertedAmount = await _conversionService.convert(
+      amount: _parsed!.amount!,
+      fromCurrency: _selectedCurrency,
+      toCurrency: _userCurrency,
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      _isConverting = false;
+    });
+
+    if (convertedAmount != null) {
+      HapticFeedback.mediumImpact(); // ИСПРАВЛЕНО
+      setState(() {
+        _selectedCurrency = _userCurrency;
+        _parsed = ParsedExpenseInputModel(
+          amount: convertedAmount,
+          currency: _userCurrency,
+          category: _parsed!.category,
+          merchant: _parsed!.merchant,
+          rawText: _parsed!.rawText,
+        );
+      });
+    } else {
+      HapticFeedback.heavyImpact(); // ИСПРАВЛЕНО
+      _showSnack(context, _t('Failed to fetch exchange rates', 'Не удалось получить курс валют. Проверьте интернет.'));
+    }
   }
 
   void _showSnack(BuildContext context, String message) {
@@ -258,8 +363,12 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
     final review = await Navigator.of(context).push<ReceiptReviewModel>(CupertinoPageRoute(builder: (_) => ReceiptReviewScreen(parsedData: _receiptParsedData!)));
     if (!mounted || review == null) return;
+
+    final hasPremium = context.read<HomeProvider>().canUseFeature(PremiumFeature.multiCurrency);
+
     setState(() {
-      _parsed = ParsedExpenseInputModel(amount: review.amount, currency: review.currency ?? _userCurrency, category: review.category, merchant: review.merchant, rawText: review.rawText);
+      if (hasPremium && review.currency != null) _selectedCurrency = review.currency!;
+      _parsed = ParsedExpenseInputModel(amount: review.amount, currency: hasPremium ? _selectedCurrency : _userCurrency, category: review.category, merchant: review.merchant, rawText: review.rawText);
       _receiptPreviewText = review.rawText;
     });
   }
@@ -285,11 +394,13 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     HapticFeedback.mediumImpact();
 
     final provider = context.read<HomeProvider>();
+    final hasPremium = provider.canUseFeature(PremiumFeature.multiCurrency);
+
     await provider.addExpense(
       ExpenseModel(
         id: const Uuid().v4(),
         amount: parsed.amount!,
-        currency: parsed.currency ?? _userCurrency, // ИСПОЛЬЗУЕМ ВАЛЮТУ ПОЛЬЗОВАТЕЛЯ
+        currency: hasPremium ? _selectedCurrency : _userCurrency,
         category: _selectedCategory ?? parsed.category ?? ExpenseCategory.other,
         customCategoryId: _selectedCustomCategoryId,
         merchant: parsed.merchant ?? '',
@@ -446,10 +557,68 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     ),
                   ),
                 ),
-                Text(
-                  _parsed?.currency ?? _userCurrency, // ПОКАЗЫВАЕМ ВАЛЮТУ ПОЛЬЗОВАТЕЛЯ!
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface.withOpacity(0.4)),
+
+                // КНОПКА ВЫБОРА ВАЛЮТЫ (С ПРЕМИУМ-ЗАМКОМ)
+                GestureDetector(
+                  onTap: _handleCurrencyTap,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surfaceVariant.withOpacity(0.5),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (!provider.canUseFeature(PremiumFeature.multiCurrency)) ...[
+                          Icon(CupertinoIcons.lock_fill, size: 12, color: CupertinoColors.systemYellow),
+                          const SizedBox(width: 6),
+                        ],
+                        Text(
+                          _selectedCurrency,
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: theme.colorScheme.onSurface),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(CupertinoIcons.chevron_down, size: 14, color: theme.colorScheme.onSurface.withOpacity(0.5)),
+                      ],
+                    ),
+                  ),
                 ),
+
+                // НОВОЕ: КНОПКА АВТОКОНВЕРТАЦИИ
+                if (_selectedCurrency != _userCurrency && (_parsed?.amount ?? 0) > 0) ...[
+                  const SizedBox(height: 16),
+                  GestureDetector(
+                    onTap: _isConverting ? null : _handleAutoConvert,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: CupertinoColors.activeOrange.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: CupertinoColors.activeOrange.withOpacity(0.3)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (_isConverting)
+                            const CupertinoActivityIndicator(radius: 8)
+                          else ...[
+                            if (!provider.canUseFeature(PremiumFeature.multiCurrency)) ...[
+                              const Icon(CupertinoIcons.lock_fill, size: 12, color: CupertinoColors.activeOrange),
+                              const SizedBox(width: 4),
+                            ],
+                            const Icon(CupertinoIcons.arrow_right_arrow_left, size: 14, color: CupertinoColors.activeOrange),
+                          ],
+                          const SizedBox(width: 6),
+                          Text(
+                            _t('Convert to $_userCurrency', 'В $_userCurrency'),
+                            style: const TextStyle(fontWeight: FontWeight.w700, color: CupertinoColors.activeOrange),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
 

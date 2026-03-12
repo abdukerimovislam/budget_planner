@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../app/theme/app_spacing.dart';
@@ -72,7 +73,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return value.toStringAsFixed(2);
   }
 
-  // ФОРМАТИРОВАНИЕ ДЛИТЕЛЬНОСТИ ЖИЗНИ ДЛЯ КАРТОЧКИ
   String _formatLifeTime(Duration duration) {
     final hours = duration.inHours;
     final minutes = duration.inMinutes.remainder(60);
@@ -162,6 +162,53 @@ class _HomeScreenState extends State<HomeScreen> {
     return sections;
   }
 
+  // НОВОЕ: ВЫБОР АКТИВНОГО СЧЕТА (МУЛЬТИВАЛЮТНОСТЬ)
+  void _showCurrencyAccountSelector(BuildContext context, HomeProvider provider) {
+    if (!provider.canUseFeature(PremiumFeature.multiCurrency)) {
+      Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const PremiumScreen()));
+      return;
+    }
+
+    final available = provider.availableUserCurrencies;
+    if (available.length <= 1) return; // Нет смысла показывать, если только одна валюта
+
+    HapticFeedback.lightImpact();
+    int initialIndex = available.indexOf(provider.activeCurrency);
+    if (initialIndex == -1) initialIndex = 0;
+
+    showCupertinoModalPopup(
+      context: context,
+      builder: (_) => Container(
+        height: 250,
+        color: Theme.of(context).colorScheme.surface,
+        child: SafeArea(
+          top: false,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Text('Select Account', style: TextStyle(fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
+              ),
+              Expanded(
+                child: CupertinoPicker(
+                  itemExtent: 40,
+                  scrollController: FixedExtentScrollController(initialItem: initialIndex),
+                  onSelectedItemChanged: (index) {
+                    HapticFeedback.selectionClick();
+                    provider.setActiveCurrency(available[index]);
+                  },
+                  children: available.map((c) => Center(
+                    child: Text('$c Account', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w600)),
+                  )).toList(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<HomeProvider>();
@@ -176,7 +223,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final actionPlan = provider.actionPlan(now);
     final dangerousCategory = provider.mostDangerousCategoryThisMonth(now);
 
-    // ПОЛУЧАЕМ ПОТРАЧЕННУЮ ЖИЗНЬ ЗА МЕСЯЦ
     final lifeSpentDuration = provider.spentLifeDurationForMonth(now);
     final lifeSpentFormatted = _formatLifeTime(lifeSpentDuration);
 
@@ -187,6 +233,11 @@ class _HomeScreenState extends State<HomeScreen> {
     final daysLeft = (daysInMonth - now.day + 1).clamp(1, 31);
     final safeToSpendDaily = forecast != null && forecast.expectedRemaining > 0
         ? forecast.expectedRemaining / daysLeft : 0.0;
+
+    // ПЕРЕМЕННЫЕ ДЛЯ КНОПКИ ВАЛЮТЫ
+    final activeCurrency = provider.activeCurrency;
+    final hasMultipleCurrencies = provider.availableUserCurrencies.length > 1;
+    final hasPremium = provider.canUseFeature(PremiumFeature.multiCurrency);
 
     return PremiumBackground(
       child: GestureDetector(
@@ -214,6 +265,38 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
                     actions: [
+                      // НОВОЕ: ПЕРЕКЛЮЧАТЕЛЬ СЧЕТОВ НА APPBAR
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8.0),
+                        child: GestureDetector(
+                          onTap: () => _showCurrencyAccountSelector(context, provider),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.surface,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: Theme.of(context).colorScheme.surfaceVariant),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (!hasPremium) ...[
+                                  const Icon(CupertinoIcons.lock_fill, size: 12, color: CupertinoColors.systemYellow),
+                                  const SizedBox(width: 4),
+                                ],
+                                Text(
+                                  activeCurrency,
+                                  style: TextStyle(fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurface, fontSize: 14),
+                                ),
+                                if (hasPremium && hasMultipleCurrencies) ...[
+                                  const SizedBox(width: 4),
+                                  Icon(CupertinoIcons.chevron_up_chevron_down, size: 12, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
+                                ]
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
                       Padding(
                         padding: const EdgeInsets.only(right: 16.0),
                         child: InkWell(
@@ -226,7 +309,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           child: Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, shape: BoxShape.circle),
-                            child: Icon(CupertinoIcons.person, color: Theme.of(context).colorScheme.primary),
+                            child: Icon(CupertinoIcons.person, color: Theme.of(context).colorScheme.primary, size: 20),
                           ),
                         ),
                       ),
@@ -252,15 +335,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                 child: HeroDashboardCard(
                                   metal: CardMetal.platinum,
                                   label: _showRemaining ? l10n.leftToSpend : l10n.spentThisMonth.toUpperCase(),
-                                  value: _formatNumber(_showRemaining ? (forecast?.expectedRemaining ?? 0) : totalSpent),
+                                  // ИСПРАВЛЕНИЕ: ДОБАВЛЯЕМ ВАЛЮТУ ПРЯМО НА ГЛАВНУЮ КАРТОЧКУ
+                                  value: '${_formatNumber(_showRemaining ? (forecast?.expectedRemaining ?? 0) : totalSpent)} $activeCurrency',
                                   isWarning: _showRemaining && (forecast?.isOverBudget ?? false),
                                   bottomWidget: _GlassMetricRow(
                                     isGold: false,
                                     leftIcon: CupertinoIcons.heart_fill,
                                     leftLabel: l10n.healthLabel,
                                     leftValue: '$healthScore/100',
-
-                                    // КИЛЛЕР-ФИЧА: Динамическое переключение
                                     rightIcon: _showRemaining ? CupertinoIcons.calendar_today : CupertinoIcons.clock_fill,
                                     rightLabel: _showRemaining ? l10n.daysLeftLabel : l10n.shareCardLifeSpent,
                                     rightValue: _showRemaining ? '$daysLeft' : lifeSpentFormatted,
@@ -270,7 +352,8 @@ class _HomeScreenState extends State<HomeScreen> {
                               HeroDashboardCard(
                                 metal: CardMetal.gold,
                                 label: l10n.safeToSpendToday,
-                                value: _formatNumber(safeToSpendDaily),
+                                // ВАЛЮТА ЗДЕСЬ ТОЖЕ
+                                value: '${_formatNumber(safeToSpendDaily)} $activeCurrency',
                                 withSparkline: true,
                                 bottomWidget: _GlassTextBanner(text: l10n.keepPaceBudget, isGold: true),
                               ),
@@ -445,6 +528,15 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
 
+                        if (latestExpenses.isEmpty)
+                          Container(
+                            padding: const EdgeInsets.all(32),
+                            decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface.withOpacity(0.8), borderRadius: BorderRadius.circular(24), border: Border.all(color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5))),
+                            child: Center(
+                              child: Text('No transactions in $activeCurrency yet', style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
+                            ),
+                          ),
+
                         SizedBox(height: 140 + MediaQuery.of(context).padding.bottom),
                       ]),
                     ),
@@ -456,12 +548,11 @@ class _HomeScreenState extends State<HomeScreen> {
               MorphingFab(
                 isExpanded: _isFabExpanded,
                 onToggle: () => setState(() => _isFabExpanded = !_isFabExpanded),
-                // ИЗМЕНЕНО: Теперь мы принимаем два параметра из FAB и передаем в экран!
                 onSelectSource: (mode, isIncome) {
                   setState(() => _isFabExpanded = false);
                   Navigator.of(context).push(CupertinoPageRoute(
                       builder: (_) => AddExpenseScreen(
-                        initialIsIncome: isIncome, // Передаем флаг Доход/Расход
+                        initialIsIncome: isIncome,
                       )
                   ));
                 },

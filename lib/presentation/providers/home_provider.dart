@@ -1,4 +1,4 @@
-import 'dart:math'; // <-- ДОБАВЛЕН ИМПОРТ ДЛЯ ФУНКЦИИ MAX()
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -68,13 +68,13 @@ class HomeProvider extends ChangeNotifier {
   IncomeProfileModel? _incomeProfile;
   BudgetModel? _budget;
   bool _isInitialized = false;
-
   bool _isPremium = false;
-
   SavingsGoalModel? _savingsGoal;
-
   int? _salaryDay;
   final List<RecurringBillModel> _recurringBills = [];
+
+  // НОВОЕ: МУЛЬТИВАЛЮТНОСТЬ
+  String? _activeCurrency;
 
   List<ExpenseModel> get expenses => List.unmodifiable(_expenses);
   List<CustomCategoryModel> get customCategories => List.unmodifiable(_customCategories);
@@ -87,19 +87,41 @@ class HomeProvider extends ChangeNotifier {
   int? get salaryDay => _salaryDay;
   List<RecurringBillModel> get recurringBills => List.unmodifiable(_recurringBills);
 
+  // Возвращает активную валюту дашборда (или базовую валюту профиля, если ничего не выбрано)
+  String get activeCurrency => _activeCurrency ?? _incomeProfile?.currency ?? 'USD';
+
+  // Собирает уникальный список валют, которые пользователь РЕАЛЬНО использовал в транзакциях + базовую валюту
+  List<String> get availableUserCurrencies {
+    final set = <String>{_incomeProfile?.currency ?? 'USD'};
+    for (final e in _expenses) {
+      set.add(e.currency);
+    }
+    final list = set.toList();
+    list.sort(); // Сортируем по алфавиту для красоты
+    return list;
+  }
+
+  // Метод для переключения дашборда
+  void setActiveCurrency(String currency) {
+    _activeCurrency = currency;
+    notifyListeners();
+  }
+
   Future<void> load() async {
     _incomeProfile = LocalStorageService.instance.getIncomeProfile();
     _budget = LocalStorageService.instance.getBudget();
 
     _expenses.clear();
     final loadedExpenses = LocalStorageService.instance.getExpenses();
-    // Принудительная сортировка из базы (самые новые сверху)
     loadedExpenses.sort((a, b) => b.date.compareTo(a.date));
     _expenses.addAll(loadedExpenses);
 
     _customCategories
       ..clear()
       ..addAll(LocalStorageService.instance.getCustomCategories());
+
+    // Устанавливаем валюту по умолчанию при запуске
+    _activeCurrency = _incomeProfile?.currency ?? 'USD';
 
     _isInitialized = true;
     notifyListeners();
@@ -128,13 +150,12 @@ class HomeProvider extends ChangeNotifier {
     _customCategories.removeWhere((c) => c.id == id);
     await LocalStorageService.instance.saveCustomCategories(_customCategories);
 
-    // "Спасаем" осиротевшие транзакции
     bool needsExpenseUpdate = false;
     for (int i = 0; i < _expenses.length; i++) {
       if (_expenses[i].customCategoryId == id) {
         _expenses[i] = _expenses[i].copyWith(
           category: ExpenseCategory.other,
-          customCategoryId: null, // Сбрасываем ID
+          customCategoryId: null,
         );
         needsExpenseUpdate = true;
       }
@@ -143,7 +164,6 @@ class HomeProvider extends ChangeNotifier {
     if (needsExpenseUpdate) {
       await LocalStorageService.instance.saveExpenses(_expenses);
     }
-
     notifyListeners();
   }
 
@@ -167,12 +187,11 @@ class HomeProvider extends ChangeNotifier {
 
     if (profile == null || budget == null) return 0;
 
-    // ИСПРАВЛЕНИЕ: Берем точный исторический доход за прошлый месяц
     final actualIncomePrevMonth = actualIncomeForMonth(previousMonth);
     final incomeToUse = max(profile.expectedMonthlyIncome, actualIncomePrevMonth);
 
     return scoreService.calculate(
-      income: incomeToUse, // Использован справедливый доход
+      income: incomeToUse,
       totalSpent: totalSpentForMonth(previousMonth),
       totalBudget: budget.totalBudget,
       subscriptionsSpent: subscriptionsSpentForMonth(previousMonth),
@@ -181,7 +200,6 @@ class HomeProvider extends ChangeNotifier {
   }
 
   MonthCloseSummaryModel monthCloseSummary(DateTime now) {
-    // ИСПРАВЛЕНИЕ: Не пускаем доходы в алгоритмы, считающие только траты для экрана закрытия
     final currentExpensesOnly = expensesForMonth(now).where((e) => !e.isIncome).toList();
     final previousExpensesOnly = expensesForPreviousMonth(now).where((e) => !e.isIncome).toList();
 
@@ -218,6 +236,10 @@ class HomeProvider extends ChangeNotifier {
   Future<void> setIncomeProfile(IncomeProfileModel profile) async {
     _incomeProfile = profile;
     await LocalStorageService.instance.saveIncomeProfile(profile);
+
+    // Если поменяли базовую валюту, переключаем дашборд на неё
+    _activeCurrency = profile.currency;
+
     notifyListeners();
   }
 
@@ -256,27 +278,22 @@ class HomeProvider extends ChangeNotifier {
       note: result.note.isEmpty ? null : result.note,
       category: result.category,
       date: result.date,
-      isIncome: result.isIncome, // <-- ДОБАВЛЕНА ЭТА СТРОКА!
+      isIncome: result.isIncome,
+      currency: result.currency,
     );
 
     await LocalStorageService.instance.saveExpenses(_expenses);
     notifyListeners();
   }
 
-  // --- УМНАЯ ГРУППИРОВКА (ДЛЯ АНАЛИТИКИ) ---
-
-  /// Группирует траты по категориям.
-  /// Возвращает Map, где ключ - это ID кастомной категории ИЛИ системное имя (например "food").
   Map<String, double> detailedCategoryTotalsForMonth(DateTime date) {
     final Map<String, double> totals = {};
 
     for (final expense in expensesForMonth(date).where((e) => !e.isIncome)) {
       String key;
       if (expense.category == ExpenseCategory.custom && expense.customCategoryId != null) {
-        // Если это кастомная категория, используем ее ID как ключ
         key = 'custom_${expense.customCategoryId}';
       } else {
-        // Иначе используем имя системного Enum
         key = expense.category.name;
       }
 
@@ -297,6 +314,7 @@ class HomeProvider extends ChangeNotifier {
     _customCategories.clear();
     _incomeProfile = null;
     _budget = null;
+    _activeCurrency = null; // Сбрасываем выбор валюты
     await LocalStorageService.instance.clearAll();
     notifyListeners();
   }
@@ -315,19 +333,25 @@ class HomeProvider extends ChangeNotifier {
     await updateExpense(expense.id, result);
   }
 
+  // ФИЛЬТР: Берем транзакции только для активной валюты!
   List<ExpenseModel> expensesForMonth(DateTime date) {
     return _expenses.where((e) {
-      return e.date.year == date.year && e.date.month == date.month;
+      return e.date.year == date.year &&
+          e.date.month == date.month &&
+          e.currency == activeCurrency; // Изолируем счет
     }).toList();
   }
 
+  // В последних транзакциях тоже фильтруем по валюте
   List<ExpenseModel> latestExpenses({int limit = 20}) {
-    final sorted = List<ExpenseModel>.from(_expenses)
+    final sorted = List<ExpenseModel>.from(_expenses.where((e) => e.currency == activeCurrency))
       ..sort((a, b) => b.date.compareTo(a.date));
     return sorted.take(limit).toList();
   }
 
   List<ExpenseModel> filteredExpenses(ExpenseFilterModel filter) {
+    // В истории транзакций мы показываем все валюты или только активную?
+    // Покажем все, чтобы пользователь мог их редактировать. Но добавим фильтр по валюте.
     var list = List<ExpenseModel>.from(_expenses);
 
     final query = filter.query.trim().toLowerCase();
@@ -388,8 +412,6 @@ class HomeProvider extends ChangeNotifier {
     return list;
   }
 
-  // --- СЧИТАЕМ РАСХОДЫ ОТДЕЛЬНО ОТ ДОХОДОВ ---
-
   double totalSpentForMonth(DateTime date) {
     return expensesForMonth(date)
         .where((e) => !e.isIncome)
@@ -418,8 +440,6 @@ class HomeProvider extends ChangeNotifier {
     return totals;
   }
 
-  // --- КОНЕЦ БЛОКА ---
-
   double totalSpentThisMonth(DateTime now) {
     return totalSpentForMonth(now);
   }
@@ -434,7 +454,7 @@ class HomeProvider extends ChangeNotifier {
     if (currentBudget == null) return null;
 
     return forecastService.calculate(
-      expenses: _expenses.where((e) => !e.isIncome).toList(), // Прогноз только по тратам
+      expenses: _expenses.where((e) => !e.isIncome && e.currency == activeCurrency).toList(),
       now: now,
       monthlyBudget: currentBudget,
     );
@@ -445,12 +465,11 @@ class HomeProvider extends ChangeNotifier {
     final budget = _budget;
     if (profile == null || budget == null) return 0;
 
-    // ИСПРАВЛЕНИЕ: Справедливый расчет баллов здоровья с учетом сверхприбыли
     final actualIncome = actualIncomeForMonth(now);
     final incomeToUse = max(profile.expectedMonthlyIncome, actualIncome);
 
     return scoreService.calculate(
-      income: incomeToUse, // Использован справедливый доход
+      income: incomeToUse,
       totalSpent: totalSpentForMonth(now),
       totalBudget: budget.totalBudget,
       subscriptionsSpent: subscriptionsSpentForMonth(now),
@@ -500,7 +519,7 @@ class HomeProvider extends ChangeNotifier {
 
   List<ExpenseModel> expensesLast30Days(DateTime now) {
     final start = now.subtract(const Duration(days: 30));
-    return _expenses.where((e) => e.date.isAfter(start) && !e.isIncome).toList();
+    return _expenses.where((e) => e.date.isAfter(start) && !e.isIncome && e.currency == activeCurrency).toList();
   }
 
   AutoBudgetRecommendation autoBudgetRecommendation(DateTime now) {
@@ -515,7 +534,7 @@ class HomeProvider extends ChangeNotifier {
     }
 
     return subscriptionDetectorService.detect(
-      expenses: List<ExpenseModel>.from(_expenses.where((e) => !e.isIncome)),
+      expenses: List<ExpenseModel>.from(_expenses.where((e) => !e.isIncome && e.currency == activeCurrency)),
     );
   }
 
@@ -643,7 +662,7 @@ class HomeProvider extends ChangeNotifier {
       now: now,
       salaryDay: _salaryDay,
       monthlyIncome: _incomeProfile?.expectedMonthlyIncome ?? 0,
-      currency: _incomeProfile?.currency ?? 'USD',
+      currency: activeCurrency, // Передаем активную валюту
       recurringBills: _recurringBills,
       daysAhead: 30,
     );

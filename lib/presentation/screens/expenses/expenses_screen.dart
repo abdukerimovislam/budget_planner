@@ -161,7 +161,8 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
             merchant: expense.merchant,
             note: expense.note ?? '',
             date: expense.date,
-            isIncome: expense.isIncome, // <-- ИСПРАВЛЕНИЕ ЗДЕСЬ! Передаем статус дохода
+            isIncome: expense.isIncome, // <-- ИСПРАВЛЕНИЕ
+            currency: expense.currency, // <-- ИСПРАВЛЕНИЕ
           ),
         );
       }
@@ -221,6 +222,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
             physics: const BouncingScrollPhysics(),
             children: [
               if (!_isSelectionMode) ...[
+                // Фильтры в стильной полупрозрачной карточке
                 Container(
                   margin: const EdgeInsets.only(bottom: 24),
                   padding: const EdgeInsets.all(16),
@@ -258,6 +260,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                   ),
                 )
               else
+              // Единый блок-список транзакций (Apple Wallet Style)
                 Container(
                   decoration: BoxDecoration(
                     color: colorScheme.surface.withOpacity(0.8),

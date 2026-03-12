@@ -25,6 +25,8 @@ class PremiumAccessService {
         return false;
       case PremiumFeature.actionPlanner:
         return false;
+      case PremiumFeature.multiCurrency: // <-- ИСПРАВЛЕНИЕ: Добавили проверку новой фичи
+        return false;
     }
   }
 }

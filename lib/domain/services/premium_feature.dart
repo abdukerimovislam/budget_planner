@@ -7,4 +7,5 @@ enum PremiumFeature {
   multipleGoals,
   shareExport,
   actionPlanner,
+  multiCurrency, // <-- НОВАЯ ПРЕМИУМ-ФИЧА: Изолированные мультивалютные счета
 }

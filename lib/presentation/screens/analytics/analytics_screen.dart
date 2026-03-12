@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../app/theme/app_spacing.dart';
@@ -9,11 +10,13 @@ import '../../../core/utils/category_extension.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../data/models/expense_category.dart';
 import '../../../data/models/expense_model.dart';
+import '../../../domain/services/premium_feature.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../providers/home_provider.dart';
 import '../../widgets/adaptive_page_padding.dart';
 import '../../widgets/health_score_explainer_card.dart';
 import '../../widgets/insight_card.dart';
+import '../premium/premium_screen.dart';
 
 class _DetailedCategoryStat {
   final ExpenseCategory category;
@@ -44,6 +47,53 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     return value.toStringAsFixed(2);
   }
 
+  // НОВОЕ: ВЫБОР АКТИВНОГО СЧЕТА ПРЯМО ИЗ АНАЛИТИКИ
+  void _showCurrencyAccountSelector(BuildContext context, HomeProvider provider) {
+    if (!provider.canUseFeature(PremiumFeature.multiCurrency)) {
+      Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const PremiumScreen()));
+      return;
+    }
+
+    final available = provider.availableUserCurrencies;
+    if (available.length <= 1) return;
+
+    HapticFeedback.lightImpact();
+    int initialIndex = available.indexOf(provider.activeCurrency);
+    if (initialIndex == -1) initialIndex = 0;
+
+    showCupertinoModalPopup(
+      context: context,
+      builder: (_) => Container(
+        height: 250,
+        color: Theme.of(context).colorScheme.surface,
+        child: SafeArea(
+          top: false,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Text('Select Account', style: TextStyle(fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
+              ),
+              Expanded(
+                child: CupertinoPicker(
+                  itemExtent: 40,
+                  scrollController: FixedExtentScrollController(initialItem: initialIndex),
+                  onSelectedItemChanged: (index) {
+                    HapticFeedback.selectionClick();
+                    provider.setActiveCurrency(available[index]);
+                  },
+                  children: available.map((c) => Center(
+                    child: Text('$c Account', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w600)),
+                  )).toList(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<HomeProvider>();
@@ -52,12 +102,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    // ИСПРАВЛЕНИЕ БАГА: Фильтруем транзакции, оставляем ТОЛЬКО РАСХОДЫ!
     final currentMonthExpenses = provider.expensesForMonth(now).where((e) => !e.isIncome).toList();
     final previousMonthExpenses = provider.expensesForPreviousMonth(now).where((e) => !e.isIncome).toList();
 
-    // ИСПРАВЛЕНИЕ: Берем валюту надежно из профиля пользователя (как мы сделали в других местах)
-    final String currency = provider.incomeProfile?.currency ?? 'USD';
+    // ИСПРАВЛЕНИЕ: Берем АКТИВНУЮ ВАЛЮТУ ДАШБОРДА
+    final String currency = provider.activeCurrency;
 
     final totalSpent = provider.totalSpentThisMonth(now);
     final lastMonthTotal = previousMonthExpenses.fold<double>(0, (sum, e) => sum + e.amount);
@@ -74,7 +123,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       highestExpense = currentMonthExpenses.reduce((a, b) => a.amount > b.amount ? a : b);
     }
 
-    // ИДЕАЛЬНАЯ ГРУППИРОВКА
     final breakdown = <String, _DetailedCategoryStat>{};
     for (final e in currentMonthExpenses) {
       final key = e.category == ExpenseCategory.custom ? 'custom_${e.customCategoryId}' : e.category.name;
@@ -113,6 +161,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       );
     }).toList();
 
+    // ПЕРЕМЕННЫЕ ДЛЯ КНОПКИ ВАЛЮТЫ
+    final hasMultipleCurrencies = provider.availableUserCurrencies.length > 1;
+    final hasPremium = provider.canUseFeature(PremiumFeature.multiCurrency);
+
     return Scaffold(
       backgroundColor: isDark ? Colors.black : const Color(0xFFF2F2F7),
       body: Stack(
@@ -147,6 +199,40 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   l10n.analyticsTab,
                   style: const TextStyle(fontWeight: FontWeight.w800, letterSpacing: -0.5),
                 ),
+                actions: [
+                  // ПЕРЕКЛЮЧАТЕЛЬ ВАЛЮТЫ В АНАЛИТИКЕ
+                  Padding(
+                    padding: const EdgeInsets.only(right: 16.0),
+                    child: GestureDetector(
+                      onTap: () => _showCurrencyAccountSelector(context, provider),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.surface,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Theme.of(context).colorScheme.surfaceVariant),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (!hasPremium) ...[
+                              const Icon(CupertinoIcons.lock_fill, size: 12, color: CupertinoColors.systemYellow),
+                              const SizedBox(width: 4),
+                            ],
+                            Text(
+                              currency,
+                              style: TextStyle(fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurface, fontSize: 14),
+                            ),
+                            if (hasPremium && hasMultipleCurrencies) ...[
+                              const SizedBox(width: 4),
+                              Icon(CupertinoIcons.chevron_up_chevron_down, size: 12, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
+                            ]
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
 
               SliverPadding(
@@ -156,7 +242,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     const SizedBox(height: 8),
 
                     if (sortedStats.isEmpty) ...[
-                      _buildEmptyState(context, l10n, theme),
+                      _buildEmptyState(context, l10n, theme, currency),
                     ] else ...[
                       Container(
                         padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
@@ -263,7 +349,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                         ),
                                       ),
                                       Text(
-                                        currency, // ВАЛЮТА В ЦЕНТРЕ ГРАФИКА
+                                        currency, // ВАЛЮТА
                                         style: TextStyle(
                                           fontSize: 14,
                                           fontWeight: FontWeight.w600,
@@ -321,7 +407,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                   ],
                                 ),
                               ),
-                              // ВАЛЮТА ДЛЯ САМОЙ БОЛЬШОЙ ТРАТЫ
                               Text(
                                 '${_formatNumber(highestExpense.amount)} $currency',
                                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: theme.colorScheme.onSurface),
@@ -357,7 +442,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                               categoryName: stat.category.localizedName(context, customCategoryId: stat.customId),
                               categoryColor: stat.category.dynamicColor(context, customCategoryId: stat.customId),
                               iconData: stat.category.dynamicIcon(context, customCategoryId: stat.customId),
-                              amount: '${_formatNumber(stat.amount)} $currency', // ВАЛЮТА ДЛЯ КАТЕГОРИИ
+                              amount: '${_formatNumber(stat.amount)} $currency',
                               transactionsCountLabel: l10n.analyticsTransactionsCount(stat.count),
                               percent: percent,
                               isLast: isLast,
@@ -398,7 +483,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     );
   }
 
-  Widget _buildEmptyState(BuildContext context, AppLocalizations l10n, ThemeData theme) {
+  Widget _buildEmptyState(BuildContext context, AppLocalizations l10n, ThemeData theme, String activeCurrency) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
       decoration: BoxDecoration(
@@ -418,7 +503,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           const SizedBox(height: 24),
           Text(l10n.analyticsEmptyTitle, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700), textAlign: TextAlign.center),
           const SizedBox(height: 8),
-          Text(l10n.analyticsEmptySubtitle, style: TextStyle(fontSize: 15, color: theme.colorScheme.onSurface.withOpacity(0.6)), textAlign: TextAlign.center),
+          Text('No data in $activeCurrency this month', style: TextStyle(fontSize: 15, color: theme.colorScheme.onSurface.withOpacity(0.6)), textAlign: TextAlign.center),
         ],
       ),
     );
