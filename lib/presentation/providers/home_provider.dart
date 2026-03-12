@@ -197,7 +197,7 @@ class HomeProvider extends ChangeNotifier {
     if (profile == null || budget == null) return 0;
 
     // ИСПРАВЛЕНИЕ: Если валюта бюджета не совпадает с активной валютой, баллы не считаем
-    if (budget.currency != activeCurrency) return 0;
+    if (budget.currency != activeCurrency || profile.currency != activeCurrency) return 0;
 
     final actualIncomePrevMonth = actualIncomeForMonth(previousMonth);
     final incomeToUse = max(profile.expectedMonthlyIncome, actualIncomePrevMonth);
@@ -240,7 +240,8 @@ class HomeProvider extends ChangeNotifier {
       hasGoal: goal != null,
       hasGoalProgress: goal != null && goal.currentAmount > 0,
       hasMonthCloseSignal: _expenses.isNotEmpty,
-      hasNoOverspendMonth: (_budget?.totalBudget ?? 0) > 0 &&
+      hasNoOverspendMonth: (_budget?.currency == activeCurrency) &&
+          (_budget?.totalBudget ?? 0) > 0 &&
           totalSpentThisMonth(DateTime.now()) <= (_budget?.totalBudget ?? 0),
     );
   }

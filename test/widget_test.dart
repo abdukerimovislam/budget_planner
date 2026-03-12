@@ -1,30 +1,44 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
+import 'package:budget_planner/app/app.dart';
+import 'package:budget_planner/app/app_state.dart';
+import 'package:budget_planner/core/localization/locale_controller.dart';
+import 'package:budget_planner/data/datasources/local/local_storage_service.dart';
+import 'package:budget_planner/domain/services/financial_forecast_service.dart';
+import 'package:budget_planner/domain/services/financial_health_score_service.dart';
+import 'package:budget_planner/domain/services/life_value_service.dart';
+import 'package:budget_planner/presentation/providers/home_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:budget_planner/main.dart';
+import 'package:provider/provider.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  TestWidgetsFlutterBinding.ensureInitialized();
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+  setUpAll(() async {
+    await LocalStorageService.init();
+  });
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
+  testWidgets('BudgetPlannerApp builds with required providers', (
+      WidgetTester tester,
+      ) async {
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => AppState()),
+          ChangeNotifierProvider(create: (_) => LocaleController()),
+          ChangeNotifierProvider(
+            create: (_) => HomeProvider(
+              forecastService: FinancialForecastService(),
+              scoreService: FinancialHealthScoreService(),
+              lifeValueService: LifeValueService(),
+            ),
+          ),
+        ],
+        child: const BudgetPlannerApp(),
+      ),
+    );
+
     await tester.pump();
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(find.byType(MaterialApp), findsOneWidget);
   });
 }

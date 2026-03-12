@@ -58,8 +58,7 @@ class MonthCloseScreen extends StatelessWidget {
       case ExpenseCategory.other:
         return l10n.categoryOther;
       case ExpenseCategory.custom:
-        // TODO: Handle this case.
-        throw UnimplementedError();
+        return l10n.categoryCustom;
     }
   }
 

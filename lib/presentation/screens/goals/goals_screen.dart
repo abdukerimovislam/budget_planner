@@ -51,7 +51,8 @@ class GoalsScreen extends StatelessWidget {
                     keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
                     decoration: InputDecoration(
-                      labelText: l10n.goalTargetAmountLabel,
+                      // ИСПРАВЛЕНИЕ: Добавляем текущую валюту в Label, чтобы пользователь понимал, в чем он копит
+                      labelText: '${l10n.goalTargetAmountLabel} (${context.read<HomeProvider>().activeCurrency})',
                       errorText: amountError,
                     ),
                   ),
@@ -105,12 +106,15 @@ class GoalsScreen extends StatelessWidget {
 
                     if (titleError != null || amountError != null) return;
 
-                    await context.read<HomeProvider>().setSavingsGoal(
+                    final provider = context.read<HomeProvider>();
+
+                    await provider.setSavingsGoal(
                       SavingsGoalModel(
                         id: const Uuid().v4(),
                         title: title,
                         targetAmount: targetAmount!,
                         currentAmount: 0,
+                        currency: provider.activeCurrency, // <-- ИСПРАВЛЕНИЕ: Передаем валюту
                         targetDate: targetDate,
                         createdAt: DateTime.now(),
                       ),
@@ -151,7 +155,7 @@ class GoalsScreen extends StatelessWidget {
                 keyboardType:
                 const TextInputType.numberWithOptions(decimal: true),
                 decoration: InputDecoration(
-                  labelText: l10n.goalAddProgressLabel,
+                  labelText: '${l10n.goalAddProgressLabel} (${goal.currency})', // Подсказываем валюту
                   errorText: amountError,
                 ),
               ),
@@ -202,6 +206,9 @@ class GoalsScreen extends StatelessWidget {
     final projection = goal == null ? null : provider.savingsGoalProjection(now);
     final actionPlan = provider.actionPlan(now);
 
+    // ИСПРАВЛЕНИЕ: Показываем цель, только если она в текущей активной валюте
+    final bool isGoalVisible = goal != null && goal.currency == provider.activeCurrency;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.goalsTab),
@@ -212,7 +219,7 @@ class GoalsScreen extends StatelessWidget {
           children: [
             SectionHeader(title: l10n.goalsTitle),
             SizedBox(height: Responsive.itemGap(context)),
-            if (goal == null)
+            if (!isGoalVisible)
               Card(
                 child: Padding(
                   padding: EdgeInsets.all(Responsive.cardPadding(context)),
@@ -225,21 +232,23 @@ class GoalsScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        l10n.goalsEmptyTitle,
+                        // Если цель есть, но в другой валюте, мы мягко объясняем это пользователю
+                        goal != null ? 'No goals for ${provider.activeCurrency}' : l10n.goalsEmptyTitle,
                         style: Theme.of(context).textTheme.titleMedium,
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        l10n.goalsEmptySubtitle,
+                        goal != null ? 'Switch to ${goal.currency} account to view your active goal' : l10n.goalsEmptySubtitle,
                         style: Theme.of(context).textTheme.bodyMedium,
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 16),
-                      FilledButton(
-                        onPressed: () => _showCreateGoalDialog(context),
-                        child: Text(l10n.goalCreateButton),
-                      ),
+                      if (goal == null)
+                        FilledButton(
+                          onPressed: () => _showCreateGoalDialog(context),
+                          child: Text(l10n.goalCreateButton),
+                        ),
                     ],
                   ),
                 ),
@@ -265,9 +274,7 @@ class GoalsScreen extends StatelessWidget {
                         projection.monthsToTargetDate == null
                             ? l10n.goalProjectionNoDate
                             : l10n.goalProjectionWithDate(
-                          _formatNumber(
-                            projection.recommendedMonthlyContribution,
-                          ),
+                          '${_formatNumber(projection.recommendedMonthlyContribution)} ${goal.currency}',
                           projection.monthsToTargetDate!,
                         ),
                         style: Theme.of(context).textTheme.bodyMedium,
@@ -315,7 +322,7 @@ class GoalsScreen extends StatelessWidget {
           ],
         ),
       ),
-      floatingActionButton: goal == null
+      floatingActionButton: !isGoalVisible
           ? null
           : FloatingActionButton(
         onPressed: () => _showCreateGoalDialog(context),
