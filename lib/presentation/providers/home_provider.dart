@@ -97,6 +97,10 @@ class HomeProvider extends ChangeNotifier {
 
   void _updateCurrencyCache() {
     final set = <String>{_incomeProfile?.currency ?? 'USD'};
+    // ИСПРАВЛЕНИЕ: Добавляем текущую выбранную валюту в кэш, даже если в ней нет трат!
+    if (_activeCurrency != null) {
+      set.add(_activeCurrency!);
+    }
     for (final e in _expenses) {
       set.add(e.currency);
     }
@@ -107,8 +111,8 @@ class HomeProvider extends ChangeNotifier {
 
   void setActiveCurrency(String currency) {
     _activeCurrency = currency;
-    // ИСПРАВЛЕНИЕ (БАГ №3): Сохраняем активную валюту в локальную базу
     LocalStorageService.instance.setLastActiveCurrency(currency);
+    _updateCurrencyCache(); // Обновляем кэш сразу при переключении
     notifyListeners();
   }
 
@@ -130,12 +134,10 @@ class HomeProvider extends ChangeNotifier {
     _recurringBills.clear();
     _recurringBills.addAll(LocalStorageService.instance.getRecurringBills());
 
-    // ИСПРАВЛЕНИЕ (БАГ №3): При старте пытаемся восстановить последнюю валюту
     final lastCurrency = LocalStorageService.instance.getLastActiveCurrency();
     _activeCurrency = lastCurrency ?? _incomeProfile?.currency ?? 'USD';
     _updateCurrencyCache();
 
-    // Выполняем системные проверки при запуске
     _checkMonthCloseTransition();
     await _processPendingSubscriptions();
 
@@ -143,22 +145,21 @@ class HomeProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // --- СИСТЕМНЫЕ ПРОВЕРКИ ---
-
   void _checkMonthCloseTransition() {
     if (_expenses.isEmpty) return;
 
     final now = DateTime.now();
-    // Получаем транзакции за прошлый месяц
-    final lastExpense = _expenses.first;
+    // ИСПРАВЛЕНИЕ: Смотрим строго на предыдущий календарный месяц, а не на дату последней транзакции
+    final prevMonthDate = DateTime(now.year, now.month - 1, 1);
+    final previousMonthKey = buildMonthKey(prevMonthDate);
 
-    // Проверяем, наступил ли новый месяц относительно последней транзакции
-    if (lastExpense.date.month != now.month || lastExpense.date.year != now.year) {
-      // ИСПРАВЛЕНИЕ (БАГ №2): Формируем ключ прошлого месяца и проверяем, не видели ли мы уже отчет
-      final previousMonthKey = buildMonthKey(DateTime(now.year, now.month - 1, 1));
-      final hasSeen = LocalStorageService.instance.isMonthCloseSeen(previousMonthKey);
+    final hasSeen = LocalStorageService.instance.isMonthCloseSeen(previousMonthKey);
 
-      if (!hasSeen) {
+    if (!hasSeen) {
+      // Проверяем, были ли у юзера траты именно в прошлом месяце
+      final hasExpensesInPrevMonth = _expenses.any((e) => e.date.month == prevMonthDate.month && e.date.year == prevMonthDate.year);
+
+      if (hasExpensesInPrevMonth) {
         _needsMonthClose = true;
       }
     }
@@ -166,7 +167,6 @@ class HomeProvider extends ChangeNotifier {
 
   void markMonthCloseAsSeen() {
     _needsMonthClose = false;
-    // ИСПРАВЛЕНИЕ (БАГ №2): Запоминаем, что юзер посмотрел отчет за прошлый месяц
     final now = DateTime.now();
     final previousMonthKey = buildMonthKey(DateTime(now.year, now.month - 1, 1));
     LocalStorageService.instance.setMonthCloseSeen(previousMonthKey);

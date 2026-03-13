@@ -81,7 +81,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   bool _isAiParsing = false;
   Timer? _debounceTimer;
 
-  // НОВОЕ: Переменные для анимации плейсхолдера
   Timer? _typewriterTimer;
   String _currentHint = '';
   int _hintIndex = 0;
@@ -124,7 +123,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     super.didChangeDependencies();
     _initVoice();
 
-    // Инициализируем подсказки в зависимости от языка
     final isRu = Localizations.localeOf(context).languageCode == 'ru';
     _expenseHints = isRu
         ? ['Кофе 150', 'Такси домой 500', 'Продукты в Ашане 2500', 'Кино с друзьями 800', 'Подписка Netflix 15 USD']
@@ -137,18 +135,21 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     _startTypewriterAnimation();
   }
 
-  // МЕТОД ДЛЯ АНИМАЦИИ ПЛЕЙСХОЛДЕРА
   void _startTypewriterAnimation() {
     _typewriterTimer?.cancel();
     final activeHints = _isIncome ? _incomeHints : _expenseHints;
     if (activeHints.isEmpty) return;
 
     _typewriterTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
-      if (!mounted) return;
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
 
-      // Если пользователь начал вводить свой текст, останавливаем анимацию
+      // ИСПРАВЛЕНИЕ: Гарантированно убиваем таймер, если юзер печатает (Memory Leak fix)
       if (_smartInputController.text.isNotEmpty) {
         setState(() => _currentHint = '');
+        timer.cancel();
         return;
       }
 
@@ -161,23 +162,20 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
             _currentHint = targetWord.substring(0, _charIndex);
           } else {
             _isTypingForward = false;
-            // Пауза перед стиранием
             _typewriterTimer?.cancel();
             Future.delayed(const Duration(seconds: 2), () {
-              if (mounted) _startTypewriterAnimation();
+              if (mounted && _smartInputController.text.isEmpty) _startTypewriterAnimation();
             });
           }
         } else {
           if (_charIndex > 0) {
             _charIndex--;
             _currentHint = targetWord.substring(0, _charIndex);
-            // Ускоряем стирание
             _typewriterTimer?.cancel();
             _typewriterTimer = Timer.periodic(const Duration(milliseconds: 50), (t) => _startTypewriterAnimation());
           } else {
             _isTypingForward = true;
             _hintIndex = (_hintIndex + 1) % activeHints.length;
-            // Возвращаем нормальную скорость печати
             _typewriterTimer?.cancel();
             _typewriterTimer = Timer.periodic(const Duration(milliseconds: 100), (t) => _startTypewriterAnimation());
           }
@@ -231,7 +229,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   void _parseInput() {
     final text = _smartInputController.text;
 
-    // Скрываем анимированный плейсхолдер, если юзер вводит текст
     if (text.isEmpty && _currentHint.isEmpty) {
       _hintIndex = 0;
       _charIndex = 0;
@@ -630,7 +627,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     }
   }
 
-  bool get _canSave => _parsed != null && _parsed!.isValid && !_isAiParsing;
+  // ИСПРАВЛЕНИЕ: Убрали блокировку !_isAiParsing, чтобы юзер мог сохранить мгновенно локальный парсинг
+  bool get _canSave => _parsed != null && _parsed!.isValid;
 
   @override
   Widget build(BuildContext context) {
@@ -666,7 +664,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         trailing: CupertinoButton(
           padding: EdgeInsets.zero,
           onPressed: _canSave ? () => _saveExpense(context) : null,
-          child: _isAiParsing
+          child: _isAiParsing && !_canSave
               ? CupertinoActivityIndicator(radius: 10, color: theme.colorScheme.primary)
               : Text(
             l10n.saveExpenseButton,
@@ -950,7 +948,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   HapticFeedback.selectionClick();
                   setState(() {
                     _isIncome = false;
-                    // При смене типа обновляем подсказки
                     _hintIndex = 0;
                     _charIndex = 0;
                     _isTypingForward = true;
@@ -989,7 +986,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   HapticFeedback.selectionClick();
                   setState(() {
                     _isIncome = true;
-                    // При смене типа обновляем подсказки
                     _hintIndex = 0;
                     _charIndex = 0;
                     _isTypingForward = true;
@@ -1042,7 +1038,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  // ИСПРАВЛЕНИЕ: Показываем анимированный текст только если поле ввода пустое
                   if (_smartInputController.text.isEmpty)
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -1055,7 +1050,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                               fontWeight: FontWeight.w500
                           ),
                         ),
-                        // Мигающий курсор для реалистичности
                         AnimatedOpacity(
                           opacity: _isTypingForward ? 1.0 : 0.0,
                           duration: const Duration(milliseconds: 300),
@@ -1075,7 +1069,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     style: TextStyle(fontSize: 18, color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w500),
                     decoration: const InputDecoration(
                       border: InputBorder.none,
-                      hintText: '', // Убираем стандартный хинт, используем свой анимированный
+                      hintText: '',
                     ),
                     onChanged: (_) => _parseInput(),
                   ),

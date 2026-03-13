@@ -43,7 +43,7 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
       final apiKey = dotenv.env['GEMINI_API_KEY'];
       if (apiKey != null && apiKey.isNotEmpty) {
         _model = GenerativeModel(
-          model: 'gemini-1.5-flash', // Рекомендую пока использовать 1.5-flash, она стабильнее в бесплатном доступе
+          model: 'gemini-1.5-flash',
           apiKey: apiKey,
           generationConfig: GenerationConfig(
             temperature: 0.7,
@@ -109,9 +109,9 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
           ? provider.categoryTotalsForMonth(now).entries.reduce((a, b) => a.value > b.value ? a : b).key.name
           : 'none';
 
-      // ДОБАВЛЕНО: Выгружаем до 30 последних транзакций за этот месяц, чтобы ИИ понимал контекст!
+      // ИСПРАВЛЕНИЕ: Передаем ИИ транзакции ТОЛЬКО в текущей активной валюте
       final recentExpenses = provider.expenses
-          .where((e) => e.date.month == now.month && e.date.year == now.year && !e.isIncome)
+          .where((e) => e.date.month == now.month && e.date.year == now.year && !e.isIncome && e.currency == currency)
           .take(30)
           .toList();
 

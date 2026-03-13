@@ -18,8 +18,8 @@ class SmartExpenseParser {
           model: 'gemini-1.5-flash',
           apiKey: apiKey,
           generationConfig: GenerationConfig(
-            responseMimeType: 'application/json', // Форсируем JSON ответ
-            temperature: 0.1, // Делаем ответы предсказуемыми и строгими
+            responseMimeType: 'application/json',
+            temperature: 0.1,
           ),
         );
       } else {
@@ -203,14 +203,19 @@ class SmartExpenseParser {
     ],
   };
 
-  /// Метод для обычного (локального) парсинга текста
   ParsedExpenseInputModel parse(String input) {
     final text = input.trim().toLowerCase();
 
-    final amountMatch = RegExp(r'(\d+[\d\s]*[.,]?\d{0,2})').firstMatch(text);
-    final amount = amountMatch != null
-        ? double.tryParse(amountMatch.group(1)!.replaceAll(' ', '').replaceAll(',', '.'))
-        : null;
+    // ИСПРАВЛЕНИЕ: Ловушка PS5. Надежный метод извлечения суммы, игнорирующий буквы.
+    double? amount;
+    final words = text.replaceAll(',', '.').split(RegExp(r'\s+'));
+    for (var word in words) {
+      final val = double.tryParse(word);
+      if (val != null) {
+        amount = val;
+        break; // Берем первое валидное число
+      }
+    }
 
     final currency = _detectCurrency(text);
     final category = _detectCategory(text);
@@ -225,16 +230,13 @@ class SmartExpenseParser {
     );
   }
 
-  /// Умный метод, который использует Gemini AI, если локальный парсер не справился
   Future<ParsedExpenseInputModel> parseWithAI(String input, String activeCurrency) async {
     final localParsed = parse(input);
 
-    // Если локальный парсер всё понял (нашел сумму и конкретную категорию) — возвращаем сразу
     if (localParsed.amount != null && localParsed.category != ExpenseCategory.other) {
       return localParsed;
     }
 
-    // Если нет ИИ модели или превышен лимит — возвращаем результат локального парсера (fallback)
     if (_model == null || !LocalStorageService.instance.canUseAiParser()) {
       return localParsed;
     }
@@ -259,7 +261,6 @@ User's text: "$input"
 
       if (response.text == null) return localParsed;
 
-      // Увеличиваем счетчик использований (защита от спама)
       await LocalStorageService.instance.incrementAiParserUsage();
 
       final jsonText = response.text!.replaceAll('```json', '').replaceAll('```', '').trim();
@@ -274,7 +275,7 @@ User's text: "$input"
       );
     } catch (e) {
       debugPrint('AI Parsing Error: $e');
-      return localParsed; // В случае ошибки (нет интернета и т.д.) возвращаем локальный результат
+      return localParsed;
     }
   }
 
