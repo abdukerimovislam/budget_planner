@@ -28,6 +28,9 @@ class _BudgetPlannerAppState extends State<BudgetPlannerApp> with WidgetsBinding
   bool _isCheckingAuth = false;
   bool _showPrivacyScreen = false;
 
+  // ФЛАГ ДЛЯ ПРЕДОТВРАЩЕНИЯ БЕСКОНЕЧНОГО ЦИКЛА
+  bool _isAuthenticatingSystem = false;
+
   @override
   void initState() {
     super.initState();
@@ -44,6 +47,9 @@ class _BudgetPlannerAppState extends State<BudgetPlannerApp> with WidgetsBinding
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
+
+    // Если сейчас показывается системное окно FaceID, игнорируем сворачивание
+    if (_isAuthenticatingSystem) return;
 
     final isProtectionEnabled = LocalStorageService.instance.isBiometricAuthEnabled();
     if (!isProtectionEnabled) return;
@@ -91,6 +97,7 @@ class _BudgetPlannerAppState extends State<BudgetPlannerApp> with WidgetsBinding
     bool authenticated = false;
 
     try {
+      _isAuthenticatingSystem = true; // Блокируем слушатель жизненного цикла
       authenticated = await auth.authenticate(
         localizedReason: 'Отсканируйте лицо для доступа к финансам',
         options: const AuthenticationOptions(
@@ -102,6 +109,7 @@ class _BudgetPlannerAppState extends State<BudgetPlannerApp> with WidgetsBinding
     } on PlatformException catch (e) {
       debugPrint('Biometric Auth Error: ${e.message}');
     } finally {
+      _isAuthenticatingSystem = false; // Разблокируем слушатель
       if (mounted) {
         setState(() {
           _isAuthenticated = authenticated;

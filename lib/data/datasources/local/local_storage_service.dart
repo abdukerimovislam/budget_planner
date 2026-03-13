@@ -51,6 +51,26 @@ class LocalStorageService {
   }
   // --------------------------------------
 
+  // --- ПОСЛЕДНЯЯ АКТИВНАЯ ВАЛЮТА ДАШБОРДА (БАГ №3) ---
+  String? getLastActiveCurrency() {
+    return _box.get('last_active_currency') as String?;
+  }
+
+  Future<void> setLastActiveCurrency(String currencyCode) async {
+    await _box.put('last_active_currency', currencyCode);
+  }
+  // ---------------------------------------------------
+
+  // --- ИСТОРИЯ ПРОСМОТРОВ ЗАКРЫТИЯ МЕСЯЦА (БАГ №2) ---
+  bool isMonthCloseSeen(String monthKey) {
+    return _box.get('seen_month_close_$monthKey', defaultValue: false) as bool;
+  }
+
+  Future<void> setMonthCloseSeen(String monthKey) async {
+    await _box.put('seen_month_close_$monthKey', true);
+  }
+  // ---------------------------------------------------
+
   IncomeProfileModel? getIncomeProfile() {
     final map = _box.get(StorageKeys.incomeProfile);
     if (map is Map) {

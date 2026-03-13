@@ -107,6 +107,8 @@ class HomeProvider extends ChangeNotifier {
 
   void setActiveCurrency(String currency) {
     _activeCurrency = currency;
+    // ИСПРАВЛЕНИЕ (БАГ №3): Сохраняем активную валюту в локальную базу
+    LocalStorageService.instance.setLastActiveCurrency(currency);
     notifyListeners();
   }
 
@@ -128,7 +130,9 @@ class HomeProvider extends ChangeNotifier {
     _recurringBills.clear();
     _recurringBills.addAll(LocalStorageService.instance.getRecurringBills());
 
-    _activeCurrency = _incomeProfile?.currency ?? 'USD';
+    // ИСПРАВЛЕНИЕ (БАГ №3): При старте пытаемся восстановить последнюю валюту
+    final lastCurrency = LocalStorageService.instance.getLastActiveCurrency();
+    _activeCurrency = lastCurrency ?? _incomeProfile?.currency ?? 'USD';
     _updateCurrencyCache();
 
     // Выполняем системные проверки при запуске
@@ -145,20 +149,31 @@ class HomeProvider extends ChangeNotifier {
     if (_expenses.isEmpty) return;
 
     final now = DateTime.now();
-    final lastExpenseDate = _expenses.first.date;
+    // Получаем транзакции за прошлый месяц
+    final lastExpense = _expenses.first;
 
-    if (lastExpenseDate.month != now.month || lastExpenseDate.year != now.year) {
-      _needsMonthClose = true;
+    // Проверяем, наступил ли новый месяц относительно последней транзакции
+    if (lastExpense.date.month != now.month || lastExpense.date.year != now.year) {
+      // ИСПРАВЛЕНИЕ (БАГ №2): Формируем ключ прошлого месяца и проверяем, не видели ли мы уже отчет
+      final previousMonthKey = buildMonthKey(DateTime(now.year, now.month - 1, 1));
+      final hasSeen = LocalStorageService.instance.isMonthCloseSeen(previousMonthKey);
+
+      if (!hasSeen) {
+        _needsMonthClose = true;
+      }
     }
   }
 
   void markMonthCloseAsSeen() {
     _needsMonthClose = false;
+    // ИСПРАВЛЕНИЕ (БАГ №2): Запоминаем, что юзер посмотрел отчет за прошлый месяц
+    final now = DateTime.now();
+    final previousMonthKey = buildMonthKey(DateTime(now.year, now.month - 1, 1));
+    LocalStorageService.instance.setMonthCloseSeen(previousMonthKey);
+
     notifyListeners();
   }
 
-  /// Проверяет подписки и списывает их, если пришел день оплаты.
-  /// Учитывает ситуацию, если юзер не заходил в приложение несколько месяцев.
   Future<void> _processPendingSubscriptions() async {
     if (_recurringBills.isEmpty) return;
 
@@ -168,14 +183,12 @@ class HomeProvider extends ChangeNotifier {
     for (final bill in _recurringBills) {
       if (!bill.isActive) continue;
 
-      // Ищем историю списаний по этой подписке
       final billExpenses = _expenses.where((e) => e.recurringGroupId == bill.id).toList();
       billExpenses.sort((a, b) => b.date.compareTo(a.date));
 
       DateTime nextBillingDate;
 
       if (billExpenses.isNotEmpty) {
-        // Мы уже списывали эту подписку раньше. Следующее списание через месяц от последнего.
         final lastDate = billExpenses.first.date;
         int nextMonth = lastDate.month + 1;
         int nextYear = lastDate.year;
@@ -187,7 +200,6 @@ class HomeProvider extends ChangeNotifier {
         int targetDay = bill.dayOfMonth > daysInNextMonth ? daysInNextMonth : bill.dayOfMonth;
         nextBillingDate = DateTime(nextYear, nextMonth, targetDay);
       } else {
-        // Еще ни разу не списывали. Определяем дату первого платежа.
         if (bill.createdAt.day <= bill.dayOfMonth) {
           int daysInMonth = DateTime(bill.createdAt.year, bill.createdAt.month + 1, 0).day;
           int targetDay = bill.dayOfMonth > daysInMonth ? daysInMonth : bill.dayOfMonth;
@@ -205,14 +217,13 @@ class HomeProvider extends ChangeNotifier {
         }
       }
 
-      // Пока следующая дата списания меньше или равна сегодняшнему дню — списываем (Catch-up логика)
       while (!nextBillingDate.isAfter(now)) {
         final newExpense = ExpenseModel(
           id: const Uuid().v4(),
           amount: bill.amount,
           currency: bill.currency,
           category: ExpenseCategory.subscriptions,
-          merchant: bill.title, // Используем актуальное поле из модели
+          merchant: bill.title,
           note: 'Auto-paid subscription',
           date: nextBillingDate,
           sourceType: ExpenseSourceType.smartText,
@@ -224,7 +235,6 @@ class HomeProvider extends ChangeNotifier {
         _expenses.insert(0, newExpense);
         hasChanges = true;
 
-        // Рассчитываем следующую дату после текущего успешного списания
         int nextMonth = nextBillingDate.month + 1;
         int nextYear = nextBillingDate.year;
         if (nextMonth > 12) {
