@@ -47,7 +47,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     return value.toStringAsFixed(2);
   }
 
-  // НОВОЕ: ВЫБОР АКТИВНОГО СЧЕТА ПРЯМО ИЗ АНАЛИТИКИ
   void _showCurrencyAccountSelector(BuildContext context, HomeProvider provider) {
     if (!provider.canUseFeature(PremiumFeature.multiCurrency)) {
       Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const PremiumScreen()));
@@ -72,7 +71,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             children: [
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                child: Text('Select Account', style: TextStyle(fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
+                child: Text('Select Account', style: TextStyle(fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5))),
               ),
               Expanded(
                 child: CupertinoPicker(
@@ -105,7 +104,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     final currentMonthExpenses = provider.expensesForMonth(now).where((e) => !e.isIncome).toList();
     final previousMonthExpenses = provider.expensesForPreviousMonth(now).where((e) => !e.isIncome).toList();
 
-    // ИСПРАВЛЕНИЕ: Берем АКТИВНУЮ ВАЛЮТУ ДАШБОРДА
     final String currency = provider.activeCurrency;
 
     final totalSpent = provider.totalSpentThisMonth(now);
@@ -161,7 +159,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       );
     }).toList();
 
-    // ПЕРЕМЕННЫЕ ДЛЯ КНОПКИ ВАЛЮТЫ
     final hasMultipleCurrencies = provider.availableUserCurrencies.length > 1;
     final hasPremium = provider.canUseFeature(PremiumFeature.multiCurrency);
 
@@ -178,8 +175,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               decoration: BoxDecoration(
                 gradient: RadialGradient(
                   colors: [
-                    theme.colorScheme.primary.withOpacity(isDark ? 0.3 : 0.15),
-                    theme.colorScheme.secondary.withOpacity(isDark ? 0.2 : 0.1),
+                    theme.colorScheme.primary.withValues(alpha: isDark ? 0.3 : 0.15),
+                    theme.colorScheme.secondary.withValues(alpha: isDark ? 0.2 : 0.1),
                     Colors.transparent,
                   ],
                   radius: 0.8,
@@ -200,7 +197,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   style: const TextStyle(fontWeight: FontWeight.w800, letterSpacing: -0.5),
                 ),
                 actions: [
-                  // ПЕРЕКЛЮЧАТЕЛЬ ВАЛЮТЫ В АНАЛИТИКЕ
                   Padding(
                     padding: const EdgeInsets.only(right: 16.0),
                     child: GestureDetector(
@@ -210,7 +206,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                         decoration: BoxDecoration(
                           color: Theme.of(context).colorScheme.surface,
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Theme.of(context).colorScheme.surfaceVariant),
+                          border: Border.all(color: Theme.of(context).colorScheme.surfaceContainerHighest),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -225,7 +221,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                             ),
                             if (hasPremium && hasMultipleCurrencies) ...[
                               const SizedBox(width: 4),
-                              Icon(CupertinoIcons.chevron_up_chevron_down, size: 12, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
+                              Icon(CupertinoIcons.chevron_up_chevron_down, size: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5)),
                             ]
                           ],
                         ),
@@ -247,16 +243,16 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
                         decoration: BoxDecoration(
-                          color: theme.colorScheme.surface.withOpacity(isDark ? 0.8 : 1),
+                          color: theme.colorScheme.surface.withValues(alpha: isDark ? 0.8 : 1),
                           borderRadius: BorderRadius.circular(32),
                           boxShadow: [
                             BoxShadow(
-                              color: theme.colorScheme.primary.withOpacity(0.05),
+                              color: theme.colorScheme.primary.withValues(alpha: 0.05),
                               blurRadius: 30,
                               offset: const Offset(0, 10),
                             ),
                           ],
-                          border: Border.all(color: theme.colorScheme.surfaceVariant.withOpacity(0.5)),
+                          border: Border.all(color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)),
                         ),
                         child: Column(
                           children: [
@@ -264,8 +260,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                               decoration: BoxDecoration(
                                 color: isOverspending
-                                    ? CupertinoColors.systemRed.withOpacity(0.1)
-                                    : CupertinoColors.systemGreen.withOpacity(0.1),
+                                    ? CupertinoColors.systemRed.withValues(alpha: 0.1)
+                                    : CupertinoColors.systemGreen.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(20),
                               ),
                               child: Row(
@@ -301,7 +297,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                         shape: BoxShape.circle,
                                         boxShadow: [
                                           BoxShadow(
-                                            color: theme.colorScheme.primary.withOpacity(0.2),
+                                            color: theme.colorScheme.primary.withValues(alpha: 0.2),
                                             blurRadius: 40,
                                           )
                                         ]
@@ -335,7 +331,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                           fontSize: 10,
                                           fontWeight: FontWeight.w700,
                                           letterSpacing: 1.5,
-                                          color: theme.colorScheme.onSurface.withOpacity(0.4),
+                                          color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
                                         ),
                                       ),
                                       const SizedBox(height: 4),
@@ -349,11 +345,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                         ),
                                       ),
                                       Text(
-                                        currency, // ВАЛЮТА
+                                        currency,
                                         style: TextStyle(
                                           fontSize: 14,
                                           fontWeight: FontWeight.w600,
-                                          color: theme.colorScheme.onSurface.withOpacity(0.5),
+                                          color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                                         ),
                                       ),
                                     ],
@@ -383,13 +379,13 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                           decoration: BoxDecoration(
                             color: theme.colorScheme.surface,
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: theme.colorScheme.surfaceVariant.withOpacity(0.5)),
+                            border: Border.all(color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)),
                           ),
                           child: Row(
                             children: [
                               Container(
                                 padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(color: CupertinoColors.systemYellow.withOpacity(0.15), shape: BoxShape.circle),
+                                decoration: BoxDecoration(color: CupertinoColors.systemYellow.withValues(alpha: 0.15), shape: BoxShape.circle),
                                 child: const Icon(CupertinoIcons.star_fill, color: CupertinoColors.systemYellow, size: 20),
                               ),
                               const SizedBox(width: 16),
@@ -430,7 +426,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                         decoration: BoxDecoration(
                           color: theme.colorScheme.surface,
                           borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: theme.colorScheme.surfaceVariant.withOpacity(0.5)),
+                          border: Border.all(color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)),
                         ),
                         child: Column(
                           children: sortedStats.asMap().entries.map((entry) {
@@ -495,7 +491,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: theme.colorScheme.primary.withOpacity(0.1),
+              color: theme.colorScheme.primary.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(CupertinoIcons.chart_pie_fill, size: 48, color: theme.colorScheme.primary),
@@ -503,7 +499,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           const SizedBox(height: 24),
           Text(l10n.analyticsEmptyTitle, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700), textAlign: TextAlign.center),
           const SizedBox(height: 8),
-          Text('No data in $activeCurrency this month', style: TextStyle(fontSize: 15, color: theme.colorScheme.onSurface.withOpacity(0.6)), textAlign: TextAlign.center),
+          Text('No data in $activeCurrency this month', style: TextStyle(fontSize: 15, color: theme.colorScheme.onSurface.withValues(alpha: 0.6)), textAlign: TextAlign.center),
         ],
       ),
     );
@@ -525,7 +521,7 @@ class _MiniStatCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: theme.colorScheme.surfaceVariant.withOpacity(0.5)),
+        border: Border.all(color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -576,7 +572,7 @@ class _PremiumCategoryRow extends StatelessWidget {
             children: [
               Container(
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: categoryColor.withOpacity(0.15), shape: BoxShape.circle),
+                decoration: BoxDecoration(color: categoryColor.withValues(alpha: 0.15), shape: BoxShape.circle),
                 child: Icon(iconData, color: categoryColor, size: 20),
               ),
               const SizedBox(width: 16),
@@ -589,13 +585,13 @@ class _PremiumCategoryRow extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       transactionsCountLabel,
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: theme.colorScheme.onSurface.withOpacity(0.4)),
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: theme.colorScheme.onSurface.withValues(alpha: 0.4)),
                     ),
                     const SizedBox(height: 8),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(4),
                       child: Container(
-                        height: 6, width: double.infinity, color: theme.colorScheme.surfaceVariant,
+                        height: 6, width: double.infinity, color: theme.colorScheme.surfaceContainerHighest,
                         child: FractionallySizedBox(
                           alignment: Alignment.centerLeft, widthFactor: percent,
                           child: Container(decoration: BoxDecoration(color: categoryColor, borderRadius: BorderRadius.circular(4))),
@@ -613,13 +609,13 @@ class _PremiumCategoryRow extends StatelessWidget {
                 children: [
                   Text(amount, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: theme.colorScheme.onSurface)),
                   const SizedBox(height: 4),
-                  Text('${(percent * 100).toStringAsFixed(1)}%', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface.withOpacity(0.4))),
+                  Text('${(percent * 100).toStringAsFixed(1)}%', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface.withValues(alpha: 0.4))),
                 ],
               ),
             ],
           ),
         ),
-        if (!isLast) Padding(padding: const EdgeInsets.only(left: 64), child: Divider(height: 1, color: theme.colorScheme.surfaceVariant.withOpacity(0.5))),
+        if (!isLast) Padding(padding: const EdgeInsets.only(left: 64), child: Divider(height: 1, color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5))),
       ],
     );
   }

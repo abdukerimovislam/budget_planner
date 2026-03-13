@@ -2,8 +2,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
-
-// ИСПРАВЛЕНИЕ: Меняем импорты на google_generative_ai и dotenv
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
@@ -40,13 +38,12 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
     _initAI();
   }
 
-  // ИСПРАВЛЕНИЕ: Инициализируем модель через ключ из .env
   void _initAI() {
     try {
       final apiKey = dotenv.env['GEMINI_API_KEY'];
       if (apiKey != null && apiKey.isNotEmpty) {
         _model = GenerativeModel(
-          model: 'gemini-2.5-flash',
+          model: 'gemini-1.5-flash', // Рекомендую пока использовать 1.5-flash, она стабильнее в бесплатном доступе
           apiKey: apiKey,
           generationConfig: GenerationConfig(
             temperature: 0.7,
@@ -112,6 +109,16 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
           ? provider.categoryTotalsForMonth(now).entries.reduce((a, b) => a.value > b.value ? a : b).key.name
           : 'none';
 
+      // ДОБАВЛЕНО: Выгружаем до 30 последних транзакций за этот месяц, чтобы ИИ понимал контекст!
+      final recentExpenses = provider.expenses
+          .where((e) => e.date.month == now.month && e.date.year == now.year && !e.isIncome)
+          .take(30)
+          .toList();
+
+      final expensesContext = recentExpenses.isEmpty
+          ? 'No transactions yet.'
+          : recentExpenses.map((e) => '- ${e.date.day}/${e.date.month}: ${e.category.name}, ${e.amount} ${e.currency} (Merchant: ${e.merchant.isEmpty ? "Unknown" : e.merchant})').join('\n');
+
       final systemPrompt = '''
 You are a friendly, expert financial advisor integrated into a budget planner app.
 User's current month context:
@@ -120,12 +127,14 @@ User's current month context:
 - Budget: ${budget > 0 ? budget : 'Not set'}
 - Top spending category: $topCat
 
-Answer the user's message concisely (1-3 short paragraphs). Provide actionable, personalized advice based on their context. Use the same language the user writes in. Avoid markdown formatting like ** or * if possible, keep it plain and readable.
+Recent transactions (up to 30 this month):
+$expensesContext
+
+Answer the user's message concisely (1-3 short paragraphs). Provide actionable, personalized advice based on their transactions and context. Use the same language the user writes in. Avoid markdown formatting like ** or * if possible, keep it plain and readable.
 ''';
 
       final prompt = '$systemPrompt\n\nUser: $text';
 
-      // ИСПРАВЛЕНИЕ: Формат запроса Content.text
       final response = await _model!.generateContent([Content.text(prompt)]);
 
       if (response.text != null) {
@@ -135,7 +144,12 @@ Answer the user's message concisely (1-3 short paragraphs). Provide actionable, 
           _messages.add(_ChatMessage(isUser: false, text: response.text!.trim()));
         });
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('--- AI ERROR ---');
+      debugPrint(e.toString());
+      debugPrint(stackTrace.toString());
+      debugPrint('----------------');
+
       if (!mounted) return;
       setState(() {
         _messages.add(_ChatMessage(isUser: false, text: "К сожалению, произошла ошибка. Попробуйте сформулировать вопрос иначе."));

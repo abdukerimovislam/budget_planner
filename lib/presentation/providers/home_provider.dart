@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../core/utils/month_key.dart';
 import '../../data/datasources/local/local_storage_service.dart';
@@ -11,6 +12,7 @@ import '../../data/models/custom_category_model.dart';
 import '../../data/models/expense_category.dart';
 import '../../data/models/expense_filter_model.dart';
 import '../../data/models/expense_model.dart';
+import '../../data/models/expense_source_type.dart';
 import '../../data/models/forecast_result_model.dart';
 import '../../data/models/income_profile_model.dart';
 import '../../data/models/insight_model.dart';
@@ -70,11 +72,12 @@ class HomeProvider extends ChangeNotifier {
   bool _isPremium = false;
   SavingsGoalModel? _savingsGoal;
   int? _salaryDay;
-  final List<RecurringBillModel> _recurringBills = []; // Исправляем амнезию подписок
+  final List<RecurringBillModel> _recurringBills = [];
 
   String? _activeCurrency;
-  // ИСПРАВЛЕНИЕ БАГА №6 (FPS Drop): Кэшируем список валют
   List<String> _cachedCurrencies = [];
+
+  bool _needsMonthClose = false;
 
   List<ExpenseModel> get expenses => List.unmodifiable(_expenses);
   List<CustomCategoryModel> get customCategories => List.unmodifiable(_customCategories);
@@ -86,13 +89,12 @@ class HomeProvider extends ChangeNotifier {
   SavingsGoalModel? get savingsGoal => _savingsGoal;
   int? get salaryDay => _salaryDay;
   List<RecurringBillModel> get recurringBills => List.unmodifiable(_recurringBills);
+  bool get needsMonthClose => _needsMonthClose;
 
   String get activeCurrency => _activeCurrency ?? _incomeProfile?.currency ?? 'USD';
 
-  // Теперь возвращает мгновенно закэшированный список без лагов
   List<String> get availableUserCurrencies => List.unmodifiable(_cachedCurrencies);
 
-  // Вспомогательный метод для обновления кэша валют
   void _updateCurrencyCache() {
     final set = <String>{_incomeProfile?.currency ?? 'USD'};
     for (final e in _expenses) {
@@ -111,8 +113,8 @@ class HomeProvider extends ChangeNotifier {
   Future<void> load() async {
     _incomeProfile = LocalStorageService.instance.getIncomeProfile();
     _budget = LocalStorageService.instance.getBudget();
-    _savingsGoal = LocalStorageService.instance.getSavingsGoal(); // <-- ДОБАВЛЕНО
-    _salaryDay = LocalStorageService.instance.getSalaryDay(); // <-- ДОБАВЛЕНО
+    _savingsGoal = LocalStorageService.instance.getSavingsGoal();
+    _salaryDay = LocalStorageService.instance.getSalaryDay();
 
     _expenses.clear();
     final loadedExpenses = LocalStorageService.instance.getExpenses();
@@ -123,16 +125,126 @@ class HomeProvider extends ChangeNotifier {
       ..clear()
       ..addAll(LocalStorageService.instance.getCustomCategories());
 
-    // ЗАГРУЗКА ПОДПИСОК
     _recurringBills.clear();
     _recurringBills.addAll(LocalStorageService.instance.getRecurringBills());
 
     _activeCurrency = _incomeProfile?.currency ?? 'USD';
     _updateCurrencyCache();
 
+    // Выполняем системные проверки при запуске
+    _checkMonthCloseTransition();
+    await _processPendingSubscriptions();
+
     _isInitialized = true;
     notifyListeners();
   }
+
+  // --- СИСТЕМНЫЕ ПРОВЕРКИ ---
+
+  void _checkMonthCloseTransition() {
+    if (_expenses.isEmpty) return;
+
+    final now = DateTime.now();
+    final lastExpenseDate = _expenses.first.date;
+
+    if (lastExpenseDate.month != now.month || lastExpenseDate.year != now.year) {
+      _needsMonthClose = true;
+    }
+  }
+
+  void markMonthCloseAsSeen() {
+    _needsMonthClose = false;
+    notifyListeners();
+  }
+
+  /// Проверяет подписки и списывает их, если пришел день оплаты.
+  /// Учитывает ситуацию, если юзер не заходил в приложение несколько месяцев.
+  Future<void> _processPendingSubscriptions() async {
+    if (_recurringBills.isEmpty) return;
+
+    final now = DateTime.now();
+    bool hasChanges = false;
+
+    for (final bill in _recurringBills) {
+      if (!bill.isActive) continue;
+
+      // Ищем историю списаний по этой подписке
+      final billExpenses = _expenses.where((e) => e.recurringGroupId == bill.id).toList();
+      billExpenses.sort((a, b) => b.date.compareTo(a.date));
+
+      DateTime nextBillingDate;
+
+      if (billExpenses.isNotEmpty) {
+        // Мы уже списывали эту подписку раньше. Следующее списание через месяц от последнего.
+        final lastDate = billExpenses.first.date;
+        int nextMonth = lastDate.month + 1;
+        int nextYear = lastDate.year;
+        if (nextMonth > 12) {
+          nextMonth = 1;
+          nextYear++;
+        }
+        int daysInNextMonth = DateTime(nextYear, nextMonth + 1, 0).day;
+        int targetDay = bill.dayOfMonth > daysInNextMonth ? daysInNextMonth : bill.dayOfMonth;
+        nextBillingDate = DateTime(nextYear, nextMonth, targetDay);
+      } else {
+        // Еще ни разу не списывали. Определяем дату первого платежа.
+        if (bill.createdAt.day <= bill.dayOfMonth) {
+          int daysInMonth = DateTime(bill.createdAt.year, bill.createdAt.month + 1, 0).day;
+          int targetDay = bill.dayOfMonth > daysInMonth ? daysInMonth : bill.dayOfMonth;
+          nextBillingDate = DateTime(bill.createdAt.year, bill.createdAt.month, targetDay);
+        } else {
+          int nextMonth = bill.createdAt.month + 1;
+          int nextYear = bill.createdAt.year;
+          if (nextMonth > 12) {
+            nextMonth = 1;
+            nextYear++;
+          }
+          int daysInNextMonth = DateTime(nextYear, nextMonth + 1, 0).day;
+          int targetDay = bill.dayOfMonth > daysInNextMonth ? daysInNextMonth : bill.dayOfMonth;
+          nextBillingDate = DateTime(nextYear, nextMonth, targetDay);
+        }
+      }
+
+      // Пока следующая дата списания меньше или равна сегодняшнему дню — списываем (Catch-up логика)
+      while (!nextBillingDate.isAfter(now)) {
+        final newExpense = ExpenseModel(
+          id: const Uuid().v4(),
+          amount: bill.amount,
+          currency: bill.currency,
+          category: ExpenseCategory.subscriptions,
+          merchant: bill.title, // Используем актуальное поле из модели
+          note: 'Auto-paid subscription',
+          date: nextBillingDate,
+          sourceType: ExpenseSourceType.smartText,
+          isRecurring: true,
+          recurringGroupId: bill.id,
+          createdAt: now,
+        );
+
+        _expenses.insert(0, newExpense);
+        hasChanges = true;
+
+        // Рассчитываем следующую дату после текущего успешного списания
+        int nextMonth = nextBillingDate.month + 1;
+        int nextYear = nextBillingDate.year;
+        if (nextMonth > 12) {
+          nextMonth = 1;
+          nextYear++;
+        }
+        int daysInNextMonth = DateTime(nextYear, nextMonth + 1, 0).day;
+        int targetDay = bill.dayOfMonth > daysInNextMonth ? daysInNextMonth : bill.dayOfMonth;
+        nextBillingDate = DateTime(nextYear, nextMonth, targetDay);
+      }
+    }
+
+    if (hasChanges) {
+      _expenses.sort((a, b) => b.date.compareTo(a.date));
+      await LocalStorageService.instance.saveExpenses(_expenses);
+      _updateCurrencyCache();
+    }
+  }
+
+  // --------------------------
 
   Future<void> setPremium(bool value) async {
     _isPremium = value;
@@ -160,7 +272,6 @@ class HomeProvider extends ChangeNotifier {
     bool needsExpenseUpdate = false;
     for (int i = 0; i < _expenses.length; i++) {
       if (_expenses[i].customCategoryId == id) {
-        // ИСПРАВЛЕНИЕ БАГА №1: Используем clearCustomCategory: true
         _expenses[i] = _expenses[i].copyWith(
           category: ExpenseCategory.other,
           clearCustomCategory: true,
@@ -194,8 +305,6 @@ class HomeProvider extends ChangeNotifier {
     final budget = _budget;
 
     if (profile == null || budget == null) return 0;
-
-    // ИСПРАВЛЕНИЕ: Если валюта бюджета не совпадает с активной валютой, баллы не считаем
     if (budget.currency != activeCurrency || profile.currency != activeCurrency) return 0;
 
     final actualIncomePrevMonth = actualIncomeForMonth(previousMonth);
@@ -261,7 +370,6 @@ class HomeProvider extends ChangeNotifier {
   }
 
   Future<void> updateMonthlyBudget(double amount, DateTime now) async {
-    // ИСПРАВЛЕНИЕ БАГА №2: Сохраняем бюджет с привязкой к активной валюте
     final updated = BudgetModel(
       monthKey: buildMonthKey(now),
       totalBudget: amount,
@@ -330,11 +438,11 @@ class HomeProvider extends ChangeNotifier {
   Future<void> clearAllData() async {
     _expenses.clear();
     _customCategories.clear();
-    _recurringBills.clear(); // ИСПРАВЛЕНИЕ: Очищаем подписки
+    _recurringBills.clear();
     _incomeProfile = null;
     _budget = null;
-    _savingsGoal = null; // ИСПРАВЛЕНИЕ: Очищаем цели
-    _salaryDay = null; // ИСПРАВЛЕНИЕ: Очищаем день зарплаты
+    _savingsGoal = null;
+    _salaryDay = null;
     _activeCurrency = null;
     _cachedCurrencies.clear();
     await LocalStorageService.instance.clearAll();
@@ -370,7 +478,6 @@ class HomeProvider extends ChangeNotifier {
   }
 
   List<ExpenseModel> filteredExpenses(ExpenseFilterModel filter) {
-    // В истории транзакций теперь показываем только активную валюту
     var list = List<ExpenseModel>.from(_expenses.where((e) => e.currency == activeCurrency));
 
     final query = filter.query.trim().toLowerCase();
@@ -483,7 +590,6 @@ class HomeProvider extends ChangeNotifier {
     final profile = _incomeProfile;
     final budget = _budget;
 
-    // Считаем здоровье только если мы смотрим на базовую валюту профиля
     if (profile == null || budget == null || budget.currency != activeCurrency || profile.currency != activeCurrency) return 0;
 
     final actualIncome = actualIncomeForMonth(now);
@@ -638,12 +744,11 @@ class HomeProvider extends ChangeNotifier {
 
   Future<void> setSavingsGoal(SavingsGoalModel goal) async {
     _savingsGoal = goal;
-    await LocalStorageService.instance.saveSavingsGoal(goal); // <-- ДОБАВЛЕНО СОХРАНЕНИЕ
+    await LocalStorageService.instance.saveSavingsGoal(goal);
     notifyListeners();
   }
 
   Future<void> updateSavingsGoalProgress(String goalId, double amount) async {
-    // ИСПРАВЛЕНИЕ БАГА №4: Защищаем цель от попадания в нее чужой валюты
     if (_savingsGoal == null || _savingsGoal!.id != goalId) return;
     if (_savingsGoal!.currency != activeCurrency) return;
 
@@ -653,7 +758,7 @@ class HomeProvider extends ChangeNotifier {
           .toDouble(),
     );
 
-    await LocalStorageService.instance.saveSavingsGoal(_savingsGoal!); // <-- ДОБАВЛЕНО СОХРАНЕНИЕ
+    await LocalStorageService.instance.saveSavingsGoal(_savingsGoal!);
     notifyListeners();
   }
 
@@ -672,11 +777,10 @@ class HomeProvider extends ChangeNotifier {
 
   Future<void> setSalaryDay(int day) async {
     _salaryDay = day;
-    await LocalStorageService.instance.saveSalaryDay(day); // <-- ДОБАВЛЕНО СОХРАНЕНИЕ
+    await LocalStorageService.instance.saveSalaryDay(day);
     notifyListeners();
   }
 
-  // --- ИСПРАВЛЕНИЕ БАГА №8: Полный CRUD для подписок ---
   Future<void> addRecurringBill(RecurringBillModel bill) async {
     _recurringBills.add(bill);
     await LocalStorageService.instance.saveRecurringBills(_recurringBills);
@@ -696,7 +800,6 @@ class HomeProvider extends ChangeNotifier {
     await LocalStorageService.instance.saveRecurringBills(_recurringBills);
     notifyListeners();
   }
-  // ----------------------------------------------------
 
   List<CashflowEventModel> cashflowTimeline(DateTime now) {
     if (!canUseFeature(PremiumFeature.cashflowTimeline)) {

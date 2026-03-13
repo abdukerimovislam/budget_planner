@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:provider/provider.dart';
 
 import '../../l10n/app_localizations.dart';
+import '../providers/home_provider.dart';
 import '../screens/analytics/analytics_screen.dart';
 import '../screens/budget/budget_screen.dart';
 import '../screens/cashflow/cashflow_screen.dart';
 import '../screens/home/home_screen.dart';
+import '../screens/month_close/month_close_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -26,6 +30,25 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final provider = context.watch<HomeProvider>();
+
+    // Системная проверка: Если сменился месяц, форсированно показываем экран итогов
+    if (provider.isInitialized && provider.needsMonthClose) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+
+        // Помечаем как просмотренное, чтобы не зациклить
+        provider.markMonthCloseAsSeen();
+
+        // Открываем экран закрытия месяца
+        Navigator.of(context).push(
+          CupertinoPageRoute(
+            builder: (_) => const MonthCloseScreen(),
+            fullscreenDialog: true, // Открываем поверх всего
+          ),
+        );
+      });
+    }
 
     return Scaffold(
       body: IndexedStack(

@@ -1,4 +1,4 @@
-import 'dart:async'; // Для Timer
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
@@ -78,7 +78,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
   bool _isConverting = false;
 
-  // НОВОЕ: Для ИИ парсера
   bool _isAiParsing = false;
   Timer? _debounceTimer;
 
@@ -157,7 +156,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     super.dispose();
   }
 
-  // ОБНОВЛЕННЫЙ МЕТОД ПАРСИНГА С ИИ (С ДЕБАУНСОМ)
   void _parseInput() {
     final text = _smartInputController.text;
 
@@ -178,15 +176,19 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       );
     });
 
-    // 2. Дебаунс для вызова ИИ (ждет 1.5 секунды после последнего нажатия)
     _debounceTimer?.cancel();
-    if (text.trim().length > 3) {
+
+    // ИСПРАВЛЕНИЕ: Сценарий Г.
+    // Если в тексте нет букв (т.е. юзер ввел просто цифру вроде "500"),
+    // мы НЕ вызываем ИИ, чтобы не тратить лимиты и не заставлять ждать.
+    final hasLetters = RegExp(r'[a-zA-Zа-яА-Я]').hasMatch(text);
+
+    if (text.trim().length > 3 && hasLetters) {
       _debounceTimer = Timer(const Duration(milliseconds: 1500), () async {
         if (!mounted) return;
 
         setState(() => _isAiParsing = true);
 
-        // Вызываем ИИ
         final aiParsed = await _parser.parseWithAI(text, _selectedCurrency);
 
         if (!mounted) return;
@@ -199,21 +201,23 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
             _selectedCurrency = aiParsed.currency!;
           }
 
-          // Обновляем данные, отдавая приоритет тому, что нашел ИИ
           _parsed = ParsedExpenseInputModel(
             amount: aiParsed.amount ?? _parsed?.amount,
             currency: hasPremium ? (aiParsed.currency ?? _selectedCurrency) : _userCurrency,
-            // Если ИИ уверенно нашел категорию, используем её. Если нет — оставляем ту, что выбрал юзер вручную
             category: _selectedCategory != null ? _selectedCategory! : (aiParsed.category ?? ExpenseCategory.other),
             merchant: aiParsed.merchant ?? _parsed?.merchant,
             rawText: aiParsed.rawText,
           );
         });
       });
+    } else {
+      // Если это только цифры, просто гасим индикатор загрузки ИИ, если он был включен
+      if (_isAiParsing) {
+        setState(() => _isAiParsing = false);
+      }
     }
   }
 
-  // ОБНОВЛЕНО: Подключен ИИ для голоса
   Future<void> _parseVoiceText(String text) async {
     setState(() {
       _voicePreviewText = text;
@@ -404,7 +408,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
       setState(() { _isVoiceLoading = false; _isVoiceListening = false; });
       if (result.hasText) {
-        await _parseVoiceText(result.recognizedText); // Дождаться парсинга ИИ
+        await _parseVoiceText(result.recognizedText);
       }
       else if (result.errorMessage != null) {
         _showSnack(context, l10n.voiceErrorMessage(result.errorMessage!));
@@ -624,23 +628,31 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
             const SizedBox(height: 32),
 
-            // HERO AMOUNT AREA
+            // HERO AMOUNT AREA (ИСПРАВЛЕНИЕ: Добавлен FittedBox)
             Column(
               children: [
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 300),
-                  transitionBuilder: (Widget child, Animation<double> animation) {
-                    return ScaleTransition(scale: animation, child: child);
-                  },
-                  child: Text(
-                    '${_isIncome && _parsed?.amount != null ? '+' : ''}${_parsed?.amount != null ? _formatNumber(_parsed!.amount!) : '0'}',
-                    key: ValueKey('${_parsed?.amount}_$_isIncome'),
-                    style: TextStyle(
-                      fontSize: 64,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -2.5,
-                      color: _isIncome ? CupertinoColors.systemGreen : theme.colorScheme.onSurface,
-                      height: 1.1,
+                SizedBox(
+                  height: 80, // Фиксируем высоту, чтобы UI не прыгал
+                  child: Center(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown, // Заставляет текст уменьшаться, если он слишком длинный
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 300),
+                        transitionBuilder: (Widget child, Animation<double> animation) {
+                          return ScaleTransition(scale: animation, child: child);
+                        },
+                        child: Text(
+                          '${_isIncome && _parsed?.amount != null ? '+' : ''}${_parsed?.amount != null ? _formatNumber(_parsed!.amount!) : '0'}',
+                          key: ValueKey('${_parsed?.amount}_$_isIncome'),
+                          style: TextStyle(
+                            fontSize: 64,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -2.5,
+                            color: _isIncome ? CupertinoColors.systemGreen : theme.colorScheme.onSurface,
+                            height: 1.1,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
