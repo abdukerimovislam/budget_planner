@@ -30,6 +30,8 @@ dependencies:
   firebase_vertexai: ^2.2.0
   google_generative_ai: ^0.4.7
   flutter_dotenv: ^6.0.0
+  local_auth: ^2.2.2
+  csv: ^7.2.0
 
 dev_dependencies:
   flutter_test:

@@ -17,6 +17,7 @@ import '../../widgets/adaptive_page_padding.dart';
 import '../../widgets/health_score_explainer_card.dart';
 import '../../widgets/insight_card.dart';
 import '../premium/premium_screen.dart';
+import 'category_details_screen.dart';
 
 class _DetailedCategoryStat {
   final ExpenseCategory category;
@@ -53,11 +54,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       return;
     }
 
-    final available = provider.availableUserCurrencies;
-    if (available.length <= 1) return;
+    // ИСПРАВЛЕНИЕ: Берем полный список, чтобы можно было выбрать пустой счет
+    final allCurrencies = ['USD', 'EUR', 'GBP', 'RUB', 'KZT', 'KGS', 'UZS', 'UAH', 'BYN'];
 
     HapticFeedback.lightImpact();
-    int initialIndex = available.indexOf(provider.activeCurrency);
+    int initialIndex = allCurrencies.indexOf(provider.activeCurrency);
     if (initialIndex == -1) initialIndex = 0;
 
     showCupertinoModalPopup(
@@ -79,15 +80,28 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   scrollController: FixedExtentScrollController(initialItem: initialIndex),
                   onSelectedItemChanged: (index) {
                     HapticFeedback.selectionClick();
-                    provider.setActiveCurrency(available[index]);
+                    provider.setActiveCurrency(allCurrencies[index]);
                   },
-                  children: available.map((c) => Center(
+                  children: allCurrencies.map((c) => Center(
                     child: Text('$c Account', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w600)),
                   )).toList(),
                 ),
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  void _openCategoryDetails(BuildContext context, _DetailedCategoryStat stat, DateTime monthDate) {
+    HapticFeedback.selectionClick();
+    Navigator.of(context).push(
+      CupertinoPageRoute(
+        builder: (_) => CategoryDetailsScreen(
+          category: stat.category,
+          customCategoryId: stat.customId,
+          monthDate: monthDate,
         ),
       ),
     );
@@ -159,7 +173,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       );
     }).toList();
 
-    final hasMultipleCurrencies = provider.availableUserCurrencies.length > 1;
     final hasPremium = provider.canUseFeature(PremiumFeature.multiCurrency);
 
     return Scaffold(
@@ -219,7 +232,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                               currency,
                               style: TextStyle(fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurface, fontSize: 14),
                             ),
-                            if (hasPremium && hasMultipleCurrencies) ...[
+                            if (hasPremium) ...[
                               const SizedBox(width: 4),
                               Icon(CupertinoIcons.chevron_up_chevron_down, size: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5)),
                             ]
@@ -313,6 +326,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                               return;
                                             }
                                             _touchedIndex = pieTouchResponse.touchedSection!.touchedSectionIndex;
+
+                                            // Если юзер тапнул на график (и отпустил палец), открываем детали
+                                            if (event is FlTapUpEvent && _touchedIndex >= 0 && _touchedIndex < sortedStats.length) {
+                                              _openCategoryDetails(context, sortedStats[_touchedIndex], now);
+                                            }
                                           });
                                         },
                                       ),
@@ -434,14 +452,23 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                             final stat = entry.value;
                             final percent = totalSpent > 0 ? (stat.amount / totalSpent) : 0.0;
 
-                            return _PremiumCategoryRow(
-                              categoryName: stat.category.localizedName(context, customCategoryId: stat.customId),
-                              categoryColor: stat.category.dynamicColor(context, customCategoryId: stat.customId),
-                              iconData: stat.category.dynamicIcon(context, customCategoryId: stat.customId),
-                              amount: '${_formatNumber(stat.amount)} $currency',
-                              transactionsCountLabel: l10n.analyticsTransactionsCount(stat.count),
-                              percent: percent,
-                              isLast: isLast,
+                            return Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: () => _openCategoryDetails(context, stat, now),
+                                borderRadius: isLast
+                                    ? const BorderRadius.only(bottomLeft: Radius.circular(24), bottomRight: Radius.circular(24))
+                                    : entry.key == 0 ? const BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)) : BorderRadius.zero,
+                                child: _PremiumCategoryRow(
+                                  categoryName: stat.category.localizedName(context, customCategoryId: stat.customId),
+                                  categoryColor: stat.category.dynamicColor(context, customCategoryId: stat.customId),
+                                  iconData: stat.category.dynamicIcon(context, customCategoryId: stat.customId),
+                                  amount: '${_formatNumber(stat.amount)} $currency',
+                                  transactionsCountLabel: l10n.analyticsTransactionsCount(stat.count),
+                                  percent: percent,
+                                  isLast: isLast,
+                                ),
+                              ),
                             );
                           }).toList(),
                         ),
@@ -612,6 +639,8 @@ class _PremiumCategoryRow extends StatelessWidget {
                   Text('${(percent * 100).toStringAsFixed(1)}%', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface.withValues(alpha: 0.4))),
                 ],
               ),
+              const SizedBox(width: 8),
+              Icon(CupertinoIcons.chevron_right, size: 16, color: theme.colorScheme.onSurface.withValues(alpha: 0.3)), // Подсказка, что можно кликнуть
             ],
           ),
         ),

@@ -81,6 +81,16 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   bool _isAiParsing = false;
   Timer? _debounceTimer;
 
+  // НОВОЕ: Переменные для анимации плейсхолдера
+  Timer? _typewriterTimer;
+  String _currentHint = '';
+  int _hintIndex = 0;
+  int _charIndex = 0;
+  bool _isTypingForward = true;
+
+  late final List<String> _expenseHints;
+  late final List<String> _incomeHints;
+
   @override
   void initState() {
     super.initState();
@@ -113,6 +123,67 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _initVoice();
+
+    // Инициализируем подсказки в зависимости от языка
+    final isRu = Localizations.localeOf(context).languageCode == 'ru';
+    _expenseHints = isRu
+        ? ['Кофе 150', 'Такси домой 500', 'Продукты в Ашане 2500', 'Кино с друзьями 800', 'Подписка Netflix 15 USD']
+        : ['Coffee 5', 'Uber to home 15', 'Groceries at Target 120', 'Movie tickets 25', 'Netflix subscription 15'];
+
+    _incomeHints = isRu
+        ? ['Зарплата 100000', 'Вернули долг 5000', 'Продал телефон 30000']
+        : ['Salary 5000', 'Refund 50', 'Sold old phone 300'];
+
+    _startTypewriterAnimation();
+  }
+
+  // МЕТОД ДЛЯ АНИМАЦИИ ПЛЕЙСХОЛДЕРА
+  void _startTypewriterAnimation() {
+    _typewriterTimer?.cancel();
+    final activeHints = _isIncome ? _incomeHints : _expenseHints;
+    if (activeHints.isEmpty) return;
+
+    _typewriterTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+      if (!mounted) return;
+
+      // Если пользователь начал вводить свой текст, останавливаем анимацию
+      if (_smartInputController.text.isNotEmpty) {
+        setState(() => _currentHint = '');
+        return;
+      }
+
+      final targetWord = activeHints[_hintIndex];
+
+      setState(() {
+        if (_isTypingForward) {
+          if (_charIndex < targetWord.length) {
+            _charIndex++;
+            _currentHint = targetWord.substring(0, _charIndex);
+          } else {
+            _isTypingForward = false;
+            // Пауза перед стиранием
+            _typewriterTimer?.cancel();
+            Future.delayed(const Duration(seconds: 2), () {
+              if (mounted) _startTypewriterAnimation();
+            });
+          }
+        } else {
+          if (_charIndex > 0) {
+            _charIndex--;
+            _currentHint = targetWord.substring(0, _charIndex);
+            // Ускоряем стирание
+            _typewriterTimer?.cancel();
+            _typewriterTimer = Timer.periodic(const Duration(milliseconds: 50), (t) => _startTypewriterAnimation());
+          } else {
+            _isTypingForward = true;
+            _hintIndex = (_hintIndex + 1) % activeHints.length;
+            // Возвращаем нормальную скорость печати
+            _typewriterTimer?.cancel();
+            _typewriterTimer = Timer.periodic(const Duration(milliseconds: 100), (t) => _startTypewriterAnimation());
+          }
+        }
+      });
+    });
   }
 
   String _t(String en, String ru) {
@@ -149,6 +220,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
   @override
   void dispose() {
+    _typewriterTimer?.cancel();
     _debounceTimer?.cancel();
     _smartInputController.dispose();
     _voiceInputService.cancelListening();
@@ -159,7 +231,14 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   void _parseInput() {
     final text = _smartInputController.text;
 
-    // 1. Мгновенный локальный парсинг для отзывчивости интерфейса
+    // Скрываем анимированный плейсхолдер, если юзер вводит текст
+    if (text.isEmpty && _currentHint.isEmpty) {
+      _hintIndex = 0;
+      _charIndex = 0;
+      _isTypingForward = true;
+      _startTypewriterAnimation();
+    }
+
     final localParsed = _parser.parse(text);
     setState(() {
       final hasPremium = context.read<HomeProvider>().canUseFeature(PremiumFeature.multiCurrency);
@@ -178,9 +257,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
     _debounceTimer?.cancel();
 
-    // ИСПРАВЛЕНИЕ: Сценарий Г.
-    // Если в тексте нет букв (т.е. юзер ввел просто цифру вроде "500"),
-    // мы НЕ вызываем ИИ, чтобы не тратить лимиты и не заставлять ждать.
     final hasLetters = RegExp(r'[a-zA-Zа-яА-Я]').hasMatch(text);
 
     if (text.trim().length > 3 && hasLetters) {
@@ -211,7 +287,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         });
       });
     } else {
-      // Если это только цифры, просто гасим индикатор загрузки ИИ, если он был включен
       if (_isAiParsing) {
         setState(() => _isAiParsing = false);
       }
@@ -628,14 +703,13 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
             const SizedBox(height: 32),
 
-            // HERO AMOUNT AREA (ИСПРАВЛЕНИЕ: Добавлен FittedBox)
             Column(
               children: [
                 SizedBox(
-                  height: 80, // Фиксируем высоту, чтобы UI не прыгал
+                  height: 80,
                   child: Center(
                     child: FittedBox(
-                      fit: BoxFit.scaleDown, // Заставляет текст уменьшаться, если он слишком длинный
+                      fit: BoxFit.scaleDown,
                       child: AnimatedSwitcher(
                         duration: const Duration(milliseconds: 300),
                         transitionBuilder: (Widget child, Animation<double> animation) {
@@ -727,7 +801,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
             const SizedBox(height: 32),
 
-            // КАРУСЕЛЬ КАТЕГОРИЙ
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               physics: const BouncingScrollPhysics(),
@@ -825,7 +898,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
             const SizedBox(height: 32),
 
-            // СВОЙСТВА ТРАНЗАКЦИИ
             Padding(
               padding: EdgeInsets.symmetric(horizontal: Responsive.cardPadding(context)),
               child: Container(
@@ -878,6 +950,12 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   HapticFeedback.selectionClick();
                   setState(() {
                     _isIncome = false;
+                    // При смене типа обновляем подсказки
+                    _hintIndex = 0;
+                    _charIndex = 0;
+                    _isTypingForward = true;
+                    _startTypewriterAnimation();
+
                     if (_selectedCategory == ExpenseCategory.other || _selectedCategory == ExpenseCategory.gifts) {
                       _selectedCategory = widget.initialCategory ?? ExpenseCategory.food;
                     }
@@ -911,6 +989,12 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   HapticFeedback.selectionClick();
                   setState(() {
                     _isIncome = true;
+                    // При смене типа обновляем подсказки
+                    _hintIndex = 0;
+                    _charIndex = 0;
+                    _isTypingForward = true;
+                    _startTypewriterAnimation();
+
                     if (_selectedCustomCategoryId == null) {
                       _selectedCategory = ExpenseCategory.other;
                     }
@@ -943,7 +1027,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   }
 
   Widget _buildSmartTextSection(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: Responsive.cardPadding(context)),
       child: Container(
@@ -956,19 +1039,47 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         child: Row(
           children: [
             Expanded(
-              child: TextField(
-                controller: _smartInputController,
-                autofocus: true,
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 18, color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w500),
-                decoration: InputDecoration(
-                  border: InputBorder.none,
-                  hintText: _isIncome
-                      ? _t('5000 from client', '5000 от клиента')
-                      : (widget.initialCategory == null ? l10n.smartInputExample : '500 for taxi'),
-                  hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3)),
-                ),
-                onChanged: (_) => _parseInput(),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // ИСПРАВЛЕНИЕ: Показываем анимированный текст только если поле ввода пустое
+                  if (_smartInputController.text.isEmpty)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          _currentHint,
+                          style: TextStyle(
+                              fontSize: 18,
+                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
+                              fontWeight: FontWeight.w500
+                          ),
+                        ),
+                        // Мигающий курсор для реалистичности
+                        AnimatedOpacity(
+                          opacity: _isTypingForward ? 1.0 : 0.0,
+                          duration: const Duration(milliseconds: 300),
+                          child: Container(
+                            width: 2, height: 20,
+                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
+                            margin: const EdgeInsets.only(left: 2),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                  TextField(
+                    controller: _smartInputController,
+                    autofocus: true,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 18, color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w500),
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      hintText: '', // Убираем стандартный хинт, используем свой анимированный
+                    ),
+                    onChanged: (_) => _parseInput(),
+                  ),
+                ],
               ),
             ),
             if (_isAiParsing)

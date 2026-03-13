@@ -41,6 +41,16 @@ class LocalStorageService {
     await _box.put(StorageKeys.localeCode, code);
   }
 
+  // --- БИОМЕТРИЯ (FACE ID / TOUCH ID) ---
+  bool isBiometricAuthEnabled() {
+    return _box.get('biometric_auth_enabled', defaultValue: false) as bool;
+  }
+
+  Future<void> setBiometricAuthEnabled(bool value) async {
+    await _box.put('biometric_auth_enabled', value);
+  }
+  // --------------------------------------
+
   IncomeProfileModel? getIncomeProfile() {
     final map = _box.get(StorageKeys.incomeProfile);
     if (map is Map) {
@@ -132,20 +142,18 @@ class LocalStorageService {
   // НОВЫЕ МЕТОДЫ: ЗАЩИТА AI ОТ СПАМА (КВОТЫ)
   // =======================================================
 
-  static const int _dailyParserLimit = 50; // Максимум 50 запросов парсера в день
-  static const int _dailyAdvisorLimit = 5; // Максимум 5 советов от ИИ в день
+  static const int _dailyParserLimit = 50;
+  static const int _dailyAdvisorLimit = 5;
 
-  /// Проверяет, не исчерпан ли лимит на парсинг транзакций
   bool canUseAiParser() {
     final lastDateStr = _box.get('ai_parser_date') as String?;
     final count = _box.get('ai_parser_count', defaultValue: 0) as int;
     final todayStr = DateTime.now().toIso8601String().split('T').first;
 
-    if (lastDateStr != todayStr) return true; // Новый день — новые лимиты
+    if (lastDateStr != todayStr) return true;
     return count < _dailyParserLimit;
   }
 
-  /// Увеличивает счетчик использований парсера
   Future<void> incrementAiParserUsage() async {
     final lastDateStr = _box.get('ai_parser_date') as String?;
     final todayStr = DateTime.now().toIso8601String().split('T').first;
@@ -160,7 +168,6 @@ class LocalStorageService {
     await _box.put('ai_parser_count', count);
   }
 
-  /// Проверяет, не исчерпан ли лимит на советы от ИИ (AI Advisor)
   bool canUseAiAdvisor() {
     final lastDateStr = _box.get('ai_advisor_date') as String?;
     final count = _box.get('ai_advisor_count', defaultValue: 0) as int;
@@ -170,7 +177,6 @@ class LocalStorageService {
     return count < _dailyAdvisorLimit;
   }
 
-  /// Увеличивает счетчик использований советника
   Future<void> incrementAiAdvisorUsage() async {
     final lastDateStr = _box.get('ai_advisor_date') as String?;
     final todayStr = DateTime.now().toIso8601String().split('T').first;

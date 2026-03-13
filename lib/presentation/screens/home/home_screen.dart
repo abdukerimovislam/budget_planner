@@ -13,7 +13,6 @@ import '../../../data/models/insight_type.dart';
 import '../../../domain/services/premium_feature.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../providers/home_provider.dart';
-import '../../widgets/action_plan_card.dart';
 import '../../widgets/apple_section_header.dart';
 import '../../widgets/expense_item_card.dart';
 import '../../widgets/hero_dashboard_card.dart';
@@ -23,7 +22,6 @@ import '../../widgets/premium_background.dart';
 import '../../widgets/quick_add_chips.dart';
 import '../../widgets/spending_pace_card.dart';
 import '../add_expense/add_expense_screen.dart';
-// ИСПРАВЛЕНИЕ: Импортируем правильный экран для AI Advisor
 import '../ai_advisor/ai_advisor_screen.dart';
 import '../expenses/expenses_screen.dart';
 import '../premium/premium_screen.dart';
@@ -165,11 +163,11 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    final available = provider.availableUserCurrencies;
-    if (available.length <= 1) return;
+    // ИСПРАВЛЕНИЕ: Показываем все доступные валюты системы, чтобы юзер мог переключиться на пустой счет
+    final allCurrencies = ['USD', 'EUR', 'GBP', 'RUB', 'KZT', 'KGS', 'UZS', 'UAH', 'BYN'];
 
     HapticFeedback.lightImpact();
-    int initialIndex = available.indexOf(provider.activeCurrency);
+    int initialIndex = allCurrencies.indexOf(provider.activeCurrency);
     if (initialIndex == -1) initialIndex = 0;
 
     showCupertinoModalPopup(
@@ -191,9 +189,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   scrollController: FixedExtentScrollController(initialItem: initialIndex),
                   onSelectedItemChanged: (index) {
                     HapticFeedback.selectionClick();
-                    provider.setActiveCurrency(available[index]);
+                    // Переключаем дашборд на выбранную валюту
+                    provider.setActiveCurrency(allCurrencies[index]);
                   },
-                  children: available.map((c) => Center(
+                  children: allCurrencies.map((c) => Center(
                     child: Text('$c Account', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w600)),
                   )).toList(),
                 ),
@@ -216,7 +215,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final healthScore = provider.healthScoreFor(now);
     final latestExpenses = provider.latestExpenses(limit: 5);
     final insights = provider.insightsForMonth(now);
-    final actionPlan = provider.actionPlan(now);
     final dangerousCategory = provider.mostDangerousCategoryThisMonth(now);
 
     final lifeSpentDuration = provider.spentLifeDurationForMonth(now);
@@ -386,7 +384,6 @@ class _HomeScreenState extends State<HomeScreen> {
                             title: l10n.aiInsightsTitle,
                             action: 'Ask AI',
                             onActionTap: () {
-                              // ИСПРАВЛЕНИЕ: ВЕДЕМ НА ЭКРАН AI ADVISOR!
                               Navigator.of(context).push(
                                 CupertinoPageRoute(builder: (_) => const AiAdvisorScreen()),
                               );
@@ -451,22 +448,15 @@ class _HomeScreenState extends State<HomeScreen> {
                           SizedBox(height: sectionGap),
                         ],
 
-                        // ПЛАН ДЕЙСТВИЙ (AI ADVISOR)
-                        if (dangerousCategory != null || actionPlan.isNotEmpty) ...[
+                        // ИСПРАВЛЕНИЕ: Оставили только реальные угрозы (Action Plan переехал в AI Advisor)
+                        if (dangerousCategory != null) ...[
                           AppleSectionHeader(title: l10n.financialRadarTitle),
                           SizedBox(height: itemGap),
-                          if (dangerousCategory != null) ...[
-                            SpendingPaceCard(
-                              title: l10n.budgetDangerTitle(dangerousCategory.localizedName(context)),
-                              subtitle: l10n.budgetDangerSubtitle,
-                              isWarning: true,
-                            ),
-                            SizedBox(height: itemGap),
-                          ],
-                          if (actionPlan.isNotEmpty) ...actionPlan.map((item) => Padding(
-                            padding: EdgeInsets.only(bottom: itemGap),
-                            child: ActionPlanCard(item: item),
-                          )),
+                          SpendingPaceCard(
+                            title: l10n.budgetDangerTitle(dangerousCategory.localizedName(context)),
+                            subtitle: l10n.budgetDangerSubtitle,
+                            isWarning: true,
+                          ),
                           SizedBox(height: sectionGap),
                         ],
 

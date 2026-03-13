@@ -1,11 +1,17 @@
+import 'dart:io';
+import 'dart:convert'; // Добавлено для работы с кодировкой UTF-8
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/services.dart'; // <-- ДОБАВЛЕНО ДЛЯ ВИБРАЦИИ
+import 'package:flutter/services.dart';
+import 'package:local_auth/local_auth.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../app/app_state.dart';
 import '../../../core/localization/locale_controller.dart';
 import '../../../core/utils/responsive.dart';
+import '../../../data/datasources/local/local_storage_service.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../monthly_report/monthly_report_screen.dart';
 import '../../providers/home_provider.dart';
@@ -15,8 +21,120 @@ import '../../widgets/streak_card.dart';
 import '../achievements/achievements_screen.dart';
 import '../premium/premium_screen.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  final LocalAuthentication _auth = LocalAuthentication();
+  bool _isBiometricEnabled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBiometricState();
+  }
+
+  void _loadBiometricState() {
+    setState(() {
+      _isBiometricEnabled = LocalStorageService.instance.isBiometricAuthEnabled();
+    });
+  }
+
+  Future<void> _toggleBiometric(bool value) async {
+    if (value) {
+      try {
+        final canAuthenticate = await _auth.canCheckBiometrics || await _auth.isDeviceSupported();
+        if (!canAuthenticate) {
+          if (!mounted) return;
+          _showSnack(context, 'Биометрия не поддерживается на этом устройстве');
+          return;
+        }
+
+        final didAuthenticate = await _auth.authenticate(
+          localizedReason: 'Подтвердите личность для включения защиты входа',
+          options: const AuthenticationOptions(
+            biometricOnly: false,
+            stickyAuth: true,
+            useErrorDialogs: true,
+          ),
+        );
+
+        if (didAuthenticate) {
+          await LocalStorageService.instance.setBiometricAuthEnabled(true);
+          setState(() => _isBiometricEnabled = true);
+        }
+      } catch (e) {
+        debugPrint('Auth error: $e');
+        if (mounted) _showSnack(context, 'Ошибка аутентификации');
+      }
+    } else {
+      await LocalStorageService.instance.setBiometricAuthEnabled(false);
+      setState(() => _isBiometricEnabled = false);
+    }
+  }
+
+  Future<void> _exportToCsv(BuildContext context, HomeProvider provider) async {
+    try {
+      final expenses = provider.expenses;
+      if (expenses.isEmpty) {
+        _showSnack(context, 'Нет данных для экспорта');
+        return;
+      }
+
+      List<List<dynamic>> rows = [
+        ['Date', 'Type', 'Amount', 'Currency', 'Category', 'Merchant', 'Note']
+      ];
+
+      for (var e in expenses) {
+        rows.add([
+          '${e.date.year}-${e.date.month.toString().padLeft(2, '0')}-${e.date.day.toString().padLeft(2, '0')}',
+          e.isIncome ? 'Income' : 'Expense',
+          e.amount,
+          e.currency,
+          e.category.name,
+          e.merchant,
+          e.note ?? ''
+        ]);
+      }
+
+      // Генерируем CSV формат вручную. Это надежно и оборачивает всё в кавычки.
+      String csvData = rows.map((row) {
+        return row.map((item) {
+          // Экранируем кавычки внутри текста и оборачиваем ячейку
+          String str = item.toString().replaceAll('"', '""');
+          return '"$str"';
+        }).join(',');
+      }).join('\n');
+
+      final directory = await getTemporaryDirectory();
+      final path = '${directory.path}/budget_planner_export_${DateTime.now().millisecondsSinceEpoch}.csv';
+      final file = File(path);
+
+      // ИСПРАВЛЕНИЕ: Добавляем BOM (Byte Order Mark), чтобы Excel правильно читал кириллицу
+      await file.writeAsBytes([0xEF, 0xBB, 0xBF, ...utf8.encode(csvData)]);
+
+      if (!mounted) return;
+
+      await Share.shareXFiles(
+        [XFile(path)],
+        text: 'Мой финансовый отчет',
+        subject: 'Экспорт транзакций',
+      );
+
+    } catch (e) {
+      debugPrint('Export CSV Error: $e');
+      if (mounted) _showSnack(context, 'Ошибка при экспорте данных');
+    }
+  }
+
+  void _showSnack(BuildContext context, String msg) {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating));
+  }
 
   String _t(BuildContext context, String en, String ru) {
     final isRu = Localizations.localeOf(context).languageCode == 'ru';
@@ -44,7 +162,6 @@ class ProfileScreen extends StatelessWidget {
             onSelectedItemChanged: (index) {
               HapticFeedback.selectionClick();
               if (provider.incomeProfile != null) {
-                // СОХРАНЯЕМ НОВУЮ ВАЛЮТУ В ПРОФИЛЬ
                 provider.setIncomeProfile(
                     provider.incomeProfile!.copyWith(currency: currencies[index])
                 );
@@ -68,6 +185,7 @@ class ProfileScreen extends StatelessWidget {
     final report = provider.monthlyReport(DateTime.now());
     final isPremium = provider.isPremium;
     final currentCurrency = provider.incomeProfile?.currency ?? 'USD';
+    final theme = Theme.of(context);
 
     return PremiumBackground(
       child: Scaffold(
@@ -90,22 +208,6 @@ class ProfileScreen extends StatelessWidget {
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
 
-                  // 1. БЛОК ГЕЙМИФИКАЦИИ
-                  _SectionTitle(title: l10n.gamificationSection.toUpperCase()),
-                  const SizedBox(height: 8),
-                  StreakCard(
-                    streak: streak,
-                    onTap: () => Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const AchievementsScreen())),
-                  ),
-                  const SizedBox(height: 12),
-                  FinancialLevelCard(
-                    level: report.level,
-                    onTapReport: () => Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const MonthlyReportScreen())),
-                  ),
-
-                  const SizedBox(height: 32),
-
-                  // 2. БЛОК ПРЕМИУМ
                   _SectionTitle(title: l10n.subscriptionSection.toUpperCase()),
                   const SizedBox(height: 8),
                   _SettingsGroup(
@@ -120,10 +222,8 @@ class ProfileScreen extends StatelessWidget {
                       ),
                     ],
                   ),
-
                   const SizedBox(height: 32),
 
-                  // 3. БЛОК НАСТРОЕК
                   _SectionTitle(title: l10n.preferencesSection.toUpperCase()),
                   const SizedBox(height: 8),
                   _SettingsGroup(
@@ -134,24 +234,61 @@ class ProfileScreen extends StatelessWidget {
                         title: l10n.language,
                         trailing: _buildLanguageSelector(context),
                       ),
-                      // ДОБАВЛЕН ВЫБОР ВАЛЮТЫ В ПРОФИЛЬ
                       _SettingsRow(
                         icon: CupertinoIcons.money_dollar_circle_fill,
                         iconColor: CupertinoColors.systemGreen,
                         title: _t(context, 'Currency', 'Валюта'),
                         trailing: Text(
                           currentCurrency,
-                          style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5), fontSize: 16, fontWeight: FontWeight.w600),
+                          style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 16, fontWeight: FontWeight.w600),
                         ),
                         onTap: () => _showCurrencyPicker(context, provider),
+                      ),
+                      _SettingsRow(
+                        icon: CupertinoIcons.lock_shield_fill,
+                        iconColor: CupertinoColors.systemIndigo,
+                        title: _t(context, 'Face ID / PIN Login', 'Вход по Face ID / PIN'),
+                        trailing: CupertinoSwitch(
+                          value: _isBiometricEnabled,
+                          activeColor: theme.colorScheme.primary,
+                          onChanged: _toggleBiometric,
+                        ),
                         isLast: true,
                       ),
                     ],
                   ),
+                  const SizedBox(height: 32),
+
+                  _SectionTitle(title: _t(context, 'DATA MANAGEMENT', 'УПРАВЛЕНИЕ ДАННЫМИ')),
+                  const SizedBox(height: 8),
+                  _SettingsGroup(
+                    children: [
+                      _SettingsRow(
+                        icon: CupertinoIcons.doc_text_fill,
+                        iconColor: CupertinoColors.systemTeal,
+                        title: _t(context, 'Export to CSV', 'Экспорт в CSV (Excel)'),
+                        subtitle: _t(context, 'Download your full transaction history', 'Скачать полную историю транзакций'),
+                        onTap: () => _exportToCsv(context, provider),
+                        isLast: true,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 32),
+
+                  _SectionTitle(title: l10n.gamificationSection.toUpperCase()),
+                  const SizedBox(height: 8),
+                  StreakCard(
+                    streak: streak,
+                    onTap: () => Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const AchievementsScreen())),
+                  ),
+                  const SizedBox(height: 12),
+                  FinancialLevelCard(
+                    level: report.level,
+                    onTapReport: () => Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const MonthlyReportScreen())),
+                  ),
 
                   const SizedBox(height: 32),
 
-                  // 4. DANGER ZONE
                   _SectionTitle(title: l10n.dangerZoneSection.toUpperCase()),
                   const SizedBox(height: 8),
                   _SettingsGroup(
@@ -189,16 +326,17 @@ class ProfileScreen extends StatelessWidget {
 
     final isRu = localeController.locale?.languageCode == 'ru';
     final currentLang = isRu ? l10n.russian : l10n.english;
+    final theme = Theme.of(context);
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(currentLang, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5), fontSize: 16)),
+        Text(currentLang, style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 16)),
         const SizedBox(width: 4),
         PopupMenuButton<String>(
-          icon: Icon(CupertinoIcons.chevron_up_chevron_down, size: 16, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
+          icon: Icon(CupertinoIcons.chevron_up_chevron_down, size: 16, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
           onSelected: (value) => localeController.setLocale(Locale(value)),
-          color: Theme.of(context).colorScheme.surface,
+          color: theme.colorScheme.surface,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           itemBuilder: (context) => [
             PopupMenuItem(value: 'en', child: Text(l10n.english, style: const TextStyle(fontWeight: FontWeight.w500))),
@@ -243,7 +381,7 @@ class _SectionTitle extends StatelessWidget {
       padding: const EdgeInsets.only(left: 16, bottom: 6),
       child: Text(
         title,
-        style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5), fontWeight: FontWeight.w600, fontSize: 13, letterSpacing: 0.5),
+        style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), fontWeight: FontWeight.w600, fontSize: 13, letterSpacing: 0.5),
       ),
     );
   }
@@ -257,9 +395,9 @@ class _SettingsGroup extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface.withOpacity(0.8),
+        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.8),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5)),
+        border: Border.all(color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)),
       ),
       child: Column(children: children),
     );
@@ -272,6 +410,7 @@ class _SettingsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -289,19 +428,19 @@ class _SettingsRow extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(title, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w500, letterSpacing: -0.4, color: textColor ?? Theme.of(context).colorScheme.onSurface)),
+                        Text(title, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w500, letterSpacing: -0.4, color: textColor ?? theme.colorScheme.onSurface)),
                         if (subtitle != null) ...[
-                          const SizedBox(height: 2), Text(subtitle!, style: TextStyle(fontSize: 13, letterSpacing: -0.1, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
+                          const SizedBox(height: 2), Text(subtitle!, style: TextStyle(fontSize: 13, letterSpacing: -0.1, color: theme.colorScheme.onSurface.withValues(alpha: 0.5))),
                         ],
                       ],
                     ),
                   ),
                   if (trailing != null) trailing!
-                  else if (onTap != null) Icon(CupertinoIcons.chevron_forward, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3), size: 20),
+                  else if (onTap != null) Icon(CupertinoIcons.chevron_forward, color: theme.colorScheme.onSurface.withValues(alpha: 0.3), size: 20),
                 ],
               ),
             ),
-            if (!isLast) Padding(padding: const EdgeInsets.only(left: 56), child: Divider(height: 1, color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5))),
+            if (!isLast) Padding(padding: const EdgeInsets.only(left: 56), child: Divider(height: 1, color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5))),
           ],
         ),
       ),
