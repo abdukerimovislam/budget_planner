@@ -371,7 +371,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
             initialDateTime: _selectedDate,
             mode: CupertinoDatePickerMode.dateAndTime,
             use24hFormat: true,
-            maximumDate: DateTime.now().add(const Duration(days: 365)),
+            maximumDate: DateTime.now(),
             onDateTimeChanged: (val) => setState(() => _selectedDate = val),
           ),
         ),

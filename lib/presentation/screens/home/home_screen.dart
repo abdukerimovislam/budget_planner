@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_slidable/flutter_slidable.dart'; // ИСПРАВЛЕНИЕ: Новый плагин для свайпов
 
 import '../../../core/utils/category_extension.dart';
 import '../../../core/utils/responsive.dart';
@@ -40,6 +41,9 @@ class _HomeScreenState extends State<HomeScreen> {
   int _currentHeroPage = 0;
   bool _showRemaining = false;
   bool _isFabExpanded = false;
+
+  // ИСПРАВЛЕНИЕ: Глобальный поиск
+  String _searchQuery = '';
 
   @override
   void dispose() {
@@ -202,6 +206,22 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // Логика поиска
+  List<ExpenseModel> _getDisplayExpenses(HomeProvider provider) {
+    if (_searchQuery.isEmpty) {
+      return provider.latestExpenses(limit: 5);
+    } else {
+      final query = _searchQuery.toLowerCase();
+      final filtered = provider.expenses.where((e) =>
+      e.currency == provider.activeCurrency &&
+          (e.merchant.toLowerCase().contains(query) ||
+              (e.note ?? '').toLowerCase().contains(query) ||
+              e.category.name.toLowerCase().contains(query))
+      ).toList();
+      return filtered.take(15).toList(); // Ограничиваем выдачу для скорости
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<HomeProvider>();
@@ -211,7 +231,10 @@ class _HomeScreenState extends State<HomeScreen> {
     final forecast = provider.forecastFor(now);
     final totalSpent = provider.totalSpentThisMonth(now);
     final healthScore = provider.healthScoreFor(now);
-    final latestExpenses = provider.latestExpenses(limit: 5);
+
+    // Берем транзакции с учетом поиска
+    final displayExpenses = _getDisplayExpenses(provider);
+
     final insights = provider.insightsForMonth(now);
     final dangerousCategory = provider.mostDangerousCategoryThisMonth(now);
 
@@ -231,7 +254,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return PremiumBackground(
       child: GestureDetector(
-        onTap: () { if (_isFabExpanded) setState(() => _isFabExpanded = false); },
+        onTap: () {
+          if (_isFabExpanded) setState(() => _isFabExpanded = false);
+          FocusScope.of(context).unfocus(); // Закрываем клавиатуру по тапу
+        },
         child: Scaffold(
           backgroundColor: Colors.transparent,
           body: Stack(
@@ -305,213 +331,269 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
 
+                  // ИСПРАВЛЕНИЕ: Интеллектуальный поиск прямо под заголовком
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: CupertinoSearchTextField(
+                        placeholder: 'Поиск транзакций...',
+                        style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+                        onChanged: (val) => setState(() => _searchQuery = val),
+                      ),
+                    ),
+                  ),
+
                   SliverPadding(
                     padding: EdgeInsets.symmetric(horizontal: Responsive.cardPadding(context)),
                     sliver: SliverList(
                       delegate: SliverChildListDelegate([
                         const SizedBox(height: 8),
 
-                        SizedBox(
-                          height: 250,
-                          child: PageView(
-                            controller: _heroPageController,
-                            physics: const BouncingScrollPhysics(),
-                            onPageChanged: (idx) => setState(() => _currentHeroPage = idx),
-                            children: [
-                              GestureDetector(
-                                onTap: () => setState(() => _showRemaining = !_showRemaining),
-                                child: HeroDashboardCard(
-                                  metal: CardMetal.platinum,
-                                  label: _showRemaining ? l10n.leftToSpend : l10n.spentThisMonth.toUpperCase(),
-                                  value: '${_formatNumber(_showRemaining ? (forecast?.expectedRemaining ?? 0) : totalSpent)} $activeCurrency',
-                                  isWarning: _showRemaining && (forecast?.isOverBudget ?? false),
-                                  bottomWidget: _GlassMetricRow(
-                                    isGold: false,
-                                    leftIcon: CupertinoIcons.heart_fill,
-                                    leftLabel: l10n.healthLabel,
-                                    leftValue: '$healthScore/100',
-                                    rightIcon: _showRemaining ? CupertinoIcons.calendar_today : CupertinoIcons.clock_fill,
-                                    rightLabel: _showRemaining ? l10n.daysLeftLabel : l10n.shareCardLifeSpent,
-                                    rightValue: _showRemaining ? '$daysLeft' : lifeSpentFormatted,
+                        // Скрываем дашборд, если пользователь ищет транзакции
+                        if (_searchQuery.isEmpty) ...[
+                          SizedBox(
+                            height: 250,
+                            child: PageView(
+                              controller: _heroPageController,
+                              physics: const BouncingScrollPhysics(),
+                              onPageChanged: (idx) => setState(() => _currentHeroPage = idx),
+                              children: [
+                                GestureDetector(
+                                  onTap: () => setState(() => _showRemaining = !_showRemaining),
+                                  child: HeroDashboardCard(
+                                    metal: CardMetal.platinum,
+                                    label: _showRemaining ? l10n.leftToSpend : l10n.spentThisMonth.toUpperCase(),
+                                    value: '${_formatNumber(_showRemaining ? (forecast?.expectedRemaining ?? 0) : totalSpent)} $activeCurrency',
+                                    isWarning: _showRemaining && (forecast?.isOverBudget ?? false),
+                                    bottomWidget: _GlassMetricRow(
+                                      isGold: false,
+                                      leftIcon: CupertinoIcons.heart_fill,
+                                      leftLabel: l10n.healthLabel,
+                                      leftValue: '$healthScore/100',
+                                      rightIcon: _showRemaining ? CupertinoIcons.calendar_today : CupertinoIcons.clock_fill,
+                                      rightLabel: _showRemaining ? l10n.daysLeftLabel : l10n.shareCardLifeSpent,
+                                      rightValue: _showRemaining ? '$daysLeft' : lifeSpentFormatted,
+                                    ),
                                   ),
                                 ),
-                              ),
-                              HeroDashboardCard(
-                                metal: CardMetal.gold,
-                                label: l10n.safeToSpendToday,
-                                value: '${_formatNumber(safeToSpendDaily)} $activeCurrency',
-                                withSparkline: true,
-                                bottomWidget: _GlassTextBanner(text: l10n.keepPaceBudget, isGold: true),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        const SizedBox(height: 16),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: List.generate(2, (index) => AnimatedContainer(
-                            duration: const Duration(milliseconds: 300),
-                            margin: const EdgeInsets.symmetric(horizontal: 4),
-                            height: 6, width: _currentHeroPage == index ? 24 : 6,
-                            decoration: BoxDecoration(
-                              color: _currentHeroPage == index ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(4),
+                                HeroDashboardCard(
+                                  metal: CardMetal.gold,
+                                  label: l10n.safeToSpendToday,
+                                  value: '${_formatNumber(safeToSpendDaily)} $activeCurrency',
+                                  withSparkline: true,
+                                  bottomWidget: _GlassTextBanner(text: l10n.keepPaceBudget, isGold: true),
+                                ),
+                              ],
                             ),
-                          )),
-                        ),
-
-                        SizedBox(height: sectionGap),
-
-                        AppleSectionHeader(title: l10n.quickAddTitle),
-                        SizedBox(height: itemGap),
-                        QuickAddChips(
-                          categories: _getSmartCategories(),
-                          onTapCategory: (cat) => Navigator.of(context).push(CupertinoPageRoute(builder: (_) => AddExpenseScreen(initialCategory: cat))),
-                          onCustomCategoryTap: () => _showCustomCategoryDialog(context),
-                        ),
-
-                        SizedBox(height: sectionGap),
-
-                        if (insights.isNotEmpty && provider.canUseFeature(PremiumFeature.aiInsights)) ...[
-                          AppleSectionHeader(
-                            title: l10n.aiInsightsTitle,
-                            action: 'Ask AI',
-                            onActionTap: () {
-                              Navigator.of(context).push(
-                                CupertinoPageRoute(builder: (_) => const AiAdvisorScreen()),
-                              );
-                            },
                           ),
-                          SizedBox(height: itemGap),
-                          SizedBox(
-                            height: 130,
-                            child: ListView.separated(
-                              scrollDirection: Axis.horizontal,
-                              physics: const BouncingScrollPhysics(),
-                              clipBehavior: Clip.none,
-                              itemCount: insights.length,
-                              separatorBuilder: (_, __) => const SizedBox(width: 16),
-                              itemBuilder: (context, index) {
-                                final insight = insights[index];
-                                final isWarning = insight.type == InsightType.warning;
-                                final color = isWarning ? CupertinoColors.systemOrange : CupertinoColors.activeBlue;
-                                final icon = isWarning ? CupertinoIcons.exclamationmark_triangle_fill : CupertinoIcons.lightbulb_fill;
 
-                                return GestureDetector(
-                                  onTap: () => _showInsightStory(context, insight),
-                                  child: Container(
-                                    width: 260,
-                                    padding: const EdgeInsets.all(20),
-                                    decoration: BoxDecoration(
-                                      color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.8),
-                                      borderRadius: BorderRadius.circular(28),
-                                      border: Border.all(color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)),
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            Container(
-                                              padding: const EdgeInsets.all(8),
-                                              decoration: BoxDecoration(color: color.withValues(alpha: 0.15), shape: BoxShape.circle),
-                                              child: Icon(icon, color: color, size: 16),
-                                            ),
-                                            const SizedBox(width: 12),
-                                            Text(
-                                              isWarning ? l10n.warningLabel.toUpperCase() : l10n.tipLabel.toUpperCase(),
-                                              style: TextStyle(fontWeight: FontWeight.w800, color: color, fontSize: 11, letterSpacing: 1.2),
-                                            ),
-                                          ],
-                                        ),
-                                        const Spacer(),
-                                        Text(
-                                          _resolveInsightTitle(context, insight),
-                                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: Theme.of(context).colorScheme.onSurface, height: 1.2),
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
+                          const SizedBox(height: 16),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: List.generate(2, (index) => AnimatedContainer(
+                              duration: const Duration(milliseconds: 300),
+                              margin: const EdgeInsets.symmetric(horizontal: 4),
+                              height: 6, width: _currentHeroPage == index ? 24 : 6,
+                              decoration: BoxDecoration(
+                                color: _currentHeroPage == index ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                            )),
+                          ),
+
+                          SizedBox(height: sectionGap),
+
+                          AppleSectionHeader(title: l10n.quickAddTitle),
+                          SizedBox(height: itemGap),
+                          QuickAddChips(
+                            categories: _getSmartCategories(),
+                            onTapCategory: (cat) => Navigator.of(context).push(CupertinoPageRoute(builder: (_) => AddExpenseScreen(initialCategory: cat))),
+                            onCustomCategoryTap: () => _showCustomCategoryDialog(context),
+                          ),
+
+                          SizedBox(height: sectionGap),
+
+                          if (insights.isNotEmpty && provider.canUseFeature(PremiumFeature.aiInsights)) ...[
+                            AppleSectionHeader(
+                              title: l10n.aiInsightsTitle,
+                              action: 'Ask AI',
+                              onActionTap: () {
+                                Navigator.of(context).push(
+                                  CupertinoPageRoute(builder: (_) => const AiAdvisorScreen()),
                                 );
                               },
                             ),
-                          ),
-                          SizedBox(height: sectionGap),
-                        ],
+                            SizedBox(height: itemGap),
+                            SizedBox(
+                              height: 130,
+                              child: ListView.separated(
+                                scrollDirection: Axis.horizontal,
+                                physics: const BouncingScrollPhysics(),
+                                clipBehavior: Clip.none,
+                                itemCount: insights.length,
+                                separatorBuilder: (_, __) => const SizedBox(width: 16),
+                                itemBuilder: (context, index) {
+                                  final insight = insights[index];
+                                  final isWarning = insight.type == InsightType.warning;
+                                  final color = isWarning ? CupertinoColors.systemOrange : CupertinoColors.activeBlue;
+                                  final icon = isWarning ? CupertinoIcons.exclamationmark_triangle_fill : CupertinoIcons.lightbulb_fill;
 
-                        if (dangerousCategory != null) ...[
-                          AppleSectionHeader(title: l10n.financialRadarTitle),
-                          SizedBox(height: itemGap),
-                          SpendingPaceCard(
-                            title: l10n.budgetDangerTitle(dangerousCategory.localizedName(context)),
-                            subtitle: l10n.budgetDangerSubtitle,
-                            isWarning: true,
-                          ),
-                          SizedBox(height: sectionGap),
+                                  return GestureDetector(
+                                    onTap: () => _showInsightStory(context, insight),
+                                    child: Container(
+                                      width: 260,
+                                      padding: const EdgeInsets.all(20),
+                                      decoration: BoxDecoration(
+                                        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.8),
+                                        borderRadius: BorderRadius.circular(28),
+                                        border: Border.all(color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)),
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Container(
+                                                padding: const EdgeInsets.all(8),
+                                                decoration: BoxDecoration(color: color.withValues(alpha: 0.15), shape: BoxShape.circle),
+                                                child: Icon(icon, color: color, size: 16),
+                                              ),
+                                              const SizedBox(width: 12),
+                                              Text(
+                                                isWarning ? l10n.warningLabel.toUpperCase() : l10n.tipLabel.toUpperCase(),
+                                                style: TextStyle(fontWeight: FontWeight.w800, color: color, fontSize: 11, letterSpacing: 1.2),
+                                              ),
+                                            ],
+                                          ),
+                                          const Spacer(),
+                                          Text(
+                                            _resolveInsightTitle(context, insight),
+                                            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: Theme.of(context).colorScheme.onSurface, height: 1.2),
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                            SizedBox(height: sectionGap),
+                          ],
+
+                          if (dangerousCategory != null) ...[
+                            AppleSectionHeader(title: l10n.financialRadarTitle),
+                            SizedBox(height: itemGap),
+                            SpendingPaceCard(
+                              title: l10n.budgetDangerTitle(dangerousCategory.localizedName(context)),
+                              subtitle: l10n.budgetDangerSubtitle,
+                              isWarning: true,
+                            ),
+                            SizedBox(height: sectionGap),
+                          ],
                         ],
 
                         AppleSectionHeader(
-                          title: l10n.recentExpensesTitle,
-                          action: l10n.historyAction,
+                          title: _searchQuery.isEmpty ? l10n.recentExpensesTitle : 'Результаты поиска',
+                          action: _searchQuery.isEmpty ? l10n.historyAction : null,
                           onActionTap: () => Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const ExpensesScreen())),
                         ),
                         SizedBox(height: itemGap),
-                        if (latestExpenses.isNotEmpty)
+                        if (displayExpenses.isNotEmpty)
                           Container(
-                            decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.8), borderRadius: BorderRadius.circular(24), border: Border.all(color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5))),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.8),
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)),
+                              boxShadow: [
+                                BoxShadow(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.03), blurRadius: 20)
+                              ],
+                            ),
+                            clipBehavior: Clip.antiAlias, // Для скругления свайпов
                             child: Column(
-                              children: _buildSections(context, latestExpenses).expand((section) {
+                              children: _buildSections(context, displayExpenses).expand((section) {
                                 return [
-                                  Container(
-                                    width: double.infinity,
-                                    padding: const EdgeInsets.only(left: 16, top: 16, bottom: 8),
-                                    child: Text(
-                                      section.title.toUpperCase(),
-                                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: 1.2,
+                                  if (_searchQuery.isEmpty)
+                                    Container(
+                                      width: double.infinity,
+                                      padding: const EdgeInsets.only(left: 16, top: 16, bottom: 8),
+                                      child: Text(
+                                        section.title.toUpperCase(),
+                                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: 1.2,
+                                        ),
                                       ),
                                     ),
-                                  ),
                                   ...section.items.asMap().entries.map((entry) {
                                     final expense = entry.value;
                                     final isLast = entry.key == section.items.length - 1;
                                     return Column(
                                       children: [
-                                        Dismissible(
+                                        // ИСПРАВЛЕНИЕ: Интеграция Slidable (Свайпы)
+                                        Slidable(
                                           key: ValueKey(expense.id),
-                                          direction: DismissDirection.endToStart,
-                                          background: Container(
-                                            alignment: Alignment.centerRight,
-                                            padding: const EdgeInsets.symmetric(horizontal: 24),
-                                            color: CupertinoColors.destructiveRed,
-                                            child: const Icon(CupertinoIcons.trash, color: Colors.white),
-                                          ),
-                                          // ИСПРАВЛЕНИЕ: Добавляем SnackBar с кнопкой Undo при свайпе
-                                          onDismissed: (_) {
-                                            final deletedExpense = expense;
-                                            provider.deleteExpense(expense.id);
-                                            ScaffoldMessenger.of(context).clearSnackBars();
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              SnackBar(
-                                                content: const Text('Транзакция удалена'),
-                                                behavior: SnackBarBehavior.floating,
-                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                                action: SnackBarAction(
-                                                  label: 'Отмена',
-                                                  textColor: Theme.of(context).colorScheme.primary,
-                                                  onPressed: () {
-                                                    provider.addExpense(deletedExpense);
-                                                  },
-                                                ),
+                                          // Свайп слева направо (Дублировать)
+                                          startActionPane: ActionPane(
+                                            motion: const StretchMotion(),
+                                            children: [
+                                              SlidableAction(
+                                                onPressed: (_) {
+                                                  HapticFeedback.lightImpact();
+                                                  provider.duplicateExpense(expense);
+                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                    SnackBar(
+                                                      content: const Text('Транзакция продублирована'),
+                                                      behavior: SnackBarBehavior.floating,
+                                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                                    ),
+                                                  );
+                                                },
+                                                backgroundColor: CupertinoColors.activeBlue,
+                                                foregroundColor: Colors.white,
+                                                icon: CupertinoIcons.doc_on_doc,
+                                                label: 'Повторить',
                                               ),
-                                            );
-                                          },
-                                          child: ExpenseItemCard(expense: expense, incomeProfile: provider.incomeProfile, onTap: () => provider.openExpenseEditor(context, expense)),
+                                            ],
+                                          ),
+                                          // Свайп справа налево (Удалить с отменой)
+                                          endActionPane: ActionPane(
+                                            motion: const StretchMotion(),
+                                            children: [
+                                              SlidableAction(
+                                                onPressed: (_) {
+                                                  HapticFeedback.mediumImpact();
+                                                  provider.deleteExpense(expense.id);
+                                                  ScaffoldMessenger.of(context).clearSnackBars();
+                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                    SnackBar(
+                                                      content: const Text('Транзакция удалена'),
+                                                      behavior: SnackBarBehavior.floating,
+                                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                                      action: SnackBarAction(
+                                                        label: 'Отмена',
+                                                        textColor: Theme.of(context).colorScheme.primary,
+                                                        onPressed: () {
+                                                          provider.addExpense(expense); // Восстанавливаем
+                                                        },
+                                                      ),
+                                                    ),
+                                                  );
+                                                },
+                                                backgroundColor: CupertinoColors.destructiveRed,
+                                                foregroundColor: Colors.white,
+                                                icon: CupertinoIcons.trash,
+                                                label: 'Удалить',
+                                              ),
+                                            ],
+                                          ),
+                                          child: ExpenseItemCard(
+                                              expense: expense,
+                                              incomeProfile: provider.incomeProfile,
+                                              onTap: () => provider.openExpenseEditor(context, expense)
+                                          ),
                                         ),
                                         if (!isLast) Padding(padding: const EdgeInsets.only(left: 64), child: Divider(height: 1, color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5))),
                                       ],
@@ -522,12 +604,16 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
 
-                        if (latestExpenses.isEmpty)
+                        if (displayExpenses.isEmpty)
                           Container(
                             padding: const EdgeInsets.all(32),
                             decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.8), borderRadius: BorderRadius.circular(24), border: Border.all(color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5))),
                             child: Center(
-                              child: Text('No transactions in $activeCurrency yet', style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5))),
+                              child: Text(
+                                _searchQuery.isEmpty ? 'No transactions in $activeCurrency yet' : 'По запросу "$_searchQuery" ничего не найдено',
+                                style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5)),
+                                textAlign: TextAlign.center,
+                              ),
                             ),
                           ),
 
@@ -540,7 +626,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
               MorphingFab(
                 isExpanded: _isFabExpanded,
-                onToggle: () => setState(() => _isFabExpanded = !_isFabExpanded),
+                onToggle: () {
+                  FocusScope.of(context).unfocus();
+                  setState(() => _isFabExpanded = !_isFabExpanded);
+                },
                 onSelectSource: (mode, isIncome) {
                   setState(() => _isFabExpanded = false);
                   Navigator.of(context).push(CupertinoPageRoute(

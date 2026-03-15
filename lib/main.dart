@@ -12,6 +12,7 @@ import 'data/datasources/local/local_storage_service.dart';
 import 'domain/services/financial_forecast_service.dart';
 import 'domain/services/financial_health_score_service.dart';
 import 'domain/services/life_value_service.dart';
+import 'domain/services/notification_service.dart'; // ИМПОРТ НОВОГО СЕРВИСА УВЕДОМЛЕНИЙ
 import 'presentation/providers/home_provider.dart';
 
 Future<void> main() async {
@@ -19,24 +20,25 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: ".env");
 
-  // 1. Инициализация Firebase (Подхватит настройки из firebase_options.dart, если он сгенерирован)
+  // 1. Инициализация Firebase
   try {
     await Firebase.initializeApp();
 
-    // 2. Активация Firebase App Check (Защита API ключей)
-    // Эта система проверяет, что запрос пришел с настоящего телефона (Play Integrity / DeviceCheck)
     await FirebaseAppCheck.instance.activate(
       androidProvider: AndroidProvider.playIntegrity, // Защита для Android
       appleProvider: AppleProvider.deviceCheck,       // Защита для iOS
     );
   } catch (e) {
     debugPrint('Firebase init warning: $e');
-    // Если Firebase еще не настроен (flutterfire configure), приложение все равно запустится,
-    // но функции ИИ пока не будут работать. Это нормально для этапа разработки.
   }
 
-  // 3. Инициализация локальной базы данных
+  // 2. Инициализация локальной базы данных
   await LocalStorageService.init();
+
+  // 3. Инициализация и запуск системы уведомлений
+  await NotificationService.instance.init();
+  await NotificationService.instance.requestPermissions(); // Запросит права при первом запуске
+  await NotificationService.instance.scheduleDailyReminder(); // Заведет таймер на 20:00 каждый день
 
   runApp(
     MultiProvider(

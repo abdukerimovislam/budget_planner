@@ -21,6 +21,7 @@ import '../../data/models/recurring_bill_model.dart';
 import '../../data/models/saving_goal_model.dart';
 import '../../data/models/savings_goal_projection_model.dart';
 import '../../data/models/subscription_candidate_model.dart';
+import '../../data/models/debt_model.dart'; // ИМПОРТ МОДЕЛИ ДОЛГА
 import '../../domain/services/achievement_service.dart';
 import '../../domain/services/action_plan_service.dart';
 import '../../domain/services/auto_budget_service.dart';
@@ -65,9 +66,10 @@ class HomeProvider extends ChangeNotifier {
 
   final List<ExpenseModel> _expenses = [];
   final List<CustomCategoryModel> _customCategories = [];
-
-  // ИСПРАВЛЕНИЕ: Хранилище сессии чата ИИ
   final List<Map<String, dynamic>> _aiChatHistory = [];
+
+  // ИСПРАВЛЕНИЕ: Лист для хранения долгов
+  final List<DebtModel> _debts = [];
 
   IncomeProfileModel? _incomeProfile;
   BudgetModel? _budget;
@@ -85,6 +87,9 @@ class HomeProvider extends ChangeNotifier {
   List<ExpenseModel> get expenses => List.unmodifiable(_expenses);
   List<CustomCategoryModel> get customCategories => List.unmodifiable(_customCategories);
   List<Map<String, dynamic>> get aiChatHistory => List.unmodifiable(_aiChatHistory);
+
+  // Геттер для долгов
+  List<DebtModel> get debts => List.unmodifiable(_debts);
 
   IncomeProfileModel? get incomeProfile => _incomeProfile;
   BudgetModel? get budget => _budget;
@@ -122,7 +127,6 @@ class HomeProvider extends ChangeNotifier {
     LocalStorageService.instance.setLastActiveCurrency(currency);
     _updateCurrencyCache();
 
-    // ИСПРАВЛЕНИЕ: Загружаем бюджет именно для этой валюты!
     _budget = LocalStorageService.instance.getBudget(currency);
     notifyListeners();
   }
@@ -144,11 +148,14 @@ class HomeProvider extends ChangeNotifier {
     _recurringBills.clear();
     _recurringBills.addAll(LocalStorageService.instance.getRecurringBills());
 
+    // ИСПРАВЛЕНИЕ: Загружаем долги
+    _debts.clear();
+    _debts.addAll(LocalStorageService.instance.getDebts());
+
     final lastCurrency = LocalStorageService.instance.getLastActiveCurrency();
     _activeCurrency = lastCurrency ?? _incomeProfile?.currency ?? 'USD';
     _updateCurrencyCache();
 
-    // Загружаем бюджет для активной валюты
     _budget = LocalStorageService.instance.getBudget(_activeCurrency!);
 
     _checkMonthCloseTransition();
@@ -157,6 +164,64 @@ class HomeProvider extends ChangeNotifier {
     _isInitialized = true;
     notifyListeners();
   }
+
+  // === НОВЫЙ БЛОК: УПРАВЛЕНИЕ ДОЛГАМИ ===
+
+  Future<void> addDebt(DebtModel debt) async {
+    _debts.insert(0, debt);
+    _debts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    await LocalStorageService.instance.saveDebts(_debts);
+    notifyListeners();
+  }
+
+  Future<void> updateDebt(DebtModel updatedDebt) async {
+    final index = _debts.indexWhere((d) => d.id == updatedDebt.id);
+    if (index == -1) return;
+
+    _debts[index] = updatedDebt;
+    await LocalStorageService.instance.saveDebts(_debts);
+    notifyListeners();
+  }
+
+  Future<void> deleteDebt(String id) async {
+    _debts.removeWhere((d) => d.id == id);
+    await LocalStorageService.instance.saveDebts(_debts);
+    notifyListeners();
+  }
+
+  /// Отмечает долг как возвращенный и автоматически создает транзакцию!
+  Future<void> markDebtAsPaid(String id) async {
+    final index = _debts.indexWhere((d) => d.id == id);
+    if (index == -1) return;
+
+    final debt = _debts[index];
+    if (debt.isPaid) return; // Уже возвращен
+
+    // Отмечаем как возвращенный
+    _debts[index] = debt.copyWith(isPaid: true);
+    await LocalStorageService.instance.saveDebts(_debts);
+
+    // Автоматически создаем транзакцию, чтобы выровнять баланс
+    final transaction = ExpenseModel(
+      id: const Uuid().v4(),
+      amount: debt.amount,
+      currency: debt.currency,
+      category: ExpenseCategory.gifts, // Используем эту категорию для возвратов
+      merchant: debt.personName,
+      note: debt.isOwedToMe ? 'Возврат долга от ${debt.personName}' : 'Я вернул долг ${debt.personName}',
+      date: DateTime.now(),
+      sourceType: ExpenseSourceType.smartText,
+      isIncome: debt.isOwedToMe, // Если мне вернули -> это Доход. Если я вернул -> это Расход.
+      isRecurring: false,
+      recurringGroupId: null,
+      createdAt: DateTime.now(),
+    );
+
+    await addExpense(transaction);
+    notifyListeners();
+  }
+
+  // ======================================
 
   void _checkMonthCloseTransition() {
     if (_expenses.isEmpty) return;
@@ -406,6 +471,15 @@ class HomeProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> duplicateExpense(ExpenseModel expense) async {
+    final newExpense = expense.copyWith(
+      id: const Uuid().v4(),
+      date: DateTime.now(),
+      createdAt: DateTime.now(),
+    );
+    await addExpense(newExpense);
+  }
+
   Future<void> updateExpense(String expenseId, ExpenseEditResult result) async {
     final index = _expenses.indexWhere((e) => e.id == expenseId);
     if (index == -1) return;
@@ -459,6 +533,7 @@ class HomeProvider extends ChangeNotifier {
     _customCategories.clear();
     _recurringBills.clear();
     _aiChatHistory.clear();
+    _debts.clear();
     _incomeProfile = null;
     _budget = null;
     _savingsGoal = null;

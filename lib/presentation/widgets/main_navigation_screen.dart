@@ -4,11 +4,12 @@ import 'package:provider/provider.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../providers/home_provider.dart';
-import '../screens/analytics/analytics_screen.dart';
-import '../screens/budget/budget_screen.dart';
+import '../screens/analytics/analytics_screen.dart'; // Объединенная Аналитика + Бюджет
+import '../screens/expenses/expenses_screen.dart'; // Наша новая вкладка История
 import '../screens/cashflow/cashflow_screen.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/month_close/month_close_screen.dart';
+import '../screens/debts/debts_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -20,11 +21,13 @@ class MainNavigationScreen extends StatefulWidget {
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _currentIndex = 0;
 
+  // ИСПРАВЛЕНИЕ: Новый, более логичный стек экранов
   late final List<Widget> _screens = const [
-    HomeScreen(),
-    AnalyticsScreen(),
-    BudgetScreen(),
-    CashflowScreen(),
+    HomeScreen(),         // Главная
+    AnalyticsScreen(),    // Планирование (Аналитика + Бюджет)
+    ExpensesScreen(),     // История транзакций (ВМЕСТО ОТДЕЛЬНОГО БЮДЖЕТА)
+    DebtsScreen(),        // Долги
+    CashflowScreen(),     // Денежный поток / Цели
   ];
 
   @override
@@ -32,19 +35,14 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     final l10n = AppLocalizations.of(context);
     final provider = context.watch<HomeProvider>();
 
-    // Системная проверка: Если сменился месяц, форсированно показываем экран итогов
     if (provider.isInitialized && provider.needsMonthClose) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-
-        // Помечаем как просмотренное, чтобы не зациклить
         provider.markMonthCloseAsSeen();
-
-        // Открываем экран закрытия месяца
         Navigator.of(context).push(
           CupertinoPageRoute(
             builder: (_) => const MonthCloseScreen(),
-            fullscreenDialog: true, // Открываем поверх всего
+            fullscreenDialog: true,
           ),
         );
       });
@@ -71,12 +69,18 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           NavigationDestination(
             icon: const Icon(Icons.pie_chart_outline_rounded),
             selectedIcon: const Icon(Icons.pie_chart_rounded),
-            label: l10n.analyticsTab,
+            label: 'Аналитика',
           ),
-          NavigationDestination(
-            icon: const Icon(Icons.account_balance_wallet_outlined),
-            selectedIcon: const Icon(Icons.account_balance_wallet),
-            label: l10n.budgetTab,
+          // НОВАЯ ВСТАВКА: История транзакций (Посередине, чтобы было удобно)
+          const NavigationDestination(
+            icon: Icon(Icons.list_alt_rounded),
+            selectedIcon: Icon(Icons.receipt_long_rounded),
+            label: 'История',
+          ),
+          const NavigationDestination(
+            icon: Icon(Icons.people_outline_rounded),
+            selectedIcon: Icon(Icons.people_rounded),
+            label: 'Долги',
           ),
           NavigationDestination(
             icon: const Icon(Icons.timeline_outlined),

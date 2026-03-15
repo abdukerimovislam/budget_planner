@@ -7,6 +7,7 @@ import '../../models/income_profile_model.dart';
 import '../../models/custom_category_model.dart';
 import '../../models/saving_goal_model.dart';
 import '../../models/recurring_bill_model.dart';
+import '../../models/debt_model.dart'; // ИМПОРТИРУЕМ МОДЕЛЬ ДОЛГА
 import '../../models/model_serializers.dart';
 
 class LocalStorageService {
@@ -77,13 +78,11 @@ class LocalStorageService {
     await _box.put(StorageKeys.incomeProfile, profile.toMap());
   }
 
-  // ИСПРАВЛЕНИЕ: МУЛЬТИВАЛЮТНЫЕ БЮДЖЕТЫ
   BudgetModel? getBudget(String currency) {
     final map = _box.get('${StorageKeys.budget}_$currency');
     if (map is Map) {
       return BudgetModelSerializer.fromMap(map);
     }
-    // Фолбек для старых пользователей (перенос старого бюджета)
     final oldMap = _box.get(StorageKeys.budget);
     if (oldMap is Map) {
       final oldBudget = BudgetModelSerializer.fromMap(oldMap);
@@ -94,7 +93,6 @@ class LocalStorageService {
 
   Future<void> saveBudget(BudgetModel budget) async {
     await _box.put('${StorageKeys.budget}_${budget.currency}', budget.toMap());
-    // Сохраняем и по старому ключу для обратной совместимости
     await _box.put(StorageKeys.budget, budget.toMap());
   }
 
@@ -110,6 +108,21 @@ class LocalStorageService {
     final data = expenses.map((e) => ExpenseModelSerializer.toMap(e)).toList();
     await _box.put(StorageKeys.expenses, data);
   }
+
+  // === НОВЫЙ БЛОК: РАБОТА С ДОЛГАМИ ===
+  List<DebtModel> getDebts() {
+    final rawList = _box.get('debts', defaultValue: <dynamic>[]) as List<dynamic>;
+    return rawList
+        .whereType<Map>()
+        .map((map) => DebtModel.fromMap(Map<String, dynamic>.from(map)))
+        .toList();
+  }
+
+  Future<void> saveDebts(List<DebtModel> debts) async {
+    final data = debts.map((d) => d.toMap()).toList();
+    await _box.put('debts', data);
+  }
+  // ====================================
 
   List<CustomCategoryModel> getCustomCategories() {
     final rawList = _box.get(StorageKeys.customCategories, defaultValue: <dynamic>[]) as List<dynamic>;
@@ -162,7 +175,7 @@ class LocalStorageService {
   }
 
   static const int _dailyParserLimit = 50;
-  static const int _dailyAdvisorLimit = 15; // Увеличил лимит, так как теперь есть история чата
+  static const int _dailyAdvisorLimit = 15;
 
   bool canUseAiParser() {
     final lastDateStr = _box.get('ai_parser_date') as String?;
