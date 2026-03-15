@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_slidable/flutter_slidable.dart'; // ИСПРАВЛЕНИЕ: Новый плагин для свайпов
+import 'package:flutter_slidable/flutter_slidable.dart';
 
 import '../../../core/utils/category_extension.dart';
 import '../../../core/utils/responsive.dart';
@@ -28,6 +28,7 @@ import '../expenses/expenses_screen.dart';
 import '../premium/premium_screen.dart';
 import '../profile/profile_screen.dart';
 import '../../widgets/custom_category_sheet.dart';
+import '../budget/budget_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -42,7 +43,6 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _showRemaining = false;
   bool _isFabExpanded = false;
 
-  // ИСПРАВЛЕНИЕ: Глобальный поиск
   String _searchQuery = '';
 
   @override
@@ -206,7 +206,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Логика поиска
   List<ExpenseModel> _getDisplayExpenses(HomeProvider provider) {
     if (_searchQuery.isEmpty) {
       return provider.latestExpenses(limit: 5);
@@ -218,7 +217,7 @@ class _HomeScreenState extends State<HomeScreen> {
               (e.note ?? '').toLowerCase().contains(query) ||
               e.category.name.toLowerCase().contains(query))
       ).toList();
-      return filtered.take(15).toList(); // Ограничиваем выдачу для скорости
+      return filtered.take(15).toList();
     }
   }
 
@@ -232,7 +231,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final totalSpent = provider.totalSpentThisMonth(now);
     final healthScore = provider.healthScoreFor(now);
 
-    // Берем транзакции с учетом поиска
     final displayExpenses = _getDisplayExpenses(provider);
 
     final insights = provider.insightsForMonth(now);
@@ -256,7 +254,7 @@ class _HomeScreenState extends State<HomeScreen> {
       child: GestureDetector(
         onTap: () {
           if (_isFabExpanded) setState(() => _isFabExpanded = false);
-          FocusScope.of(context).unfocus(); // Закрываем клавиатуру по тапу
+          FocusScope.of(context).unfocus();
         },
         child: Scaffold(
           backgroundColor: Colors.transparent,
@@ -331,7 +329,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
 
-                  // ИСПРАВЛЕНИЕ: Интеллектуальный поиск прямо под заголовком
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -349,7 +346,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       delegate: SliverChildListDelegate([
                         const SizedBox(height: 8),
 
-                        // Скрываем дашборд, если пользователь ищет транзакции
                         if (_searchQuery.isEmpty) ...[
                           SizedBox(
                             height: 250,
@@ -358,23 +354,66 @@ class _HomeScreenState extends State<HomeScreen> {
                               physics: const BouncingScrollPhysics(),
                               onPageChanged: (idx) => setState(() => _currentHeroPage = idx),
                               children: [
-                                GestureDetector(
-                                  onTap: () => setState(() => _showRemaining = !_showRemaining),
-                                  child: HeroDashboardCard(
-                                    metal: CardMetal.platinum,
-                                    label: _showRemaining ? l10n.leftToSpend : l10n.spentThisMonth.toUpperCase(),
-                                    value: '${_formatNumber(_showRemaining ? (forecast?.expectedRemaining ?? 0) : totalSpent)} $activeCurrency',
-                                    isWarning: _showRemaining && (forecast?.isOverBudget ?? false),
-                                    bottomWidget: _GlassMetricRow(
-                                      isGold: false,
-                                      leftIcon: CupertinoIcons.heart_fill,
-                                      leftLabel: l10n.healthLabel,
-                                      leftValue: '$healthScore/100',
-                                      rightIcon: _showRemaining ? CupertinoIcons.calendar_today : CupertinoIcons.clock_fill,
-                                      rightLabel: _showRemaining ? l10n.daysLeftLabel : l10n.shareCardLifeSpent,
-                                      rightValue: _showRemaining ? '$daysLeft' : lifeSpentFormatted,
+                                // ИСПРАВЛЕНИЕ: Добавлен Stack для вывода явной кнопки переключения (Glassmorphism)
+                                Stack(
+                                  children: [
+                                    GestureDetector(
+                                      onTap: () {
+                                        HapticFeedback.lightImpact();
+                                        Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const BudgetScreen()));
+                                      },
+                                      child: HeroDashboardCard(
+                                        metal: CardMetal.platinum,
+                                        label: _showRemaining ? l10n.leftToSpend : l10n.spentThisMonth.toUpperCase(),
+                                        value: '${_formatNumber(_showRemaining ? (forecast?.expectedRemaining ?? 0) : totalSpent)} $activeCurrency',
+                                        isWarning: _showRemaining && (forecast?.isOverBudget ?? false),
+                                        bottomWidget: _GlassMetricRow(
+                                          isGold: false,
+                                          leftIcon: CupertinoIcons.heart_fill,
+                                          leftLabel: l10n.healthLabel,
+                                          leftValue: '$healthScore/100',
+                                          rightIcon: _showRemaining ? CupertinoIcons.calendar_today : CupertinoIcons.clock_fill,
+                                          rightLabel: _showRemaining ? l10n.daysLeftLabel : l10n.shareCardLifeSpent,
+                                          rightValue: _showRemaining ? '$daysLeft' : lifeSpentFormatted,
+                                        ),
+                                      ),
                                     ),
-                                  ),
+                                    Positioned(
+                                      top: 20,
+                                      right: 20,
+                                      child: GestureDetector(
+                                        onTap: () {
+                                          HapticFeedback.selectionClick();
+                                          setState(() => _showRemaining = !_showRemaining);
+                                        },
+                                        child: ClipRRect(
+                                          borderRadius: BorderRadius.circular(20),
+                                          child: BackdropFilter(
+                                            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                              decoration: BoxDecoration(
+                                                color: Colors.white.withValues(alpha: 0.2), // Прозрачное стекло
+                                                borderRadius: BorderRadius.circular(20),
+                                                border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+                                              ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  const Icon(CupertinoIcons.arrow_2_squarepath, color: Colors.white, size: 14),
+                                                  const SizedBox(width: 6),
+                                                  Text(
+                                                    _showRemaining ? 'Расход' : 'Остаток',
+                                                    style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                                 HeroDashboardCard(
                                   metal: CardMetal.gold,
@@ -510,7 +549,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 BoxShadow(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.03), blurRadius: 20)
                               ],
                             ),
-                            clipBehavior: Clip.antiAlias, // Для скругления свайпов
+                            clipBehavior: Clip.antiAlias,
                             child: Column(
                               children: _buildSections(context, displayExpenses).expand((section) {
                                 return [
@@ -532,10 +571,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                     final isLast = entry.key == section.items.length - 1;
                                     return Column(
                                       children: [
-                                        // ИСПРАВЛЕНИЕ: Интеграция Slidable (Свайпы)
                                         Slidable(
                                           key: ValueKey(expense.id),
-                                          // Свайп слева направо (Дублировать)
                                           startActionPane: ActionPane(
                                             motion: const StretchMotion(),
                                             children: [
@@ -558,7 +595,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                               ),
                                             ],
                                           ),
-                                          // Свайп справа налево (Удалить с отменой)
                                           endActionPane: ActionPane(
                                             motion: const StretchMotion(),
                                             children: [
@@ -576,7 +612,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                         label: 'Отмена',
                                                         textColor: Theme.of(context).colorScheme.primary,
                                                         onPressed: () {
-                                                          provider.addExpense(expense); // Восстанавливаем
+                                                          provider.addExpense(expense);
                                                         },
                                                       ),
                                                     ),

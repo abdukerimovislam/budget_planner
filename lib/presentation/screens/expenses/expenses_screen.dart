@@ -3,8 +3,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
+import 'package:flutter_slidable/flutter_slidable.dart'; // Добавляем Slidable для красивых свайпов
 
-import '../../../app/theme/app_spacing.dart';
 import '../../../core/utils/category_extension.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../data/models/expense_category.dart';
@@ -64,6 +64,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
   }
 
   void _toggleSelection(String id) {
+    HapticFeedback.selectionClick();
     setState(() {
       if (_selectedIds.contains(id)) {
         _selectedIds.remove(id);
@@ -84,7 +85,11 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
 
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: const Text('Expense duplicated'), behavior: SnackBarBehavior.floating),
+      SnackBar(
+        content: const Text('Транзакция продублирована'),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
     );
   }
 
@@ -95,10 +100,12 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Text('Expense deleted'),
+        content: const Text('Транзакция удалена'),
         behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         action: SnackBarAction(
-          label: 'Undo',
+          label: 'Отмена',
+          textColor: Theme.of(context).colorScheme.primary,
           onPressed: () => provider.addExpense(expense),
         ),
       ),
@@ -106,6 +113,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
   }
 
   void _bulkDelete(List<ExpenseModel> allFiltered) {
+    HapticFeedback.mediumImpact();
     final provider = context.read<HomeProvider>();
     final toDelete = allFiltered.where((e) => _selectedIds.contains(e.id)).toList();
 
@@ -116,10 +124,12 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('${toDelete.length} expenses deleted'),
+        content: Text('Удалено транзакций: ${toDelete.length}'),
         behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         action: SnackBarAction(
-          label: 'Undo',
+          label: 'Отмена',
+          textColor: Theme.of(context).colorScheme.primary,
           onPressed: () {
             for (final expense in toDelete) provider.addExpense(expense);
           },
@@ -131,6 +141,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
   }
 
   Future<void> _bulkChangeCategory(List<ExpenseModel> allFiltered) async {
+    HapticFeedback.lightImpact();
     final provider = context.read<HomeProvider>();
     final toChange = allFiltered.where((e) => _selectedIds.contains(e.id)).toList();
 
@@ -139,13 +150,15 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     final category = await showDialog<ExpenseCategory>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Change Category'),
+        title: const Text('Изменить категорию', style: TextStyle(fontWeight: FontWeight.w700)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: availableCategories.map((c) {
               return ListTile(
-                title: Text(c.localizedName(context)),
+                leading: Icon(c.dynamicIcon(context), color: c.dynamicColor(context)),
+                title: Text(c.localizedName(context), style: const TextStyle(fontWeight: FontWeight.w500)),
                 onTap: () => Navigator.of(ctx).pop(c),
               );
             }).toList(),
@@ -161,8 +174,8 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
           ExpenseEditResult(
             amount: expense.amount,
             category: category,
-            customCategoryId: null, // <-- ИСПРАВЛЕНИЕ: очищаем кастомную категорию
-            clearCustomCategory: true, // <-- ИСПРАВЛЕНИЕ: подтверждаем очистку
+            customCategoryId: null,
+            clearCustomCategory: true,
             merchant: expense.merchant,
             note: expense.note ?? '',
             date: expense.date,
@@ -176,12 +189,15 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${toChange.length} categories updated'), behavior: SnackBarBehavior.floating),
+        SnackBar(
+          content: Text('Категория обновлена для ${toChange.length} записей'),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
       );
     }
   }
 
-  // ВЫБОР АКТИВНОГО СЧЕТА В ИСТОРИИ
   void _showCurrencyAccountSelector(BuildContext context, HomeProvider provider) {
     if (!provider.canUseFeature(PremiumFeature.multiCurrency)) {
       Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const PremiumScreen()));
@@ -206,7 +222,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
             children: [
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                child: Text('Select Account', style: TextStyle(fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
+                child: Text('Выберите счет', style: TextStyle(fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5))),
               ),
               Expanded(
                 child: CupertinoPicker(
@@ -217,7 +233,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                     provider.setActiveCurrency(available[index]);
                   },
                   children: available.map((c) => Center(
-                    child: Text('$c Account', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w600)),
+                    child: Text(c, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w600)),
                   )).toList(),
                 ),
               ),
@@ -234,36 +250,36 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     final l10n = AppLocalizations.of(context);
 
     final filtered = provider.filteredExpenses(_filter);
-    final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
-    // ПЕРЕМЕННЫЕ ДЛЯ КНОПКИ ВАЛЮТЫ
     final activeCurrency = provider.activeCurrency;
     final hasMultipleCurrencies = provider.availableUserCurrencies.length > 1;
     final hasPremium = provider.canUseFeature(PremiumFeature.multiCurrency);
 
     return PremiumBackground(
       child: Scaffold(
-        backgroundColor: Colors.transparent, // ПРОЗРАЧНЫЙ ФОН
+        backgroundColor: Colors.transparent,
         appBar: _isSelectionMode
             ? AppBar(
-          backgroundColor: colorScheme.primaryContainer.withOpacity(0.9),
+          backgroundColor: colorScheme.primary.withValues(alpha: 0.1),
           leading: IconButton(
             icon: const Icon(CupertinoIcons.clear),
             onPressed: () => setState(() => _selectedIds.clear()),
           ),
           title: Text(
-            '${_selectedIds.length} Selected',
-            style: TextStyle(color: colorScheme.onPrimaryContainer, fontWeight: FontWeight.w600),
+            'Выбрано: ${_selectedIds.length}',
+            style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.w700, fontSize: 16),
           ),
           actions: [
             IconButton(
               icon: const Icon(CupertinoIcons.folder_fill),
-              tooltip: 'Change Category',
+              tooltip: 'Изменить категорию',
               onPressed: () => _bulkChangeCategory(filtered),
             ),
             IconButton(
-              icon: const Icon(CupertinoIcons.trash_fill),
-              tooltip: 'Delete Selected',
+              icon: const Icon(CupertinoIcons.trash_fill, color: CupertinoColors.destructiveRed),
+              tooltip: 'Удалить выбранные',
               onPressed: () => _bulkDelete(filtered),
             ),
           ],
@@ -271,9 +287,8 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
             : AppBar(
           backgroundColor: Colors.transparent,
           surfaceTintColor: Colors.transparent,
-          title: Text(l10n.expensesHistoryTitle, style: const TextStyle(fontWeight: FontWeight.w700)),
+          title: const Text('История', style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: -0.5)),
           actions: [
-            // ПЕРЕКЛЮЧАТЕЛЬ СЧЕТОВ НА APPBAR ИСТОРИИ
             Padding(
               padding: const EdgeInsets.only(right: 16.0),
               child: GestureDetector(
@@ -283,7 +298,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                   decoration: BoxDecoration(
                     color: Theme.of(context).colorScheme.surface,
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Theme.of(context).colorScheme.surfaceVariant),
+                    border: Border.all(color: Theme.of(context).colorScheme.surfaceContainerHighest),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -298,7 +313,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                       ),
                       if (hasPremium && hasMultipleCurrencies) ...[
                         const SizedBox(width: 4),
-                        Icon(CupertinoIcons.chevron_up_chevron_down, size: 12, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
+                        Icon(CupertinoIcons.chevron_up_chevron_down, size: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5)),
                       ]
                     ],
                   ),
@@ -313,14 +328,13 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
             physics: const BouncingScrollPhysics(),
             children: [
               if (!_isSelectionMode) ...[
-                // Фильтры в стильной полупрозрачной карточке
                 Container(
                   margin: const EdgeInsets.only(bottom: 24),
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: colorScheme.surface.withOpacity(0.8),
+                    color: colorScheme.surface.withValues(alpha: 0.8),
                     borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: colorScheme.surfaceVariant.withOpacity(0.5)),
+                    border: Border.all(color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)),
                   ),
                   child: ExpenseFilterBar(
                     filter: _filter,
@@ -338,26 +352,26 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                 Container(
                   padding: const EdgeInsets.all(32),
                   decoration: BoxDecoration(
-                    color: colorScheme.surface.withOpacity(0.8),
+                    color: colorScheme.surface.withValues(alpha: 0.8),
                     borderRadius: BorderRadius.circular(32),
-                    border: Border.all(color: colorScheme.surfaceVariant.withOpacity(0.5)),
+                    border: Border.all(color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)),
                   ),
                   child: Column(
                     children: [
-                      Icon(CupertinoIcons.doc_text_search, size: 48, color: colorScheme.primary.withOpacity(0.5)),
+                      Icon(CupertinoIcons.doc_text_search, size: 48, color: colorScheme.primary.withValues(alpha: 0.5)),
                       const SizedBox(height: 16),
-                      Text(l10n.expensesHistoryEmpty, style: TextStyle(fontSize: 16, color: colorScheme.onSurface.withOpacity(0.6))),
+                      Text('Транзакции не найдены', style: TextStyle(fontSize: 16, color: colorScheme.onSurface.withValues(alpha: 0.6))),
                     ],
                   ),
                 )
               else
-              // Единый блок-список транзакций (Apple Wallet Style)
                 Container(
                   decoration: BoxDecoration(
-                    color: colorScheme.surface.withOpacity(0.8),
+                    color: colorScheme.surface.withValues(alpha: 0.8),
                     borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: colorScheme.surfaceVariant.withOpacity(0.5)),
+                    border: Border.all(color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)),
                   ),
+                  clipBehavior: Clip.antiAlias, // Важно для скругления свайпов
                   child: Column(
                     children: filtered.asMap().entries.map((entry) {
                       final index = entry.key;
@@ -369,31 +383,39 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                         children: [
                           GestureDetector(
                             onLongPress: () => _toggleSelection(expense.id),
-                            child: Dismissible(
+                            child: Slidable(
                               key: ValueKey(expense.id),
-                              direction: _isSelectionMode ? DismissDirection.none : DismissDirection.horizontal,
-                              background: Container(
-                                alignment: Alignment.centerLeft,
-                                padding: const EdgeInsets.symmetric(horizontal: 24),
-                                color: colorScheme.primary,
-                                child: const Icon(CupertinoIcons.doc_on_clipboard_fill, color: Colors.white),
+                              enabled: !_isSelectionMode, // Отключаем свайпы в режиме выделения
+                              startActionPane: ActionPane(
+                                motion: const StretchMotion(),
+                                children: [
+                                  SlidableAction(
+                                    onPressed: (_) {
+                                      HapticFeedback.lightImpact();
+                                      _duplicateExpense(expense);
+                                    },
+                                    backgroundColor: CupertinoColors.activeBlue,
+                                    foregroundColor: Colors.white,
+                                    icon: CupertinoIcons.doc_on_doc,
+                                    label: 'Повторить',
+                                  ),
+                                ],
                               ),
-                              secondaryBackground: Container(
-                                alignment: Alignment.centerRight,
-                                padding: const EdgeInsets.symmetric(horizontal: 24),
-                                color: CupertinoColors.destructiveRed,
-                                child: const Icon(CupertinoIcons.trash_fill, color: Colors.white),
+                              endActionPane: ActionPane(
+                                motion: const StretchMotion(),
+                                children: [
+                                  SlidableAction(
+                                    onPressed: (_) {
+                                      HapticFeedback.mediumImpact();
+                                      _deleteWithUndo(expense);
+                                    },
+                                    backgroundColor: CupertinoColors.destructiveRed,
+                                    foregroundColor: Colors.white,
+                                    icon: CupertinoIcons.trash,
+                                    label: 'Удалить',
+                                  ),
+                                ],
                               ),
-                              confirmDismiss: (direction) async {
-                                if (direction == DismissDirection.startToEnd) {
-                                  _duplicateExpense(expense);
-                                  return false;
-                                }
-                                return true;
-                              },
-                              onDismissed: (direction) {
-                                if (direction == DismissDirection.endToStart) _deleteWithUndo(expense);
-                              },
                               child: Stack(
                                 children: [
                                   ExpenseItemCard(
@@ -411,7 +433,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                                     Positioned.fill(
                                       child: Container(
                                         decoration: BoxDecoration(
-                                          color: colorScheme.primary.withOpacity(0.15),
+                                          color: colorScheme.primary.withValues(alpha: 0.15),
                                           border: Border.all(color: colorScheme.primary, width: 2),
                                         ),
                                       ),
@@ -420,14 +442,14 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                               ),
                             ),
                           ),
-                          if (!isLast) Padding(padding: const EdgeInsets.only(left: 64), child: Divider(height: 1, color: colorScheme.surfaceVariant.withOpacity(0.5))),
+                          if (!isLast) Padding(padding: const EdgeInsets.only(left: 64), child: Divider(height: 1, color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5))),
                         ],
                       );
                     }).toList(),
                   ),
                 ),
 
-              SizedBox(height: MediaQuery.of(context).padding.bottom + 40),
+              SizedBox(height: MediaQuery.of(context).padding.bottom + 100),
             ],
           ),
         ),

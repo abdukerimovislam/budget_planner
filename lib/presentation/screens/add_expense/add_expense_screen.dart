@@ -28,7 +28,7 @@ import '../../widgets/add_expense_source_selector.dart';
 import '../../widgets/custom_category_sheet.dart';
 import '../premium/premium_screen.dart';
 import '../receipt_review/receipt_review_screen.dart';
-import '../qr_scanner/qr_scanner_screen.dart'; // ИМПОРТИРУЕМ НАШ НОВЫЙ ЭКРАН
+import '../qr_scanner/qr_scanner_screen.dart';
 
 class AddExpenseScreen extends StatefulWidget {
   final ExpenseCategory? initialCategory;
@@ -88,8 +88,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   int _charIndex = 0;
   bool _isTypingForward = true;
 
-  late final List<String> _expenseHints;
-  late final List<String> _incomeHints;
+  late List<String> _expenseHints;
+  late List<String> _incomeHints;
+  bool _isDependenciesInit = false;
 
   @override
   void initState() {
@@ -122,18 +123,23 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _initVoice();
 
-    final isRu = Localizations.localeOf(context).languageCode == 'ru';
-    _expenseHints = isRu
-        ? ['Кофе 150', 'Такси домой 500', 'Продукты в Ашане 2500', 'Кино с друзьями 800', 'Подписка Netflix 15 USD']
-        : ['Coffee 5', 'Uber to home 15', 'Groceries at Target 120', 'Movie tickets 25', 'Netflix subscription 15'];
+    if (!_isDependenciesInit) {
+      _initVoice();
 
-    _incomeHints = isRu
-        ? ['Зарплата 100000', 'Вернули долг 5000', 'Продал телефон 30000']
-        : ['Salary 5000', 'Refund 50', 'Sold old phone 300'];
+      final isRu = Localizations.localeOf(context).languageCode == 'ru';
+      _expenseHints = isRu
+          ? ['Кофе 150', 'Такси домой 500', 'Продукты в Ашане 2500', 'Кино с друзьями 800', 'Подписка Netflix 15 USD']
+          : ['Coffee 5', 'Uber to home 15', 'Groceries at Target 120', 'Movie tickets 25', 'Netflix subscription 15'];
 
-    _startTypewriterAnimation();
+      _incomeHints = isRu
+          ? ['Зарплата 100000', 'Вернули долг 5000', 'Продал телефон 30000']
+          : ['Salary 5000', 'Refund 50', 'Sold old phone 300'];
+
+      _startTypewriterAnimation();
+
+      _isDependenciesInit = true;
+    }
   }
 
   void _startTypewriterAnimation() {
@@ -189,6 +195,14 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     return isRu ? ru : en;
   }
 
+  // === ИСПРАВЛЕНИЕ: Санитайзер чисел (Убирает пробелы 1 500 -> 1500 и запятые 15,5 -> 15.5) ===
+  String _sanitizeNumbers(String text) {
+    // \s и \u00A0 захватывают обычные и неразрывные пробелы (которые любят ставить iOS/Android клавиатуры)
+    String sanitized = text.replaceAllMapped(RegExp(r'(\d)[\s\u00A0]+(?=\d)'), (m) => m.group(1)!);
+    sanitized = sanitized.replaceAllMapped(RegExp(r'(\d),(?=\d)'), (m) => '${m.group(1)}.');
+    return sanitized;
+  }
+
   Future<void> _initVoice() async {
     final result = await _voiceInputService.initialize();
     if (!mounted) return;
@@ -236,7 +250,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       _startTypewriterAnimation();
     }
 
-    final localParsed = _parser.parse(text);
+    final sanitizedText = _sanitizeNumbers(text);
+    final localParsed = _parser.parse(sanitizedText);
+
     setState(() {
       final hasPremium = context.read<HomeProvider>().canUseFeature(PremiumFeature.multiCurrency);
       if (localParsed.currency != null && hasPremium) {
@@ -248,7 +264,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         currency: hasPremium ? (localParsed.currency ?? _selectedCurrency) : _userCurrency,
         category: _selectedCategory ?? localParsed.category ?? widget.initialCategory ?? ExpenseCategory.other,
         merchant: localParsed.merchant,
-        rawText: localParsed.rawText,
+        rawText: text, // Оставляем сырой текст для красоты
       );
     });
 
@@ -262,7 +278,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
         setState(() => _isAiParsing = true);
 
-        final aiParsed = await _parser.parseWithAI(text, _selectedCurrency);
+        final aiParsed = await _parser.parseWithAI(sanitizedText, _selectedCurrency);
 
         if (!mounted) return;
 
@@ -275,11 +291,11 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           }
 
           _parsed = ParsedExpenseInputModel(
-            amount: aiParsed.amount ?? _parsed?.amount,
+            amount: aiParsed.amount ?? _parsed?.amount, // Если ИИ не понял цифру, берем из локального
             currency: hasPremium ? (aiParsed.currency ?? _selectedCurrency) : _userCurrency,
             category: _selectedCategory != null ? _selectedCategory! : (aiParsed.category ?? ExpenseCategory.other),
             merchant: aiParsed.merchant ?? _parsed?.merchant,
-            rawText: aiParsed.rawText,
+            rawText: text,
           );
         });
       });
@@ -296,7 +312,11 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       _isAiParsing = true;
     });
 
-    final aiParsed = await _parser.parseWithAI(text, _selectedCurrency);
+    final sanitizedText = _sanitizeNumbers(text);
+
+    // Параллельно запускаем оба парсера (чтобы локальный подстраховал ИИ)
+    final localParsed = _parser.parse(sanitizedText);
+    final aiParsed = await _parser.parseWithAI(sanitizedText, _selectedCurrency);
 
     if (!mounted) return;
 
@@ -307,10 +327,11 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       if (aiParsed.currency != null && hasPremium) _selectedCurrency = aiParsed.currency!;
 
       _parsed = ParsedExpenseInputModel(
-        amount: aiParsed.amount,
+        // ИСПРАВЛЕНИЕ: Супер-страховка. Если ИИ вернул null, берем сумму из локального парсера
+        amount: aiParsed.amount ?? localParsed.amount,
         currency: hasPremium ? (aiParsed.currency ?? _selectedCurrency) : _userCurrency,
-        category: _selectedCategory ?? aiParsed.category ?? widget.initialCategory ?? ExpenseCategory.other,
-        merchant: aiParsed.merchant,
+        category: _selectedCategory ?? aiParsed.category ?? localParsed.category ?? widget.initialCategory ?? ExpenseCategory.other,
+        merchant: aiParsed.merchant ?? localParsed.merchant,
         rawText: text,
       );
     });
@@ -497,32 +518,27 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     if (!result.isAvailable) _showSnack(context, l10n.voiceUnavailableMessage);
   }
 
-  // ИСПРАВЛЕНИЕ: НОВЫЙ МЕТОД ОБРАБОТКИ QR-КОДА
   Future<void> _handleQrScannerTap(BuildContext context) async {
     HapticFeedback.lightImpact();
-    // Открываем сканер QR
     final qrResult = await Navigator.of(context).push<String>(
         CupertinoPageRoute(builder: (_) => const QrScannerScreen())
     );
 
-    if (qrResult == null || !mounted) return; // Юзер закрыл сканер
+    if (qrResult == null || !mounted) return;
 
     setState(() { _isReceiptLoading = true; });
 
-    // Парсим результат из QR
     final parsedData = _receiptScanService.parseQrData(qrResult);
 
     setState(() { _isReceiptLoading = false; });
 
     if (parsedData == null || parsedData['amount'] == null) {
-      // Если это не стандартный фискальный QR, просто прогоняем через AI-парсер текста
       _showSnack(context, 'Нестандартный QR-код. Пробуем распознать...');
       _smartInputController.text = qrResult;
       _parseInput();
       return;
     }
 
-    // Если всё прошло успешно, подставляем сумму и дату
     setState(() {
       _receiptPreviewText = "QR-код отсканирован!";
       _selectedDate = parsedData['date'] as DateTime;
@@ -1166,13 +1182,11 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     );
   }
 
-  // ИСПРАВЛЕНИЕ: НОВЫЙ UI ВЫБОРА СКАНЕРА
   Widget _buildReceiptSection(BuildContext context) {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: Responsive.cardPadding(context)),
       child: Column(
         children: [
-          // 1. Главная кнопка: Сканировать QR-код (Быстро и точно)
           GestureDetector(
             onTap: _isReceiptLoading ? null : () => _handleQrScannerTap(context),
             child: Container(
@@ -1204,7 +1218,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
           const SizedBox(height: 16),
 
-          // 2. Вспомогательные кнопки (Фото чека целиком / Галерея)
           Row(
             children: [
               Expanded(
