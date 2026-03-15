@@ -41,7 +41,6 @@ class LocalStorageService {
     await _box.put(StorageKeys.localeCode, code);
   }
 
-  // --- БИОМЕТРИЯ (FACE ID / TOUCH ID) ---
   bool isBiometricAuthEnabled() {
     return _box.get('biometric_auth_enabled', defaultValue: false) as bool;
   }
@@ -49,9 +48,7 @@ class LocalStorageService {
   Future<void> setBiometricAuthEnabled(bool value) async {
     await _box.put('biometric_auth_enabled', value);
   }
-  // --------------------------------------
 
-  // --- ПОСЛЕДНЯЯ АКТИВНАЯ ВАЛЮТА ДАШБОРДА (БАГ №3) ---
   String? getLastActiveCurrency() {
     return _box.get('last_active_currency') as String?;
   }
@@ -59,9 +56,7 @@ class LocalStorageService {
   Future<void> setLastActiveCurrency(String currencyCode) async {
     await _box.put('last_active_currency', currencyCode);
   }
-  // ---------------------------------------------------
 
-  // --- ИСТОРИЯ ПРОСМОТРОВ ЗАКРЫТИЯ МЕСЯЦА (БАГ №2) ---
   bool isMonthCloseSeen(String monthKey) {
     return _box.get('seen_month_close_$monthKey', defaultValue: false) as bool;
   }
@@ -69,7 +64,6 @@ class LocalStorageService {
   Future<void> setMonthCloseSeen(String monthKey) async {
     await _box.put('seen_month_close_$monthKey', true);
   }
-  // ---------------------------------------------------
 
   IncomeProfileModel? getIncomeProfile() {
     final map = _box.get(StorageKeys.incomeProfile);
@@ -83,15 +77,24 @@ class LocalStorageService {
     await _box.put(StorageKeys.incomeProfile, profile.toMap());
   }
 
-  BudgetModel? getBudget() {
-    final map = _box.get(StorageKeys.budget);
+  // ИСПРАВЛЕНИЕ: МУЛЬТИВАЛЮТНЫЕ БЮДЖЕТЫ
+  BudgetModel? getBudget(String currency) {
+    final map = _box.get('${StorageKeys.budget}_$currency');
     if (map is Map) {
       return BudgetModelSerializer.fromMap(map);
+    }
+    // Фолбек для старых пользователей (перенос старого бюджета)
+    final oldMap = _box.get(StorageKeys.budget);
+    if (oldMap is Map) {
+      final oldBudget = BudgetModelSerializer.fromMap(oldMap);
+      if (oldBudget.currency == currency) return oldBudget;
     }
     return null;
   }
 
   Future<void> saveBudget(BudgetModel budget) async {
+    await _box.put('${StorageKeys.budget}_${budget.currency}', budget.toMap());
+    // Сохраняем и по старому ключу для обратной совместимости
     await _box.put(StorageKeys.budget, budget.toMap());
   }
 
@@ -158,12 +161,8 @@ class LocalStorageService {
     await _box.put('salaryDay', day);
   }
 
-  // =======================================================
-  // НОВЫЕ МЕТОДЫ: ЗАЩИТА AI ОТ СПАМА (КВОТЫ)
-  // =======================================================
-
   static const int _dailyParserLimit = 50;
-  static const int _dailyAdvisorLimit = 5;
+  static const int _dailyAdvisorLimit = 15; // Увеличил лимит, так как теперь есть история чата
 
   bool canUseAiParser() {
     final lastDateStr = _box.get('ai_parser_date') as String?;

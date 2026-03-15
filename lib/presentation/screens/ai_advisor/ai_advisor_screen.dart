@@ -11,12 +11,6 @@ import '../../providers/home_provider.dart';
 import '../../widgets/insight_card.dart';
 import '../../widgets/premium_background.dart';
 
-class _ChatMessage {
-  final bool isUser;
-  final String text;
-  _ChatMessage({required this.isUser, required this.text});
-}
-
 class AiAdvisorScreen extends StatefulWidget {
   const AiAdvisorScreen({super.key});
 
@@ -29,13 +23,14 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
   final ScrollController _scrollController = ScrollController();
 
   GenerativeModel? _model;
-  final List<_ChatMessage> _messages = [];
   bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
     _initAI();
+    // Прокручиваем к концу при открытии, если уже есть история
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
   }
 
   void _initAI() {
@@ -69,10 +64,11 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
     if (text.isEmpty) return;
 
     final provider = context.read<HomeProvider>();
-    final l10n = AppLocalizations.of(context);
+
+    // Сохраняем сообщение пользователя в провайдер (чтобы не потерять при выходе с экрана)
+    provider.addAiChatMessage(true, text);
 
     setState(() {
-      _messages.add(_ChatMessage(isUser: true, text: text));
       _controller.clear();
       _isLoading = true;
     });
@@ -80,22 +76,15 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
     _scrollToBottom();
 
     if (!LocalStorageService.instance.canUseAiAdvisor()) {
-      setState(() {
-        _messages.add(_ChatMessage(
-            isUser: false,
-            text: "Извините, но дневной лимит советов исчерпан. Мне нужно отдохнуть, возвращайтесь завтра!"
-        ));
-        _isLoading = false;
-      });
+      provider.addAiChatMessage(false, "Извините, но дневной лимит советов исчерпан. Мне нужно отдохнуть, возвращайтесь завтра!");
+      setState(() => _isLoading = false);
       _scrollToBottom();
       return;
     }
 
     if (_model == null) {
-      setState(() {
-        _messages.add(_ChatMessage(isUser: false, text: "Связь с ИИ не установлена. Проверьте ваш API ключ."));
-        _isLoading = false;
-      });
+      provider.addAiChatMessage(false, "Связь с ИИ не установлена. Проверьте ваш API ключ.");
+      setState(() => _isLoading = false);
       _scrollToBottom();
       return;
     }
@@ -109,7 +98,6 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
           ? provider.categoryTotalsForMonth(now).entries.reduce((a, b) => a.value > b.value ? a : b).key.name
           : 'none';
 
-      // ИСПРАВЛЕНИЕ: Передаем ИИ транзакции ТОЛЬКО в текущей активной валюте
       final recentExpenses = provider.expenses
           .where((e) => e.date.month == now.month && e.date.year == now.year && !e.isIncome && e.currency == currency)
           .take(30)
@@ -118,6 +106,11 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
       final expensesContext = recentExpenses.isEmpty
           ? 'No transactions yet.'
           : recentExpenses.map((e) => '- ${e.date.day}/${e.date.month}: ${e.category.name}, ${e.amount} ${e.currency} (Merchant: ${e.merchant.isEmpty ? "Unknown" : e.merchant})').join('\n');
+
+      // ИСПРАВЛЕНИЕ: Формируем историю из последних 10 сообщений
+      final historyStrings = provider.aiChatHistory.take(10).map((msg) {
+        return "${msg['isUser'] ? 'User' : 'Advisor'}: ${msg['text']}";
+      }).join('\n');
 
       final systemPrompt = '''
 You are a friendly, expert financial advisor integrated into a budget planner app.
@@ -130,35 +123,25 @@ User's current month context:
 Recent transactions (up to 30 this month):
 $expensesContext
 
-Answer the user's message concisely (1-3 short paragraphs). Provide actionable, personalized advice based on their transactions and context. Use the same language the user writes in. Avoid markdown formatting like ** or * if possible, keep it plain and readable.
+Conversation History:
+$historyStrings
+
+Answer the user's latest message concisely (1-3 short paragraphs). Provide actionable, personalized advice based on their transactions and context. Use the same language the user writes in. Avoid markdown formatting like ** or * if possible, keep it plain and readable.
 ''';
 
-      final prompt = '$systemPrompt\n\nUser: $text';
-
-      final response = await _model!.generateContent([Content.text(prompt)]);
+      final response = await _model!.generateContent([Content.text(systemPrompt)]);
 
       if (response.text != null) {
         await LocalStorageService.instance.incrementAiAdvisorUsage();
-        if (!mounted) return;
-        setState(() {
-          _messages.add(_ChatMessage(isUser: false, text: response.text!.trim()));
-        });
+        provider.addAiChatMessage(false, response.text!.trim());
       }
     } catch (e, stackTrace) {
       debugPrint('--- AI ERROR ---');
       debugPrint(e.toString());
-      debugPrint(stackTrace.toString());
-      debugPrint('----------------');
-
-      if (!mounted) return;
-      setState(() {
-        _messages.add(_ChatMessage(isUser: false, text: "К сожалению, произошла ошибка. Попробуйте сформулировать вопрос иначе."));
-      });
+      provider.addAiChatMessage(false, "К сожалению, произошла ошибка. Попробуйте сформулировать вопрос иначе.");
     } finally {
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+        setState(() => _isLoading = false);
         _scrollToBottom();
       }
     }
@@ -183,6 +166,7 @@ Answer the user's message concisely (1-3 short paragraphs). Provide actionable, 
     final theme = Theme.of(context);
 
     final insights = provider.insightsForMonth(DateTime.now());
+    final chatHistory = provider.aiChatHistory; // Берем из стейта
 
     return PremiumBackground(
       child: Scaffold(
@@ -246,7 +230,7 @@ Answer the user's message concisely (1-3 short paragraphs). Provide actionable, 
                   ),
                   const SizedBox(height: 24),
 
-                  if (insights.isEmpty && _messages.isEmpty)
+                  if (insights.isEmpty && chatHistory.isEmpty)
                     Padding(
                       padding: const EdgeInsets.only(left: 52),
                       child: Text(
@@ -254,15 +238,15 @@ Answer the user's message concisely (1-3 short paragraphs). Provide actionable, 
                         style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
                       ),
                     )
-                  else if (_messages.isEmpty)
+                  else if (chatHistory.isEmpty)
                     ...insights.map((insight) => Padding(
                       padding: const EdgeInsets.only(bottom: 12, left: 52),
                       child: InsightCard(insight: insight),
                     )),
 
-                  if (_messages.isNotEmpty) ...[
+                  if (chatHistory.isNotEmpty) ...[
                     if (insights.isNotEmpty) const SizedBox(height: 16),
-                    ..._messages.map((msg) => _buildChatBubble(msg, theme)),
+                    ...chatHistory.map((msg) => _buildChatBubble(msg['isUser'], msg['text'], theme)),
                   ],
 
                   if (_isLoading)
@@ -356,9 +340,7 @@ Answer the user's message concisely (1-3 short paragraphs). Provide actionable, 
     );
   }
 
-  Widget _buildChatBubble(_ChatMessage msg, ThemeData theme) {
-    final isUser = msg.isUser;
-
+  Widget _buildChatBubble(bool isUser, String text, ThemeData theme) {
     return Padding(
       padding: EdgeInsets.only(
         top: 12,
@@ -380,7 +362,7 @@ Answer the user's message concisely (1-3 short paragraphs). Provide actionable, 
             ),
           ),
           child: Text(
-            msg.text,
+            text,
             style: TextStyle(
               color: isUser ? Colors.white : theme.colorScheme.onSurface,
               fontSize: 15,

@@ -163,7 +163,6 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    // ИСПРАВЛЕНИЕ: Показываем все доступные валюты системы, чтобы юзер мог переключиться на пустой счет
     final allCurrencies = ['USD', 'EUR', 'GBP', 'RUB', 'KZT', 'KGS', 'UZS', 'UAH', 'BYN'];
 
     HapticFeedback.lightImpact();
@@ -189,7 +188,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   scrollController: FixedExtentScrollController(initialItem: initialIndex),
                   onSelectedItemChanged: (index) {
                     HapticFeedback.selectionClick();
-                    // Переключаем дашборд на выбранную валюту
                     provider.setActiveCurrency(allCurrencies[index]);
                   },
                   children: allCurrencies.map((c) => Center(
@@ -229,7 +227,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ? forecast.expectedRemaining / daysLeft : 0.0;
 
     final activeCurrency = provider.activeCurrency;
-    final hasMultipleCurrencies = provider.availableUserCurrencies.length > 1;
     final hasPremium = provider.canUseFeature(PremiumFeature.multiCurrency);
 
     return PremiumBackground(
@@ -280,7 +277,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   activeCurrency,
                                   style: TextStyle(fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurface, fontSize: 14),
                                 ),
-                                if (hasPremium && hasMultipleCurrencies) ...[
+                                if (hasPremium) ...[
                                   const SizedBox(width: 4),
                                   Icon(CupertinoIcons.chevron_up_chevron_down, size: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5)),
                                 ]
@@ -314,7 +311,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       delegate: SliverChildListDelegate([
                         const SizedBox(height: 8),
 
-                        // HERO DASHBOARD
                         SizedBox(
                           height: 250,
                           child: PageView(
@@ -367,7 +363,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
                         SizedBox(height: sectionGap),
 
-                        // QUICK ADD
                         AppleSectionHeader(title: l10n.quickAddTitle),
                         SizedBox(height: itemGap),
                         QuickAddChips(
@@ -378,7 +373,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
                         SizedBox(height: sectionGap),
 
-                        // AI INSIGHTS
                         if (insights.isNotEmpty && provider.canUseFeature(PremiumFeature.aiInsights)) ...[
                           AppleSectionHeader(
                             title: l10n.aiInsightsTitle,
@@ -448,7 +442,6 @@ class _HomeScreenState extends State<HomeScreen> {
                           SizedBox(height: sectionGap),
                         ],
 
-                        // ИСПРАВЛЕНИЕ: Оставили только реальные угрозы (Action Plan переехал в AI Advisor)
                         if (dangerousCategory != null) ...[
                           AppleSectionHeader(title: l10n.financialRadarTitle),
                           SizedBox(height: itemGap),
@@ -460,7 +453,6 @@ class _HomeScreenState extends State<HomeScreen> {
                           SizedBox(height: sectionGap),
                         ],
 
-                        // TRANSACTIONS
                         AppleSectionHeader(
                           title: l10n.recentExpensesTitle,
                           action: l10n.historyAction,
@@ -499,7 +491,26 @@ class _HomeScreenState extends State<HomeScreen> {
                                             color: CupertinoColors.destructiveRed,
                                             child: const Icon(CupertinoIcons.trash, color: Colors.white),
                                           ),
-                                          onDismissed: (_) => context.read<HomeProvider>().deleteExpense(expense.id),
+                                          // ИСПРАВЛЕНИЕ: Добавляем SnackBar с кнопкой Undo при свайпе
+                                          onDismissed: (_) {
+                                            final deletedExpense = expense;
+                                            provider.deleteExpense(expense.id);
+                                            ScaffoldMessenger.of(context).clearSnackBars();
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(
+                                                content: const Text('Транзакция удалена'),
+                                                behavior: SnackBarBehavior.floating,
+                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                                action: SnackBarAction(
+                                                  label: 'Отмена',
+                                                  textColor: Theme.of(context).colorScheme.primary,
+                                                  onPressed: () {
+                                                    provider.addExpense(deletedExpense);
+                                                  },
+                                                ),
+                                              ),
+                                            );
+                                          },
                                           child: ExpenseItemCard(expense: expense, incomeProfile: provider.incomeProfile, onTap: () => provider.openExpenseEditor(context, expense)),
                                         ),
                                         if (!isLast) Padding(padding: const EdgeInsets.only(left: 64), child: Divider(height: 1, color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5))),
@@ -527,7 +538,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
 
-              // MORPHING FAB
               MorphingFab(
                 isExpanded: _isFabExpanded,
                 onToggle: () => setState(() => _isFabExpanded = !_isFabExpanded),

@@ -66,6 +66,9 @@ class HomeProvider extends ChangeNotifier {
   final List<ExpenseModel> _expenses = [];
   final List<CustomCategoryModel> _customCategories = [];
 
+  // ИСПРАВЛЕНИЕ: Хранилище сессии чата ИИ
+  final List<Map<String, dynamic>> _aiChatHistory = [];
+
   IncomeProfileModel? _incomeProfile;
   BudgetModel? _budget;
   bool _isInitialized = false;
@@ -81,6 +84,7 @@ class HomeProvider extends ChangeNotifier {
 
   List<ExpenseModel> get expenses => List.unmodifiable(_expenses);
   List<CustomCategoryModel> get customCategories => List.unmodifiable(_customCategories);
+  List<Map<String, dynamic>> get aiChatHistory => List.unmodifiable(_aiChatHistory);
 
   IncomeProfileModel? get incomeProfile => _incomeProfile;
   BudgetModel? get budget => _budget;
@@ -95,9 +99,13 @@ class HomeProvider extends ChangeNotifier {
 
   List<String> get availableUserCurrencies => List.unmodifiable(_cachedCurrencies);
 
+  void addAiChatMessage(bool isUser, String text) {
+    _aiChatHistory.add({'isUser': isUser, 'text': text});
+    notifyListeners();
+  }
+
   void _updateCurrencyCache() {
     final set = <String>{_incomeProfile?.currency ?? 'USD'};
-    // ИСПРАВЛЕНИЕ: Добавляем текущую выбранную валюту в кэш, даже если в ней нет трат!
     if (_activeCurrency != null) {
       set.add(_activeCurrency!);
     }
@@ -112,13 +120,15 @@ class HomeProvider extends ChangeNotifier {
   void setActiveCurrency(String currency) {
     _activeCurrency = currency;
     LocalStorageService.instance.setLastActiveCurrency(currency);
-    _updateCurrencyCache(); // Обновляем кэш сразу при переключении
+    _updateCurrencyCache();
+
+    // ИСПРАВЛЕНИЕ: Загружаем бюджет именно для этой валюты!
+    _budget = LocalStorageService.instance.getBudget(currency);
     notifyListeners();
   }
 
   Future<void> load() async {
     _incomeProfile = LocalStorageService.instance.getIncomeProfile();
-    _budget = LocalStorageService.instance.getBudget();
     _savingsGoal = LocalStorageService.instance.getSavingsGoal();
     _salaryDay = LocalStorageService.instance.getSalaryDay();
 
@@ -138,6 +148,9 @@ class HomeProvider extends ChangeNotifier {
     _activeCurrency = lastCurrency ?? _incomeProfile?.currency ?? 'USD';
     _updateCurrencyCache();
 
+    // Загружаем бюджет для активной валюты
+    _budget = LocalStorageService.instance.getBudget(_activeCurrency!);
+
     _checkMonthCloseTransition();
     await _processPendingSubscriptions();
 
@@ -149,16 +162,13 @@ class HomeProvider extends ChangeNotifier {
     if (_expenses.isEmpty) return;
 
     final now = DateTime.now();
-    // ИСПРАВЛЕНИЕ: Смотрим строго на предыдущий календарный месяц, а не на дату последней транзакции
     final prevMonthDate = DateTime(now.year, now.month - 1, 1);
     final previousMonthKey = buildMonthKey(prevMonthDate);
 
     final hasSeen = LocalStorageService.instance.isMonthCloseSeen(previousMonthKey);
 
     if (!hasSeen) {
-      // Проверяем, были ли у юзера траты именно в прошлом месяце
       final hasExpensesInPrevMonth = _expenses.any((e) => e.date.month == prevMonthDate.month && e.date.year == prevMonthDate.year);
-
       if (hasExpensesInPrevMonth) {
         _needsMonthClose = true;
       }
@@ -170,7 +180,6 @@ class HomeProvider extends ChangeNotifier {
     final now = DateTime.now();
     final previousMonthKey = buildMonthKey(DateTime(now.year, now.month - 1, 1));
     LocalStorageService.instance.setMonthCloseSeen(previousMonthKey);
-
     notifyListeners();
   }
 
@@ -253,8 +262,6 @@ class HomeProvider extends ChangeNotifier {
       _updateCurrencyCache();
     }
   }
-
-  // --------------------------
 
   Future<void> setPremium(bool value) async {
     _isPremium = value;
@@ -393,6 +400,7 @@ class HomeProvider extends ChangeNotifier {
 
   Future<void> addExpense(ExpenseModel expense) async {
     _expenses.insert(0, expense);
+    _expenses.sort((a, b) => b.date.compareTo(a.date));
     await LocalStorageService.instance.saveExpenses(_expenses);
     _updateCurrencyCache();
     notifyListeners();
@@ -416,6 +424,7 @@ class HomeProvider extends ChangeNotifier {
       currency: result.currency,
     );
 
+    _expenses.sort((a, b) => b.date.compareTo(a.date));
     await LocalStorageService.instance.saveExpenses(_expenses);
     _updateCurrencyCache();
     notifyListeners();
@@ -449,6 +458,7 @@ class HomeProvider extends ChangeNotifier {
     _expenses.clear();
     _customCategories.clear();
     _recurringBills.clear();
+    _aiChatHistory.clear();
     _incomeProfile = null;
     _budget = null;
     _savingsGoal = null;

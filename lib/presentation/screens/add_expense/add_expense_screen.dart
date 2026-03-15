@@ -28,6 +28,7 @@ import '../../widgets/add_expense_source_selector.dart';
 import '../../widgets/custom_category_sheet.dart';
 import '../premium/premium_screen.dart';
 import '../receipt_review/receipt_review_screen.dart';
+import '../qr_scanner/qr_scanner_screen.dart'; // ИМПОРТИРУЕМ НАШ НОВЫЙ ЭКРАН
 
 class AddExpenseScreen extends StatefulWidget {
   final ExpenseCategory? initialCategory;
@@ -146,7 +147,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         return;
       }
 
-      // ИСПРАВЛЕНИЕ: Гарантированно убиваем таймер, если юзер печатает (Memory Leak fix)
       if (_smartInputController.text.isNotEmpty) {
         setState(() => _currentHint = '');
         timer.cancel();
@@ -497,6 +497,45 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     if (!result.isAvailable) _showSnack(context, l10n.voiceUnavailableMessage);
   }
 
+  // ИСПРАВЛЕНИЕ: НОВЫЙ МЕТОД ОБРАБОТКИ QR-КОДА
+  Future<void> _handleQrScannerTap(BuildContext context) async {
+    HapticFeedback.lightImpact();
+    // Открываем сканер QR
+    final qrResult = await Navigator.of(context).push<String>(
+        CupertinoPageRoute(builder: (_) => const QrScannerScreen())
+    );
+
+    if (qrResult == null || !mounted) return; // Юзер закрыл сканер
+
+    setState(() { _isReceiptLoading = true; });
+
+    // Парсим результат из QR
+    final parsedData = _receiptScanService.parseQrData(qrResult);
+
+    setState(() { _isReceiptLoading = false; });
+
+    if (parsedData == null || parsedData['amount'] == null) {
+      // Если это не стандартный фискальный QR, просто прогоняем через AI-парсер текста
+      _showSnack(context, 'Нестандартный QR-код. Пробуем распознать...');
+      _smartInputController.text = qrResult;
+      _parseInput();
+      return;
+    }
+
+    // Если всё прошло успешно, подставляем сумму и дату
+    setState(() {
+      _receiptPreviewText = "QR-код отсканирован!";
+      _selectedDate = parsedData['date'] as DateTime;
+      _parsed = ParsedExpenseInputModel(
+        amount: parsedData['amount'] as double,
+        currency: _selectedCurrency,
+        category: _selectedCategory ?? widget.initialCategory ?? ExpenseCategory.other,
+        merchant: null,
+        rawText: 'Чек: ${parsedData['rawText']}',
+      );
+    });
+  }
+
   Future<void> _scanPickedFile(BuildContext context, XFile file) async {
     final l10n = AppLocalizations.of(context);
     setState(() { _isReceiptLoading = true; });
@@ -627,7 +666,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     }
   }
 
-  // ИСПРАВЛЕНИЕ: Убрали блокировку !_isAiParsing, чтобы юзер мог сохранить мгновенно локальный парсинг
   bool get _canSave => _parsed != null && _parsed!.isValid;
 
   @override
@@ -1128,18 +1166,51 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     );
   }
 
+  // ИСПРАВЛЕНИЕ: НОВЫЙ UI ВЫБОРА СКАНЕРА
   Widget _buildReceiptSection(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: Responsive.cardPadding(context)),
       child: Column(
         children: [
+          // 1. Главная кнопка: Сканировать QR-код (Быстро и точно)
+          GestureDetector(
+            onTap: _isReceiptLoading ? null : () => _handleQrScannerTap(context),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4),
+                    blurRadius: 15,
+                    offset: const Offset(0, 4),
+                  )
+                ],
+              ),
+              child: Column(
+                children: const [
+                  Icon(CupertinoIcons.qrcode_viewfinder, size: 36, color: Colors.white),
+                  SizedBox(height: 8),
+                  Text(
+                    'Сканировать QR-код',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // 2. Вспомогательные кнопки (Фото чека целиком / Галерея)
           Row(
             children: [
               Expanded(
                 child: _ReceiptButton(
                   icon: CupertinoIcons.camera_fill,
-                  label: _t('Camera', 'Камера'),
+                  label: _t('Сфотографировать чек', 'Сфотографировать чек'),
                   onTap: _isReceiptLoading ? null : () => _handleReceiptCameraTap(context),
                 ),
               ),
@@ -1147,18 +1218,22 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               Expanded(
                 child: _ReceiptButton(
                   icon: CupertinoIcons.photo_fill_on_rectangle_fill,
-                  label: _t('Gallery', 'Галерея'),
+                  label: _t('Из галереи', 'Из галереи'),
                   onTap: _isReceiptLoading ? null : () => _handleReceiptGalleryTap(context),
                 ),
               ),
             ],
           ),
-          if (_isReceiptLoading) const Padding(padding: EdgeInsets.only(top: 24), child: CupertinoActivityIndicator(radius: 14)),
+
+          if (_isReceiptLoading)
+            const Padding(padding: EdgeInsets.only(top: 24), child: CupertinoActivityIndicator(radius: 14)),
+
           if (_receiptPreviewText.isNotEmpty && !_isReceiptLoading) ...[
             const SizedBox(height: 24),
             Text(
-              l10n.receiptParsedSummaryTitle,
-              style: TextStyle(fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface),
+              _receiptPreviewText,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontWeight: FontWeight.w500, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
             ),
           ]
         ],
@@ -1237,16 +1312,25 @@ class _ReceiptButton extends StatelessWidget {
       padding: EdgeInsets.zero,
       onPressed: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3)),
         ),
         child: Column(
           children: [
-            Icon(icon, size: 32, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(height: 8),
-            Text(label, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w600)),
+            Icon(icon, size: 24, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
+            const SizedBox(height: 6),
+            Text(
+                label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                )
+            ),
           ],
         ),
       ),
