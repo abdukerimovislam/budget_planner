@@ -10,7 +10,7 @@ import 'app/app.dart';
 import 'app/app_state.dart';
 import 'core/localization/locale_controller.dart';
 import 'data/datasources/local/local_storage_service.dart';
-import 'data/datasources/local/isar_database_service.dart'; // <-- ИМПОРТ ISAR
+import 'data/datasources/local/isar_database_service.dart';
 
 // Сервисы
 import 'domain/services/financial_forecast_service.dart';
@@ -19,14 +19,13 @@ import 'domain/services/life_value_service.dart';
 import 'domain/services/notification_service.dart';
 import 'domain/services/premium_access_service.dart';
 
-// НОВЫЕ ПРОВАЙДЕРЫ (Вместо HomeProvider)
+// НОВЫЕ ПРОВАЙДЕРЫ
 import 'presentation/providers/settings_provider.dart';
 import 'presentation/providers/transactions_provider.dart';
 import 'presentation/providers/budget_provider.dart';
 import 'presentation/providers/insights_provider.dart';
 
 Future<void> main() async {
-  // Обязательная инициализация биндингов перед запуском асинхронных методов
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: ".env");
 
@@ -35,8 +34,8 @@ Future<void> main() async {
     await Firebase.initializeApp();
 
     await FirebaseAppCheck.instance.activate(
-      androidProvider: AndroidProvider.playIntegrity, // Защита для Android
-      appleProvider: AppleProvider.deviceCheck,       // Защита для iOS
+      androidProvider: AndroidProvider.playIntegrity,
+      appleProvider: AppleProvider.deviceCheck,
     );
   } catch (e) {
     debugPrint('Firebase init warning: $e');
@@ -44,12 +43,12 @@ Future<void> main() async {
 
   // 2. Инициализация локальных баз данных
   await LocalStorageService.init();
-  await IsarDatabaseService.instance.init(); // <-- ЗАПУСК ISAR
+  await IsarDatabaseService.instance.init();
 
   // 3. Инициализация и запуск системы уведомлений
   await NotificationService.instance.init();
-  await NotificationService.instance.requestPermissions(); // Запросит права при первом запуске
-  await NotificationService.instance.scheduleDailyReminder(); // Заведет таймер на 20:00 каждый день
+  await NotificationService.instance.requestPermissions();
+  await NotificationService.instance.scheduleDailyReminder();
 
   runApp(
     MultiProvider(
@@ -66,16 +65,16 @@ Future<void> main() async {
           )..load(),
         ),
 
-        // 2. TransactionsProvider (Чеки, расходы, доходы, долги) - Слушает настройки валюты
+        // 2. TransactionsProvider (Чеки, расходы, доходы, долги)
         ChangeNotifierProxyProvider<SettingsProvider, TransactionsProvider>(
           create: (ctx) => TransactionsProvider(
             settings: ctx.read<SettingsProvider>(),
           )..load(),
-          // При смене настроек (например, валюты), пересчитываем кэш
-          update: (_, settings, tx) => tx!..load(),
+          // ИСПРАВЛЕНИЕ: Убрали ..load(). Фильтрация валюты происходит "на лету" в геттерах.
+          update: (_, settings, tx) => tx!,
         ),
 
-        // 3. BudgetProvider (Цели, бюджеты, подписки) - Слушает транзакции и настройки
+        // 3. BudgetProvider (Цели, бюджеты, подписки)
         ChangeNotifierProxyProvider2<SettingsProvider, TransactionsProvider, BudgetProvider>(
           create: (ctx) => BudgetProvider(
             settings: ctx.read<SettingsProvider>(),
@@ -84,7 +83,7 @@ Future<void> main() async {
           update: (_, settings, tx, budget) => budget!..reloadBudgetForCurrentCurrency(),
         ),
 
-        // 4. InsightsProvider (Аналитика, ИИ, здоровье) - Берет данные ото всех
+        // 4. InsightsProvider (Аналитика, ИИ, здоровье)
         ChangeNotifierProxyProvider3<SettingsProvider, TransactionsProvider, BudgetProvider, InsightsProvider>(
           create: (ctx) => InsightsProvider(
             settings: ctx.read<SettingsProvider>(),

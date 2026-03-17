@@ -12,6 +12,7 @@ import '../../../app/app_state.dart';
 import '../../../core/localization/locale_controller.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../data/datasources/local/local_storage_service.dart';
+import '../../../data/datasources/local/isar_database_service.dart'; // <-- ИМПОРТ ISAR ДЛЯ ОЧИСТКИ
 import '../../../l10n/app_localizations.dart';
 import '../../monthly_report/monthly_report_screen.dart';
 import '../../widgets/financial_level_card.dart';
@@ -365,7 +366,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           CupertinoDialogAction(
             isDestructiveAction: true, child: Text(l10n.deleteButton),
             onPressed: () async {
+              // Очищаем обе базы данных (LocalStorage и Isar)!
               await LocalStorageService.instance.clearAll();
+              await IsarDatabaseService.instance.clearAll();
+
               if (context.mounted) {
                 // Перезагружаем провайдеры (чтобы очистить стейты)
                 context.read<SettingsProvider>().load();
