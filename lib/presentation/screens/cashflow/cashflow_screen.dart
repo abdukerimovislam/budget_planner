@@ -7,12 +7,16 @@ import '../../../core/utils/responsive.dart';
 import '../../../data/models/recurring_bill_model.dart';
 import '../../../domain/services/premium_feature.dart';
 import '../../../l10n/app_localizations.dart';
-import '../../providers/home_provider.dart';
 import '../../widgets/adaptive_page_padding.dart';
 import '../../widgets/cashflow_event_card.dart';
 import '../../widgets/premium_lock_card.dart';
-import '../../widgets/premium_background.dart'; // <-- ИМПОРТ ФОНА
+import '../../widgets/premium_background.dart';
 import '../premium/premium_screen.dart';
+
+// НОВЫЕ ПРОВАЙДЕРЫ
+import '../../providers/settings_provider.dart';
+import '../../providers/budget_provider.dart';
+import '../../providers/insights_provider.dart';
 
 class CashflowScreen extends StatelessWidget {
   const CashflowScreen({super.key});
@@ -46,7 +50,7 @@ class CashflowScreen extends StatelessWidget {
                 final value = int.tryParse(controller.text.trim());
                 if (value == null || value < 1 || value > 31) return;
 
-                await context.read<HomeProvider>().setSalaryDay(value);
+                await context.read<SettingsProvider>().setSalaryDay(value);
                 if (dialogContext.mounted) Navigator.of(dialogContext).pop();
               },
               isDefaultAction: true,
@@ -107,12 +111,14 @@ class CashflowScreen extends StatelessWidget {
 
                 if (title.isEmpty || amount == null || amount <= 0 || day == null || day < 1 || day > 31) return;
 
-                await context.read<HomeProvider>().addRecurringBill(
+                final settings = context.read<SettingsProvider>();
+
+                await context.read<BudgetProvider>().addRecurringBill(
                   RecurringBillModel(
                     id: const Uuid().v4(),
                     title: title,
                     amount: amount,
-                    currency: 'KGS',
+                    currency: settings.activeCurrency, // Сохраняем в активной валюте
                     dayOfMonth: day,
                     isActive: true,
                     createdAt: DateTime.now(),
@@ -132,16 +138,19 @@ class CashflowScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<HomeProvider>();
+    final settings = context.watch<SettingsProvider>();
+    final budgetProv = context.watch<BudgetProvider>();
+    final insights = context.watch<InsightsProvider>();
+
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final now = DateTime.now();
 
-    final timeline = provider.cashflowTimeline(now);
-    final salaryDay = provider.salaryDay;
-    final recurringBills = provider.recurringBills;
+    final timeline = insights.cashflowTimeline(now);
+    final salaryDay = settings.salaryDay;
+    final recurringBills = budgetProv.recurringBills;
 
-    if (!provider.canUseFeature(PremiumFeature.cashflowTimeline)) {
+    if (!settings.canUseFeature(PremiumFeature.cashflowTimeline)) {
       return PremiumBackground(
         child: Scaffold(
           backgroundColor: Colors.transparent,
@@ -191,9 +200,9 @@ class CashflowScreen extends StatelessWidget {
                   // 1. БЛОК НАСТРОЕК (APPLE STYLE)
                   Container(
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.surface.withOpacity(0.8),
+                      color: theme.colorScheme.surface.withValues(alpha: 0.8),
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: theme.colorScheme.surfaceVariant.withOpacity(0.5)),
+                      border: Border.all(color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)),
                     ),
                     child: Column(
                       children: [
@@ -232,15 +241,15 @@ class CashflowScreen extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(32),
                       decoration: BoxDecoration(
-                        color: theme.colorScheme.surface.withOpacity(0.8),
+                        color: theme.colorScheme.surface.withValues(alpha: 0.8),
                         borderRadius: BorderRadius.circular(32),
-                        border: Border.all(color: theme.colorScheme.surfaceVariant.withOpacity(0.5)),
+                        border: Border.all(color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)),
                       ),
                       child: Column(
                         children: [
-                          Icon(CupertinoIcons.calendar_badge_minus, size: 48, color: theme.colorScheme.primary.withOpacity(0.5)),
+                          Icon(CupertinoIcons.calendar_badge_minus, size: 48, color: theme.colorScheme.primary.withValues(alpha: 0.5)),
                           const SizedBox(height: 16),
-                          Text(l10n.cashflowEmpty, style: TextStyle(fontSize: 16, color: theme.colorScheme.onSurface.withOpacity(0.6))),
+                          Text(l10n.cashflowEmpty, style: TextStyle(fontSize: 16, color: theme.colorScheme.onSurface.withValues(alpha: 0.6))),
                         ],
                       ),
                     )
@@ -272,7 +281,7 @@ class CashflowScreen extends StatelessWidget {
                                     Expanded(
                                       child: Container(
                                         width: 2,
-                                        color: theme.colorScheme.primary.withOpacity(0.2),
+                                        color: theme.colorScheme.primary.withValues(alpha: 0.2),
                                       ),
                                     ),
                                 ],
@@ -285,9 +294,9 @@ class CashflowScreen extends StatelessWidget {
                                 padding: const EdgeInsets.only(bottom: 12),
                                 child: Container(
                                   decoration: BoxDecoration(
-                                    color: theme.colorScheme.surface.withOpacity(0.8),
+                                    color: theme.colorScheme.surface.withValues(alpha: 0.8),
                                     borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(color: theme.colorScheme.surfaceVariant.withOpacity(0.5)),
+                                    border: Border.all(color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)),
                                   ),
                                   child: CashflowEventCard(event: event),
                                 ),
@@ -351,13 +360,13 @@ class _SettingsRow extends StatelessWidget {
                   const SizedBox(width: 16),
                   Text(title, style: TextStyle(fontSize: 17, color: Theme.of(context).colorScheme.onSurface)),
                   const Spacer(),
-                  Text(value, style: TextStyle(fontSize: 16, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
+                  Text(value, style: TextStyle(fontSize: 16, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5))),
                   const SizedBox(width: 8),
-                  Icon(CupertinoIcons.chevron_forward, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3), size: 18),
+                  Icon(CupertinoIcons.chevron_forward, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3), size: 18),
                 ],
               ),
             ),
-            if (!isLast) Padding(padding: const EdgeInsets.only(left: 56), child: Divider(height: 1, color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5))),
+            if (!isLast) Padding(padding: const EdgeInsets.only(left: 56), child: Divider(height: 1, color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5))),
           ],
         ),
       ),

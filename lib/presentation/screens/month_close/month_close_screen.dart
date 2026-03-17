@@ -4,11 +4,13 @@ import 'package:provider/provider.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../data/models/expense_category.dart';
 import '../../../l10n/app_localizations.dart';
-import '../../providers/home_provider.dart';
 import '../../widgets/action_plan_card.dart';
 import '../../widgets/adaptive_page_padding.dart';
 import '../../widgets/month_close_summary_card.dart';
 import '../../widgets/section_header.dart';
+
+// НОВЫЙ ПРОВАЙДЕР
+import '../../providers/insights_provider.dart';
 
 class MonthCloseScreen extends StatelessWidget {
   const MonthCloseScreen({super.key});
@@ -64,12 +66,12 @@ class MonthCloseScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<HomeProvider>();
+    final insights = context.watch<InsightsProvider>();
     final l10n = AppLocalizations.of(context);
     final now = DateTime.now();
 
-    final summary = provider.monthCloseSummary(now);
-    final actionPlan = provider.actionPlan(now);
+    final summary = insights.monthCloseSummary(now);
+    final actionPlan = insights.actionPlan(now);
 
     return Scaffold(
       appBar: AppBar(

@@ -3,7 +3,9 @@ import 'package:provider/provider.dart';
 
 import '../../../core/utils/responsive.dart';
 import '../../../l10n/app_localizations.dart';
-import '../../providers/home_provider.dart';
+
+// НОВЫЙ ПРОВАЙДЕР
+import '../../providers/settings_provider.dart';
 
 class PremiumScreen extends StatelessWidget {
   const PremiumScreen({super.key});
@@ -11,7 +13,7 @@ class PremiumScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final provider = context.watch<HomeProvider>();
+    final settings = context.watch<SettingsProvider>();
 
     return Scaffold(
       appBar: AppBar(
@@ -51,7 +53,7 @@ class PremiumScreen extends StatelessWidget {
             SizedBox(height: Responsive.sectionGap(context)),
             FilledButton(
               onPressed: () async {
-                await provider.setPremium(true);
+                await settings.setPremium(true);
                 if (context.mounted) {
                   Navigator.of(context).pop();
                 }
@@ -60,9 +62,9 @@ class PremiumScreen extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             OutlinedButton(
-              onPressed: provider.isPremium
+              onPressed: settings.isPremium
                   ? () async {
-                await provider.setPremium(false);
+                await settings.setPremium(false);
               }
                   : null,
               child: Text(l10n.premiumDisableDebugButton),

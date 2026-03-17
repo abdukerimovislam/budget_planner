@@ -14,7 +14,6 @@ import '../../../data/models/expense_source_type.dart';
 import '../../../data/models/parsed_expense_input_model.dart';
 import '../../../data/models/receipt_parsed_data_model.dart';
 import '../../../data/models/receipt_review_model.dart';
-import '../../../data/models/receipt_scan_result_model.dart';
 import '../../../domain/services/currency_conversion_service.dart';
 import '../../../domain/services/premium_feature.dart';
 import '../../../domain/services/receipt_parser_service.dart';
@@ -22,13 +21,16 @@ import '../../../domain/services/receipt_scan_service.dart';
 import '../../../domain/services/smart_expense_parser.dart';
 import '../../../domain/services/voice_input_service.dart';
 import '../../../l10n/app_localizations.dart';
-import '../../providers/home_provider.dart';
 import '../../widgets/adaptive_page_padding.dart';
 import '../../widgets/add_expense_source_selector.dart';
 import '../../widgets/custom_category_sheet.dart';
 import '../premium/premium_screen.dart';
 import '../receipt_review/receipt_review_screen.dart';
 import '../qr_scanner/qr_scanner_screen.dart';
+
+// НОВЫЕ ПРОВАЙДЕРЫ
+import '../../providers/settings_provider.dart';
+import '../../providers/transactions_provider.dart';
 
 class AddExpenseScreen extends StatefulWidget {
   final ExpenseCategory? initialCategory;
@@ -97,10 +99,10 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     super.initState();
     _isIncome = widget.initialIsIncome;
 
-    final provider = context.read<HomeProvider>();
-    _userCurrency = provider.activeCurrency;
+    final settings = context.read<SettingsProvider>();
+    _userCurrency = settings.activeCurrency;
 
-    if (provider.canUseFeature(PremiumFeature.multiCurrency)) {
+    if (settings.canUseFeature(PremiumFeature.multiCurrency)) {
       _selectedCurrency = _userCurrency;
     } else {
       _selectedCurrency = _userCurrency;
@@ -195,9 +197,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     return isRu ? ru : en;
   }
 
-  // === ИСПРАВЛЕНИЕ: Санитайзер чисел (Убирает пробелы 1 500 -> 1500 и запятые 15,5 -> 15.5) ===
   String _sanitizeNumbers(String text) {
-    // \s и \u00A0 захватывают обычные и неразрывные пробелы (которые любят ставить iOS/Android клавиатуры)
     String sanitized = text.replaceAllMapped(RegExp(r'(\d)[\s\u00A0]+(?=\d)'), (m) => m.group(1)!);
     sanitized = sanitized.replaceAllMapped(RegExp(r'(\d),(?=\d)'), (m) => '${m.group(1)}.');
     return sanitized;
@@ -254,7 +254,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     final localParsed = _parser.parse(sanitizedText);
 
     setState(() {
-      final hasPremium = context.read<HomeProvider>().canUseFeature(PremiumFeature.multiCurrency);
+      final hasPremium = context.read<SettingsProvider>().canUseFeature(PremiumFeature.multiCurrency);
       if (localParsed.currency != null && hasPremium) {
         _selectedCurrency = localParsed.currency!;
       }
@@ -264,7 +264,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         currency: hasPremium ? (localParsed.currency ?? _selectedCurrency) : _userCurrency,
         category: _selectedCategory ?? localParsed.category ?? widget.initialCategory ?? ExpenseCategory.other,
         merchant: localParsed.merchant,
-        rawText: text, // Оставляем сырой текст для красоты
+        rawText: text,
       );
     });
 
@@ -284,14 +284,14 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
         setState(() {
           _isAiParsing = false;
-          final hasPremium = context.read<HomeProvider>().canUseFeature(PremiumFeature.multiCurrency);
+          final hasPremium = context.read<SettingsProvider>().canUseFeature(PremiumFeature.multiCurrency);
 
           if (aiParsed.currency != null && hasPremium) {
             _selectedCurrency = aiParsed.currency!;
           }
 
           _parsed = ParsedExpenseInputModel(
-            amount: aiParsed.amount ?? _parsed?.amount, // Если ИИ не понял цифру, берем из локального
+            amount: aiParsed.amount ?? _parsed?.amount,
             currency: hasPremium ? (aiParsed.currency ?? _selectedCurrency) : _userCurrency,
             category: _selectedCategory != null ? _selectedCategory! : (aiParsed.category ?? ExpenseCategory.other),
             merchant: aiParsed.merchant ?? _parsed?.merchant,
@@ -314,20 +314,18 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
     final sanitizedText = _sanitizeNumbers(text);
 
-    // Параллельно запускаем оба парсера (чтобы локальный подстраховал ИИ)
     final localParsed = _parser.parse(sanitizedText);
     final aiParsed = await _parser.parseWithAI(sanitizedText, _selectedCurrency);
 
     if (!mounted) return;
 
-    final hasPremium = context.read<HomeProvider>().canUseFeature(PremiumFeature.multiCurrency);
+    final hasPremium = context.read<SettingsProvider>().canUseFeature(PremiumFeature.multiCurrency);
 
     setState(() {
       _isAiParsing = false;
       if (aiParsed.currency != null && hasPremium) _selectedCurrency = aiParsed.currency!;
 
       _parsed = ParsedExpenseInputModel(
-        // ИСПРАВЛЕНИЕ: Супер-страховка. Если ИИ вернул null, берем сумму из локального парсера
         amount: aiParsed.amount ?? localParsed.amount,
         currency: hasPremium ? (aiParsed.currency ?? _selectedCurrency) : _userCurrency,
         category: _selectedCategory ?? aiParsed.category ?? localParsed.category ?? widget.initialCategory ?? ExpenseCategory.other,
@@ -339,7 +337,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
   void _parseReceiptText(String text) {
     final parsedReceipt = _receiptParserService.parse(text);
-    final hasPremium = context.read<HomeProvider>().canUseFeature(PremiumFeature.multiCurrency);
+    final hasPremium = context.read<SettingsProvider>().canUseFeature(PremiumFeature.multiCurrency);
 
     setState(() {
       _receiptPreviewText = text;
@@ -401,8 +399,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   }
 
   void _handleCurrencyTap() {
-    final provider = context.read<HomeProvider>();
-    if (!provider.canUseFeature(PremiumFeature.multiCurrency)) {
+    final settings = context.read<SettingsProvider>();
+    if (!settings.canUseFeature(PremiumFeature.multiCurrency)) {
       Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const PremiumScreen()));
       return;
     }
@@ -442,8 +440,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   }
 
   Future<void> _handleAutoConvert() async {
-    final provider = context.read<HomeProvider>();
-    if (!provider.canUseFeature(PremiumFeature.multiCurrency)) {
+    final settings = context.read<SettingsProvider>();
+    if (!settings.canUseFeature(PremiumFeature.multiCurrency)) {
       Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const PremiumScreen()));
       return;
     }
@@ -574,7 +572,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
     if (!mounted || review == null) return;
 
-    final hasPremium = context.read<HomeProvider>().canUseFeature(PremiumFeature.multiCurrency);
+    final hasPremium = context.read<SettingsProvider>().canUseFeature(PremiumFeature.multiCurrency);
 
     setState(() {
       if (hasPremium && review.currency != null) _selectedCurrency = review.currency!;
@@ -609,10 +607,11 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
     HapticFeedback.mediumImpact();
 
-    final provider = context.read<HomeProvider>();
-    final hasPremium = provider.canUseFeature(PremiumFeature.multiCurrency);
+    final settings = context.read<SettingsProvider>();
+    final transactions = context.read<TransactionsProvider>();
+    final hasPremium = settings.canUseFeature(PremiumFeature.multiCurrency);
 
-    await provider.addExpense(
+    await transactions.addExpense(
       ExpenseModel(
         id: const Uuid().v4(),
         amount: parsed.amount!,
@@ -691,8 +690,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     final isDark = theme.brightness == Brightness.dark;
     final backgroundColor = isDark ? Colors.black : const Color(0xFFF2F2F7);
 
-    final provider = context.watch<HomeProvider>();
-    final customCategories = provider.customCategories;
+    final settings = context.watch<SettingsProvider>();
+    final customCategories = settings.customCategories;
 
     final systemCategories = _isIncome
         ? [ExpenseCategory.other, ExpenseCategory.gifts]
@@ -737,11 +736,11 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
             AddExpenseSourceSelector(
               value: _sourceMode,
               onChanged: (mode) {
-                if (mode == AddExpenseSourceMode.voice && !provider.canUseFeature(PremiumFeature.voiceInput)) {
+                if (mode == AddExpenseSourceMode.voice && !settings.canUseFeature(PremiumFeature.voiceInput)) {
                   Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const PremiumScreen()));
                   return;
                 }
-                if (mode == AddExpenseSourceMode.receipt && !provider.canUseFeature(PremiumFeature.receiptOcr)) {
+                if (mode == AddExpenseSourceMode.receipt && !settings.canUseFeature(PremiumFeature.receiptOcr)) {
                   Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const PremiumScreen()));
                   return;
                 }
@@ -794,7 +793,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        if (!provider.canUseFeature(PremiumFeature.multiCurrency)) ...[
+                        if (!settings.canUseFeature(PremiumFeature.multiCurrency)) ...[
                           Icon(CupertinoIcons.lock_fill, size: 12, color: CupertinoColors.systemYellow),
                           const SizedBox(width: 6),
                         ],
@@ -826,7 +825,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                           if (_isConverting)
                             const CupertinoActivityIndicator(radius: 8)
                           else ...[
-                            if (!provider.canUseFeature(PremiumFeature.multiCurrency)) ...[
+                            if (!settings.canUseFeature(PremiumFeature.multiCurrency)) ...[
                               const Icon(CupertinoIcons.lock_fill, size: 12, color: CupertinoColors.activeOrange),
                               const SizedBox(width: 4),
                             ],

@@ -13,8 +13,8 @@ import '../../../data/models/insight_model.dart';
 import '../../../data/models/insight_type.dart';
 import '../../../domain/services/premium_feature.dart';
 import '../../../l10n/app_localizations.dart';
-import '../../providers/home_provider.dart';
 import '../../widgets/apple_section_header.dart';
+import '../../widgets/expense_edit_sheet.dart';
 import '../../widgets/expense_item_card.dart';
 import '../../widgets/hero_dashboard_card.dart';
 import '../../widgets/insight_card.dart';
@@ -29,6 +29,12 @@ import '../premium/premium_screen.dart';
 import '../profile/profile_screen.dart';
 import '../../widgets/custom_category_sheet.dart';
 import '../budget/budget_screen.dart';
+
+// ИМПОРТЫ НОВЫХ ПРОВАЙДЕРОВ
+import '../../providers/settings_provider.dart';
+import '../../providers/transactions_provider.dart';
+import '../../providers/budget_provider.dart';
+import '../../providers/insights_provider.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -161,8 +167,8 @@ class _HomeScreenState extends State<HomeScreen> {
     return sections;
   }
 
-  void _showCurrencyAccountSelector(BuildContext context, HomeProvider provider) {
-    if (!provider.canUseFeature(PremiumFeature.multiCurrency)) {
+  void _showCurrencyAccountSelector(BuildContext context, SettingsProvider settings) {
+    if (!settings.canUseFeature(PremiumFeature.multiCurrency)) {
       Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const PremiumScreen()));
       return;
     }
@@ -170,7 +176,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final allCurrencies = ['USD', 'EUR', 'GBP', 'RUB', 'KZT', 'KGS', 'UZS', 'UAH', 'BYN'];
 
     HapticFeedback.lightImpact();
-    int initialIndex = allCurrencies.indexOf(provider.activeCurrency);
+    int initialIndex = allCurrencies.indexOf(settings.activeCurrency);
     if (initialIndex == -1) initialIndex = 0;
 
     showCupertinoModalPopup(
@@ -192,7 +198,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   scrollController: FixedExtentScrollController(initialItem: initialIndex),
                   onSelectedItemChanged: (index) {
                     HapticFeedback.selectionClick();
-                    provider.setActiveCurrency(allCurrencies[index]);
+                    settings.setActiveCurrency(allCurrencies[index]);
                   },
                   children: allCurrencies.map((c) => Center(
                     child: Text('$c Account', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w600)),
@@ -206,16 +212,16 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  List<ExpenseModel> _getDisplayExpenses(HomeProvider provider) {
+  List<ExpenseModel> _getDisplayExpenses(TransactionsProvider tx, String activeCurrency) {
+    final activeExpenses = tx.expenses.where((e) => e.currency == activeCurrency).toList();
     if (_searchQuery.isEmpty) {
-      return provider.latestExpenses(limit: 5);
+      return activeExpenses.take(5).toList();
     } else {
       final query = _searchQuery.toLowerCase();
-      final filtered = provider.expenses.where((e) =>
-      e.currency == provider.activeCurrency &&
-          (e.merchant.toLowerCase().contains(query) ||
-              (e.note ?? '').toLowerCase().contains(query) ||
-              e.category.name.toLowerCase().contains(query))
+      final filtered = activeExpenses.where((e) =>
+      e.merchant.toLowerCase().contains(query) ||
+          (e.note ?? '').toLowerCase().contains(query) ||
+          e.category.name.toLowerCase().contains(query)
       ).toList();
       return filtered.take(15).toList();
     }
@@ -223,20 +229,24 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<HomeProvider>();
     final l10n = AppLocalizations.of(context);
     final now = DateTime.now();
 
-    final forecast = provider.forecastFor(now);
-    final totalSpent = provider.totalSpentThisMonth(now);
-    final healthScore = provider.healthScoreFor(now);
+    // ПОДКЛЮЧАЕМ НОВЫЕ ПРОВАЙДЕРЫ
+    final settings = context.watch<SettingsProvider>();
+    final tx = context.watch<TransactionsProvider>();
+    final insights = context.watch<InsightsProvider>();
 
-    final displayExpenses = _getDisplayExpenses(provider);
+    final forecast = insights.forecastFor(now);
+    final totalSpent = insights.totalSpentForMonth(now);
+    final healthScore = insights.healthScoreFor(now);
 
-    final insights = provider.insightsForMonth(now);
-    final dangerousCategory = provider.mostDangerousCategoryThisMonth(now);
+    final displayExpenses = _getDisplayExpenses(tx, settings.activeCurrency);
 
-    final lifeSpentDuration = provider.spentLifeDurationForMonth(now);
+    final aiInsights = insights.insightsForMonth(now);
+    final dangerousCategory = insights.mostDangerousCategoryThisMonth(now);
+
+    final lifeSpentDuration = insights.spentLifeDurationForMonth(now);
     final lifeSpentFormatted = _formatLifeTime(lifeSpentDuration);
 
     final itemGap = Responsive.itemGap(context);
@@ -247,8 +257,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final safeToSpendDaily = forecast != null && forecast.expectedRemaining > 0
         ? forecast.expectedRemaining / daysLeft : 0.0;
 
-    final activeCurrency = provider.activeCurrency;
-    final hasPremium = provider.canUseFeature(PremiumFeature.multiCurrency);
+    final activeCurrency = settings.activeCurrency;
+    final hasPremium = settings.canUseFeature(PremiumFeature.multiCurrency);
 
     return PremiumBackground(
       child: GestureDetector(
@@ -282,7 +292,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       Padding(
                         padding: const EdgeInsets.only(right: 8.0),
                         child: GestureDetector(
-                          onTap: () => _showCurrencyAccountSelector(context, provider),
+                          onTap: () => _showCurrencyAccountSelector(context, settings),
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             decoration: BoxDecoration(
@@ -354,7 +364,6 @@ class _HomeScreenState extends State<HomeScreen> {
                               physics: const BouncingScrollPhysics(),
                               onPageChanged: (idx) => setState(() => _currentHeroPage = idx),
                               children: [
-                                // ИСПРАВЛЕНИЕ: Добавлен Stack для вывода явной кнопки переключения (Glassmorphism)
                                 Stack(
                                   children: [
                                     GestureDetector(
@@ -393,7 +402,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                             child: Container(
                                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                               decoration: BoxDecoration(
-                                                color: Colors.white.withValues(alpha: 0.2), // Прозрачное стекло
+                                                color: Colors.white.withValues(alpha: 0.2),
                                                 borderRadius: BorderRadius.circular(20),
                                                 border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
                                               ),
@@ -452,7 +461,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                           SizedBox(height: sectionGap),
 
-                          if (insights.isNotEmpty && provider.canUseFeature(PremiumFeature.aiInsights)) ...[
+                          if (aiInsights.isNotEmpty && settings.canUseFeature(PremiumFeature.aiInsights)) ...[
                             AppleSectionHeader(
                               title: l10n.aiInsightsTitle,
                               action: 'Ask AI',
@@ -469,10 +478,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                 scrollDirection: Axis.horizontal,
                                 physics: const BouncingScrollPhysics(),
                                 clipBehavior: Clip.none,
-                                itemCount: insights.length,
+                                itemCount: aiInsights.length,
                                 separatorBuilder: (_, __) => const SizedBox(width: 16),
                                 itemBuilder: (context, index) {
-                                  final insight = insights[index];
+                                  final insight = aiInsights[index];
                                   final isWarning = insight.type == InsightType.warning;
                                   final color = isWarning ? CupertinoColors.systemOrange : CupertinoColors.activeBlue;
                                   final icon = isWarning ? CupertinoIcons.exclamationmark_triangle_fill : CupertinoIcons.lightbulb_fill;
@@ -579,7 +588,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                               SlidableAction(
                                                 onPressed: (_) {
                                                   HapticFeedback.lightImpact();
-                                                  provider.duplicateExpense(expense);
+                                                  tx.duplicateExpense(expense);
                                                   ScaffoldMessenger.of(context).showSnackBar(
                                                     SnackBar(
                                                       content: const Text('Транзакция продублирована'),
@@ -599,9 +608,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                             motion: const StretchMotion(),
                                             children: [
                                               SlidableAction(
-                                                onPressed: (_) {
+                                                onPressed: (_) async {
                                                   HapticFeedback.mediumImpact();
-                                                  provider.deleteExpense(expense.id);
+                                                  await tx.deleteExpense(expense.id);
+                                                  if (!context.mounted) return;
                                                   ScaffoldMessenger.of(context).clearSnackBars();
                                                   ScaffoldMessenger.of(context).showSnackBar(
                                                     SnackBar(
@@ -612,7 +622,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                         label: 'Отмена',
                                                         textColor: Theme.of(context).colorScheme.primary,
                                                         onPressed: () {
-                                                          provider.addExpense(expense);
+                                                          tx.addExpense(expense);
                                                         },
                                                       ),
                                                     ),
@@ -627,8 +637,17 @@ class _HomeScreenState extends State<HomeScreen> {
                                           ),
                                           child: ExpenseItemCard(
                                               expense: expense,
-                                              incomeProfile: provider.incomeProfile,
-                                              onTap: () => provider.openExpenseEditor(context, expense)
+                                              incomeProfile: settings.incomeProfile,
+                                              onTap: () async {
+                                                final result = await showModalBottomSheet<ExpenseEditResult>(
+                                                  context: context,
+                                                  isScrollControlled: true,
+                                                  builder: (_) => ExpenseEditSheet(expense: expense),
+                                                );
+                                                if (result != null) {
+                                                  await tx.updateExpense(expense.id, result);
+                                                }
+                                              }
                                           ),
                                         ),
                                         if (!isLast) Padding(padding: const EdgeInsets.only(left: 64), child: Divider(height: 1, color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5))),

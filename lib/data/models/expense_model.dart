@@ -1,22 +1,40 @@
+import 'package:isar/isar.dart';
+
 import 'expense_category.dart';
 import 'expense_source_type.dart';
 
+// Этот файл будет сгенерирован автоматически на следующем шаге
+part 'expense_model.g.dart';
+
+@collection
 class ExpenseModel {
+  // Внутренний быстрый ID для базы данных Isar
+  Id isarId = Isar.autoIncrement;
+
+  // Твой строковый UUID. Индекс ускоряет поиск, unique не дает создать дубликаты
+  @Index(unique: true, replace: true)
   final String id;
+
   final double amount;
   final String currency;
+
+  @Enumerated(EnumType.name)
   final ExpenseCategory category;
+
   final String? customCategoryId;
   final String merchant;
   final String? note;
   final DateTime date;
+
+  @Enumerated(EnumType.name)
   final ExpenseSourceType sourceType;
+
   final bool isRecurring;
   final String? recurringGroupId;
   final DateTime createdAt;
   final bool isIncome;
 
-  const ExpenseModel({
+  ExpenseModel({
     required this.id,
     required this.amount,
     required this.currency,
@@ -38,7 +56,7 @@ class ExpenseModel {
     String? currency,
     ExpenseCategory? category,
     String? customCategoryId,
-    bool clearCustomCategory = false, // ИСПРАВЛЕНИЕ БАГА №1: Флаг принудительной очистки
+    bool clearCustomCategory = false,
     String? merchant,
     String? note,
     DateTime? date,
@@ -53,7 +71,6 @@ class ExpenseModel {
       amount: amount ?? this.amount,
       currency: currency ?? this.currency,
       category: category ?? this.category,
-      // Если просят очистить - ставим null, иначе берем новое значение или старое
       customCategoryId: clearCustomCategory ? null : (customCategoryId ?? this.customCategoryId),
       merchant: merchant ?? this.merchant,
       note: note ?? this.note,

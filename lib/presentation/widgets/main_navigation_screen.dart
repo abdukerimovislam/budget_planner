@@ -3,9 +3,13 @@ import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 
 import '../../l10n/app_localizations.dart';
-import '../providers/home_provider.dart';
-import '../screens/analytics/analytics_screen.dart'; // Объединенная Аналитика + Бюджет
-import '../screens/expenses/expenses_screen.dart'; // Наша новая вкладка История
+
+// НОВЫЕ ПРОВАЙДЕРЫ
+import '../providers/settings_provider.dart';
+import '../providers/transactions_provider.dart';
+
+import '../screens/analytics/analytics_screen.dart';
+import '../screens/expenses/expenses_screen.dart';
 import '../screens/cashflow/cashflow_screen.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/month_close/month_close_screen.dart';
@@ -21,24 +25,25 @@ class MainNavigationScreen extends StatefulWidget {
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _currentIndex = 0;
 
-  // ИСПРАВЛЕНИЕ: Новый, более логичный стек экранов
   late final List<Widget> _screens = const [
-    HomeScreen(),         // Главная
-    AnalyticsScreen(),    // Планирование (Аналитика + Бюджет)
-    ExpensesScreen(),     // История транзакций (ВМЕСТО ОТДЕЛЬНОГО БЮДЖЕТА)
-    DebtsScreen(),        // Долги
-    CashflowScreen(),     // Денежный поток / Цели
+    HomeScreen(),
+    AnalyticsScreen(),
+    ExpensesScreen(),
+    DebtsScreen(),
+    CashflowScreen(),
   ];
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final provider = context.watch<HomeProvider>();
 
-    if (provider.isInitialized && provider.needsMonthClose) {
+    final settings = context.watch<SettingsProvider>();
+    final tx = context.watch<TransactionsProvider>();
+
+    if (settings.isInitialized && tx.needsMonthClose) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        provider.markMonthCloseAsSeen();
+        tx.markMonthCloseAsSeen();
         Navigator.of(context).push(
           CupertinoPageRoute(
             builder: (_) => const MonthCloseScreen(),
@@ -71,7 +76,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             selectedIcon: const Icon(Icons.pie_chart_rounded),
             label: 'Аналитика',
           ),
-          // НОВАЯ ВСТАВКА: История транзакций (Посередине, чтобы было удобно)
           const NavigationDestination(
             icon: Icon(Icons.list_alt_rounded),
             selectedIcon: Icon(Icons.receipt_long_rounded),

@@ -1,5 +1,17 @@
+import 'package:isar/isar.dart';
+
+// Этот файл сгенерирует Isar
+part 'recurring_bill_model.g.dart';
+
+@collection
 class RecurringBillModel {
+  // Внутренний быстрый ID для базы данных Isar
+  Id isarId = Isar.autoIncrement;
+
+  // Твой строковый UUID. Индекс ускоряет поиск, unique не дает создать дубликаты
+  @Index(unique: true, replace: true)
   final String id;
+
   final String title;
   final double amount;
   final String currency;
@@ -7,7 +19,7 @@ class RecurringBillModel {
   final bool isActive;
   final DateTime createdAt;
 
-  const RecurringBillModel({
+  RecurringBillModel({
     required this.id,
     required this.title,
     required this.amount,

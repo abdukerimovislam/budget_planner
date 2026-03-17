@@ -3,10 +3,12 @@ import 'package:provider/provider.dart';
 
 import '../../../core/utils/responsive.dart';
 import '../../../l10n/app_localizations.dart';
-import '../../providers/home_provider.dart';
 import '../../widgets/adaptive_page_padding.dart';
 import '../../widgets/section_header.dart';
 import '../../widgets/subscription_candidate_card.dart';
+
+// НОВЫЙ ПРОВАЙДЕР
+import '../../providers/insights_provider.dart';
 
 class SubscriptionsScreen extends StatelessWidget {
   const SubscriptionsScreen({super.key});
@@ -18,10 +20,11 @@ class SubscriptionsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<HomeProvider>();
+    final insights = context.watch<InsightsProvider>();
     final l10n = AppLocalizations.of(context);
 
-    final subscriptions = provider.detectedSubscriptions();
+    // Берем данные о подписках из InsightsProvider
+    final subscriptions = insights.detectedSubscriptions();
     final monthlyTotal = subscriptions.fold<double>(
       0,
           (sum, item) => sum + item.estimatedMonthlyCost,

@@ -8,11 +8,13 @@ import 'package:flutter/services.dart';
 import '../core/localization/locale_controller.dart';
 import '../data/datasources/local/local_storage_service.dart';
 import '../l10n/app_localizations.dart';
-import '../presentation/providers/home_provider.dart';
 import '../presentation/screens/onboarding/onboarding_screen.dart';
 import '../presentation/widgets/main_navigation_screen.dart';
 import 'app_state.dart';
 import 'theme/app_theme.dart';
+
+// НОВЫЙ ИМПОРТ
+import '../presentation/providers/settings_provider.dart';
 
 class BudgetPlannerApp extends StatefulWidget {
   const BudgetPlannerApp({super.key});
@@ -28,7 +30,6 @@ class _BudgetPlannerAppState extends State<BudgetPlannerApp> with WidgetsBinding
   bool _isCheckingAuth = false;
   bool _showPrivacyScreen = false;
 
-  // ФЛАГ ДЛЯ ПРЕДОТВРАЩЕНИЯ БЕСКОНЕЧНОГО ЦИКЛА
   bool _isAuthenticatingSystem = false;
 
   @override
@@ -48,7 +49,6 @@ class _BudgetPlannerAppState extends State<BudgetPlannerApp> with WidgetsBinding
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
 
-    // Если сейчас показывается системное окно FaceID, игнорируем сворачивание
     if (_isAuthenticatingSystem) return;
 
     final isProtectionEnabled = LocalStorageService.instance.isBiometricAuthEnabled();
@@ -71,7 +71,12 @@ class _BudgetPlannerAppState extends State<BudgetPlannerApp> with WidgetsBinding
 
     await context.read<AppState>().load();
     await context.read<LocaleController>().load();
-    await context.read<HomeProvider>().load();
+
+    // Ждем инициализации SettingsProvider
+    final settings = context.read<SettingsProvider>();
+    if (!settings.isInitialized) {
+      await settings.load();
+    }
 
     final isProtectionEnabled = LocalStorageService.instance.isBiometricAuthEnabled();
     if (isProtectionEnabled && context.read<AppState>().isOnboardingCompleted) {
@@ -97,7 +102,7 @@ class _BudgetPlannerAppState extends State<BudgetPlannerApp> with WidgetsBinding
     bool authenticated = false;
 
     try {
-      _isAuthenticatingSystem = true; // Блокируем слушатель жизненного цикла
+      _isAuthenticatingSystem = true;
       authenticated = await auth.authenticate(
         localizedReason: 'Отсканируйте лицо для доступа к финансам',
         options: const AuthenticationOptions(
@@ -109,7 +114,7 @@ class _BudgetPlannerAppState extends State<BudgetPlannerApp> with WidgetsBinding
     } on PlatformException catch (e) {
       debugPrint('Biometric Auth Error: ${e.message}');
     } finally {
-      _isAuthenticatingSystem = false; // Разблокируем слушатель
+      _isAuthenticatingSystem = false;
       if (mounted) {
         setState(() {
           _isAuthenticated = authenticated;

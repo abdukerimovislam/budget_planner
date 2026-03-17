@@ -12,12 +12,16 @@ import '../../../data/models/expense_category.dart';
 import '../../../data/models/expense_model.dart';
 import '../../../domain/services/premium_feature.dart';
 import '../../../l10n/app_localizations.dart';
-import '../../providers/home_provider.dart';
 import '../../widgets/adaptive_page_padding.dart';
 import '../../widgets/health_score_explainer_card.dart';
 import '../../widgets/insight_card.dart';
 import '../premium/premium_screen.dart';
 import 'category_details_screen.dart';
+
+// НОВЫЕ ПРОВАЙДЕРЫ
+import '../../providers/settings_provider.dart';
+import '../../providers/transactions_provider.dart';
+import '../../providers/insights_provider.dart';
 
 class _DetailedCategoryStat {
   final ExpenseCategory category;
@@ -48,8 +52,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     return value.toStringAsFixed(2);
   }
 
-  void _showCurrencyAccountSelector(BuildContext context, HomeProvider provider) {
-    if (!provider.canUseFeature(PremiumFeature.multiCurrency)) {
+  void _showCurrencyAccountSelector(BuildContext context, SettingsProvider settings) {
+    if (!settings.canUseFeature(PremiumFeature.multiCurrency)) {
       Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const PremiumScreen()));
       return;
     }
@@ -57,7 +61,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     final allCurrencies = ['USD', 'EUR', 'GBP', 'RUB', 'KZT', 'KGS', 'UZS', 'UAH', 'BYN'];
 
     HapticFeedback.lightImpact();
-    int initialIndex = allCurrencies.indexOf(provider.activeCurrency);
+    int initialIndex = allCurrencies.indexOf(settings.activeCurrency);
     if (initialIndex == -1) initialIndex = 0;
 
     showCupertinoModalPopup(
@@ -79,7 +83,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   scrollController: FixedExtentScrollController(initialItem: initialIndex),
                   onSelectedItemChanged: (index) {
                     HapticFeedback.selectionClick();
-                    provider.setActiveCurrency(allCurrencies[index]);
+                    settings.setActiveCurrency(allCurrencies[index]);
                   },
                   children: allCurrencies.map((c) => Center(
                     child: Text('$c Account', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w600)),
@@ -108,18 +112,23 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<HomeProvider>();
     final l10n = AppLocalizations.of(context);
     final now = DateTime.now();
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    final currentMonthExpenses = provider.expensesForMonth(now).where((e) => !e.isIncome).toList();
-    final previousMonthExpenses = provider.expensesForPreviousMonth(now).where((e) => !e.isIncome).toList();
+    final settings = context.watch<SettingsProvider>();
+    final tx = context.watch<TransactionsProvider>();
+    final insightsProv = context.watch<InsightsProvider>();
 
-    final String currency = provider.activeCurrency;
+    final previousMonthDate = DateTime(now.year, now.month - 1, 1);
 
-    final totalSpent = provider.totalSpentThisMonth(now);
+    final currentMonthExpenses = tx.expensesForMonth(now).where((e) => !e.isIncome).toList();
+    final previousMonthExpenses = tx.expensesForMonth(previousMonthDate).where((e) => !e.isIncome).toList();
+
+    final String currency = settings.activeCurrency;
+
+    final totalSpent = insightsProv.totalSpentForMonth(now);
     final lastMonthTotal = previousMonthExpenses.fold<double>(0, (sum, e) => sum + e.amount);
 
     final diff = totalSpent - lastMonthTotal;
@@ -146,8 +155,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
     final sortedStats = breakdown.values.toList()..sort((a, b) => b.amount.compareTo(a.amount));
 
-    final insights = provider.insightsForMonth(now);
-    final healthScore = provider.healthScoreFor(now);
+    final insights = insightsProv.insightsForMonth(now);
+    final healthScore = insightsProv.healthScoreFor(now);
 
     final sections = sortedStats.asMap().entries.map((entry) {
       final index = entry.key;
@@ -172,7 +181,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       );
     }).toList();
 
-    final hasPremium = provider.canUseFeature(PremiumFeature.multiCurrency);
+    final hasPremium = settings.canUseFeature(PremiumFeature.multiCurrency);
 
     return Scaffold(
       backgroundColor: isDark ? Colors.black : const Color(0xFFF2F2F7),
@@ -212,7 +221,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   Padding(
                     padding: const EdgeInsets.only(right: 16.0),
                     child: GestureDetector(
-                      onTap: () => _showCurrencyAccountSelector(context, provider),
+                      onTap: () => _showCurrencyAccountSelector(context, settings),
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         decoration: BoxDecoration(

@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'dart:convert'; // Добавлено для работы с кодировкой UTF-8
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
@@ -14,12 +14,16 @@ import '../../../core/utils/responsive.dart';
 import '../../../data/datasources/local/local_storage_service.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../monthly_report/monthly_report_screen.dart';
-import '../../providers/home_provider.dart';
 import '../../widgets/financial_level_card.dart';
 import '../../widgets/premium_background.dart';
 import '../../widgets/streak_card.dart';
 import '../achievements/achievements_screen.dart';
 import '../premium/premium_screen.dart';
+
+// НОВЫЕ ПРОВАЙДЕРЫ
+import '../../providers/settings_provider.dart';
+import '../../providers/transactions_provider.dart';
+import '../../providers/insights_provider.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -77,9 +81,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Future<void> _exportToCsv(BuildContext context, HomeProvider provider) async {
+  Future<void> _exportToCsv(BuildContext context, TransactionsProvider txProvider) async {
     try {
-      final expenses = provider.expenses;
+      final expenses = txProvider.expenses;
       if (expenses.isEmpty) {
         _showSnack(context, 'Нет данных для экспорта');
         return;
@@ -104,7 +108,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // Генерируем CSV формат вручную. Это надежно и оборачивает всё в кавычки.
       String csvData = rows.map((row) {
         return row.map((item) {
-          // Экранируем кавычки внутри текста и оборачиваем ячейку
           String str = item.toString().replaceAll('"', '""');
           return '"$str"';
         }).join(',');
@@ -114,7 +117,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final path = '${directory.path}/budget_planner_export_${DateTime.now().millisecondsSinceEpoch}.csv';
       final file = File(path);
 
-      // ИСПРАВЛЕНИЕ: Добавляем BOM (Byte Order Mark), чтобы Excel правильно читал кириллицу
       await file.writeAsBytes([0xEF, 0xBB, 0xBF, ...utf8.encode(csvData)]);
 
       if (!mounted) return;
@@ -141,9 +143,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return isRu ? ru : en;
   }
 
-  void _showCurrencyPicker(BuildContext context, HomeProvider provider) {
+  void _showCurrencyPicker(BuildContext context, SettingsProvider settings) {
     final currencies = ['USD', 'EUR', 'GBP', 'RUB', 'KZT', 'KGS', 'UZS', 'UAH', 'BYN'];
-    final currentCurrency = provider.incomeProfile?.currency ?? 'USD';
+    final currentCurrency = settings.incomeProfile?.currency ?? 'USD';
     int selectedIndex = currencies.indexOf(currentCurrency);
     if (selectedIndex == -1) selectedIndex = 0;
 
@@ -161,9 +163,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             scrollController: FixedExtentScrollController(initialItem: selectedIndex),
             onSelectedItemChanged: (index) {
               HapticFeedback.selectionClick();
-              if (provider.incomeProfile != null) {
-                provider.setIncomeProfile(
-                    provider.incomeProfile!.copyWith(currency: currencies[index])
+              if (settings.incomeProfile != null) {
+                settings.setIncomeProfile(
+                    settings.incomeProfile!.copyWith(currency: currencies[index])
                 );
               }
             },
@@ -179,12 +181,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final provider = context.watch<HomeProvider>();
 
-    final streak = provider.streakSummary();
-    final report = provider.monthlyReport(DateTime.now());
-    final isPremium = provider.isPremium;
-    final currentCurrency = provider.incomeProfile?.currency ?? 'USD';
+    final settings = context.watch<SettingsProvider>();
+    final insights = context.watch<InsightsProvider>();
+    final tx = context.watch<TransactionsProvider>();
+
+    final streak = insights.streakSummary();
+    final report = insights.monthlyReport(DateTime.now());
+    final isPremium = settings.isPremium;
+    final currentCurrency = settings.incomeProfile?.currency ?? 'USD';
     final theme = Theme.of(context);
 
     return PremiumBackground(
@@ -242,7 +247,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           currentCurrency,
                           style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 16, fontWeight: FontWeight.w600),
                         ),
-                        onTap: () => _showCurrencyPicker(context, provider),
+                        onTap: () => _showCurrencyPicker(context, settings),
                       ),
                       _SettingsRow(
                         icon: CupertinoIcons.lock_shield_fill,
@@ -268,7 +273,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         iconColor: CupertinoColors.systemTeal,
                         title: _t(context, 'Export to CSV', 'Экспорт в CSV (Excel)'),
                         subtitle: _t(context, 'Download your full transaction history', 'Скачать полную историю транзакций'),
-                        onTap: () => _exportToCsv(context, provider),
+                        onTap: () => _exportToCsv(context, tx),
                         isLast: true,
                       ),
                     ],
@@ -359,10 +364,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
           CupertinoDialogAction(isDefaultAction: true, child: Text(l10n.cancelButton), onPressed: () => Navigator.pop(ctx)),
           CupertinoDialogAction(
             isDestructiveAction: true, child: Text(l10n.deleteButton),
-            onPressed: () {
-              context.read<HomeProvider>().clearAllData();
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.dataClearedMessage), behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
+            onPressed: () async {
+              await LocalStorageService.instance.clearAll();
+              if (context.mounted) {
+                // Перезагружаем провайдеры (чтобы очистить стейты)
+                context.read<SettingsProvider>().load();
+                context.read<TransactionsProvider>().load();
+
+                context.read<AppState>().resetOnboarding();
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.dataClearedMessage), behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
+              }
             },
           ),
         ],

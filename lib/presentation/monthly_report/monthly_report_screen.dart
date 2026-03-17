@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 
-import '../../../core/utils/category_extension.dart'; // <-- ИМПОРТ
-import '../../../core/utils/responsive.dart';
-import '../../../l10n/app_localizations.dart';
+import '../../core/utils/category_extension.dart';
+import '../../core/utils/responsive.dart';
+import '../../data/models/expense_category.dart';
 import '../../data/models/financial_level_model.dart';
-import '../providers/home_provider.dart';
+import '../../l10n/app_localizations.dart';
+
+// НОВЫЙ ПРОВАЙДЕР
+import '../providers/insights_provider.dart';
+
 import '../screens/share_card/share_card_screen.dart';
 import '../widgets/adaptive_page_padding.dart';
 import '../widgets/monthly_report_card.dart';
@@ -39,11 +44,11 @@ class MonthlyReportScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<HomeProvider>();
+    final insights = context.watch<InsightsProvider>();
     final l10n = AppLocalizations.of(context);
     final now = DateTime.now();
 
-    final report = provider.monthlyReport(now);
+    final report = insights.monthlyReport(now);
 
     return Scaffold(
       appBar: AppBar(

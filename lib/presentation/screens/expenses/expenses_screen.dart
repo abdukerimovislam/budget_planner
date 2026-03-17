@@ -3,7 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
-import 'package:flutter_slidable/flutter_slidable.dart'; // Добавляем Slidable для красивых свайпов
+import 'package:flutter_slidable/flutter_slidable.dart';
 
 import '../../../core/utils/category_extension.dart';
 import '../../../core/utils/responsive.dart';
@@ -12,13 +12,16 @@ import '../../../data/models/expense_filter_model.dart';
 import '../../../data/models/expense_model.dart';
 import '../../../domain/services/premium_feature.dart';
 import '../../../l10n/app_localizations.dart';
-import '../../providers/home_provider.dart';
 import '../../widgets/adaptive_page_padding.dart';
 import '../../widgets/expense_edit_sheet.dart';
 import '../../widgets/expense_filter_bar.dart';
 import '../../widgets/expense_item_card.dart';
 import '../../widgets/premium_background.dart';
 import '../premium/premium_screen.dart';
+
+// НОВЫЕ ПРОВАЙДЕРЫ
+import '../../providers/settings_provider.dart';
+import '../../providers/transactions_provider.dart';
 
 class ExpensesScreen extends StatefulWidget {
   const ExpensesScreen({super.key});
@@ -75,13 +78,13 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
   }
 
   void _duplicateExpense(ExpenseModel expense) {
-    final provider = context.read<HomeProvider>();
+    final tx = context.read<TransactionsProvider>();
     final duplicated = expense.copyWith(
       id: const Uuid().v4(),
       date: DateTime.now(),
       createdAt: DateTime.now(),
     );
-    provider.addExpense(duplicated);
+    tx.addExpense(duplicated);
 
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
@@ -94,8 +97,8 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
   }
 
   void _deleteWithUndo(ExpenseModel expense) {
-    final provider = context.read<HomeProvider>();
-    provider.deleteExpense(expense.id);
+    final tx = context.read<TransactionsProvider>();
+    tx.deleteExpense(expense.id);
 
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
@@ -106,7 +109,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
         action: SnackBarAction(
           label: 'Отмена',
           textColor: Theme.of(context).colorScheme.primary,
-          onPressed: () => provider.addExpense(expense),
+          onPressed: () => tx.addExpense(expense),
         ),
       ),
     );
@@ -114,11 +117,11 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
 
   void _bulkDelete(List<ExpenseModel> allFiltered) {
     HapticFeedback.mediumImpact();
-    final provider = context.read<HomeProvider>();
+    final tx = context.read<TransactionsProvider>();
     final toDelete = allFiltered.where((e) => _selectedIds.contains(e.id)).toList();
 
     for (final expense in toDelete) {
-      provider.deleteExpense(expense.id);
+      tx.deleteExpense(expense.id);
     }
 
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
@@ -131,7 +134,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
           label: 'Отмена',
           textColor: Theme.of(context).colorScheme.primary,
           onPressed: () {
-            for (final expense in toDelete) provider.addExpense(expense);
+            for (final expense in toDelete) tx.addExpense(expense);
           },
         ),
       ),
@@ -142,7 +145,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
 
   Future<void> _bulkChangeCategory(List<ExpenseModel> allFiltered) async {
     HapticFeedback.lightImpact();
-    final provider = context.read<HomeProvider>();
+    final tx = context.read<TransactionsProvider>();
     final toChange = allFiltered.where((e) => _selectedIds.contains(e.id)).toList();
 
     final availableCategories = ExpenseCategory.values.where((c) => c != ExpenseCategory.custom).toList();
@@ -169,7 +172,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
 
     if (category != null) {
       for (final expense in toChange) {
-        provider.updateExpense(
+        tx.updateExpense(
           expense.id,
           ExpenseEditResult(
             amount: expense.amount,
@@ -198,17 +201,17 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     }
   }
 
-  void _showCurrencyAccountSelector(BuildContext context, HomeProvider provider) {
-    if (!provider.canUseFeature(PremiumFeature.multiCurrency)) {
+  void _showCurrencyAccountSelector(BuildContext context, SettingsProvider settings) {
+    if (!settings.canUseFeature(PremiumFeature.multiCurrency)) {
       Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const PremiumScreen()));
       return;
     }
 
-    final available = provider.availableUserCurrencies;
+    final available = settings.availableUserCurrencies;
     if (available.length <= 1) return;
 
     HapticFeedback.lightImpact();
-    int initialIndex = available.indexOf(provider.activeCurrency);
+    int initialIndex = available.indexOf(settings.activeCurrency);
     if (initialIndex == -1) initialIndex = 0;
 
     showCupertinoModalPopup(
@@ -230,7 +233,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                   scrollController: FixedExtentScrollController(initialItem: initialIndex),
                   onSelectedItemChanged: (index) {
                     HapticFeedback.selectionClick();
-                    provider.setActiveCurrency(available[index]);
+                    settings.setActiveCurrency(available[index]);
                   },
                   children: available.map((c) => Center(
                     child: Text(c, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w600)),
@@ -246,16 +249,18 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<HomeProvider>();
     final l10n = AppLocalizations.of(context);
 
-    final filtered = provider.filteredExpenses(_filter);
+    final settings = context.watch<SettingsProvider>();
+    final tx = context.watch<TransactionsProvider>();
+
+    final filtered = tx.filteredExpenses(_filter);
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    final activeCurrency = provider.activeCurrency;
-    final hasMultipleCurrencies = provider.availableUserCurrencies.length > 1;
-    final hasPremium = provider.canUseFeature(PremiumFeature.multiCurrency);
+    final activeCurrency = settings.activeCurrency;
+    final hasMultipleCurrencies = settings.availableUserCurrencies.length > 1;
+    final hasPremium = settings.canUseFeature(PremiumFeature.multiCurrency);
 
     return PremiumBackground(
       child: Scaffold(
@@ -292,7 +297,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
             Padding(
               padding: const EdgeInsets.only(right: 16.0),
               child: GestureDetector(
-                onTap: () => _showCurrencyAccountSelector(context, provider),
+                onTap: () => _showCurrencyAccountSelector(context, settings),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
@@ -420,12 +425,19 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                                 children: [
                                   ExpenseItemCard(
                                     expense: expense,
-                                    incomeProfile: provider.incomeProfile,
-                                    onTap: () {
+                                    incomeProfile: settings.incomeProfile,
+                                    onTap: () async {
                                       if (_isSelectionMode) {
                                         _toggleSelection(expense.id);
                                       } else {
-                                        provider.openExpenseEditor(context, expense);
+                                        final result = await showModalBottomSheet<ExpenseEditResult>(
+                                          context: context,
+                                          isScrollControlled: true,
+                                          builder: (_) => ExpenseEditSheet(expense: expense),
+                                        );
+                                        if (result != null) {
+                                          await tx.updateExpense(expense.id, result);
+                                        }
                                       }
                                     },
                                   ),

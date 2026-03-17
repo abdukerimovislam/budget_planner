@@ -4,8 +4,8 @@ import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../data/models/custom_category_model.dart';
-import '../../l10n/app_localizations.dart';
-import '../providers/home_provider.dart';
+// НОВЫЙ ИМПОРТ
+import '../providers/settings_provider.dart';
 
 class CustomCategorySheet extends StatefulWidget {
   const CustomCategorySheet({super.key});
@@ -86,7 +86,8 @@ class _CustomCategorySheetState extends State<CustomCategorySheet> {
       colorValue: _selectedColor.value,
     );
 
-    context.read<HomeProvider>().addCustomCategory(newCategory);
+    // ИСПРАВЛЕНИЕ: Вызов addCustomCategory теперь через SettingsProvider
+    context.read<SettingsProvider>().addCustomCategory(newCategory);
     Navigator.of(context).pop(newCategory);
   }
 
@@ -162,7 +163,7 @@ class _CustomCategorySheetState extends State<CustomCategorySheet> {
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: _selectedColor.withOpacity(0.4),
+                            color: _selectedColor.withValues(alpha: 0.4),
                             blurRadius: 20,
                             offset: const Offset(0, 8),
                           ),
@@ -178,7 +179,7 @@ class _CustomCategorySheetState extends State<CustomCategorySheet> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+                      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: TextField(
@@ -239,7 +240,7 @@ class _CustomCategorySheetState extends State<CustomCategorySheet> {
                           duration: const Duration(milliseconds: 200),
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: isSelected ? theme.colorScheme.surfaceVariant : Colors.transparent,
+                            color: isSelected ? theme.colorScheme.surfaceContainerHighest : Colors.transparent,
                             borderRadius: BorderRadius.circular(16),
                           ),
                           child: Icon(

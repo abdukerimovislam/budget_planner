@@ -9,7 +9,7 @@ import '../../data/models/expense_model.dart';
 import '../../domain/services/currency_conversion_service.dart';
 import '../../domain/services/premium_feature.dart';
 import '../../l10n/app_localizations.dart';
-import '../providers/home_provider.dart';
+import '../providers/settings_provider.dart';
 import '../screens/premium/premium_screen.dart';
 
 class ExpenseEditResult {
@@ -17,8 +17,8 @@ class ExpenseEditResult {
   final String merchant;
   final String note;
   final ExpenseCategory category;
-  final String? customCategoryId; // <-- ДОБАВЛЕНО
-  final bool clearCustomCategory; // <-- ДОБАВЛЕНО
+  final String? customCategoryId;
+  final bool clearCustomCategory;
   final DateTime date;
   final bool isIncome;
   final String currency;
@@ -54,7 +54,7 @@ class _ExpenseEditSheetState extends State<ExpenseEditSheet> {
   late final TextEditingController _noteController;
 
   late ExpenseCategory _category;
-  String? _customCategoryId; // <-- ДОБАВЛЕНО СОСТОЯНИЕ
+  String? _customCategoryId;
   late DateTime _date;
   late bool _isIncome;
   late String _selectedCurrency;
@@ -74,7 +74,7 @@ class _ExpenseEditSheetState extends State<ExpenseEditSheet> {
     _merchantController = TextEditingController(text: widget.expense.merchant);
     _noteController = TextEditingController(text: widget.expense.note ?? '');
     _category = widget.expense.category;
-    _customCategoryId = widget.expense.customCategoryId; // Берем из транзакции
+    _customCategoryId = widget.expense.customCategoryId;
     _date = widget.expense.date;
     _isIncome = widget.expense.isIncome;
     _selectedCurrency = widget.expense.currency;
@@ -83,7 +83,7 @@ class _ExpenseEditSheetState extends State<ExpenseEditSheet> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _userCurrency = context.read<HomeProvider>().activeCurrency;
+    _userCurrency = context.read<SettingsProvider>().activeCurrency;
   }
 
   @override
@@ -120,8 +120,8 @@ class _ExpenseEditSheetState extends State<ExpenseEditSheet> {
   }
 
   void _handleCurrencyTap() {
-    final provider = context.read<HomeProvider>();
-    if (!provider.canUseFeature(PremiumFeature.multiCurrency)) {
+    final settings = context.read<SettingsProvider>();
+    if (!settings.canUseFeature(PremiumFeature.multiCurrency)) {
       Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const PremiumScreen()));
       return;
     }
@@ -156,8 +156,8 @@ class _ExpenseEditSheetState extends State<ExpenseEditSheet> {
   }
 
   Future<void> _handleAutoConvert() async {
-    final provider = context.read<HomeProvider>();
-    if (!provider.canUseFeature(PremiumFeature.multiCurrency)) {
+    final settings = context.read<SettingsProvider>();
+    if (!settings.canUseFeature(PremiumFeature.multiCurrency)) {
       Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const PremiumScreen()));
       return;
     }
@@ -207,7 +207,7 @@ class _ExpenseEditSheetState extends State<ExpenseEditSheet> {
         note: _noteController.text.trim(),
         category: _category,
         customCategoryId: _category == ExpenseCategory.custom ? _customCategoryId : null,
-        clearCustomCategory: _category != ExpenseCategory.custom, // Очищаем, если убрали кастомную категорию
+        clearCustomCategory: _category != ExpenseCategory.custom,
         date: _date,
         isIncome: _isIncome,
         currency: _selectedCurrency,
@@ -215,7 +215,6 @@ class _ExpenseEditSheetState extends State<ExpenseEditSheet> {
     );
   }
 
-  // ОБНОВЛЕНО: Читаем имя кастомной категории, если она есть
   String _categoryLabel(ExpenseCategory category, BuildContext context) {
     final l10n = AppLocalizations.of(context);
 
@@ -252,7 +251,7 @@ class _ExpenseEditSheetState extends State<ExpenseEditSheet> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
-    final provider = context.watch<HomeProvider>();
+    final settings = context.watch<SettingsProvider>();
 
     List<ExpenseCategory> availableCategories = _isIncome
         ? [ExpenseCategory.other, ExpenseCategory.gifts]
@@ -281,7 +280,7 @@ class _ExpenseEditSheetState extends State<ExpenseEditSheet> {
           children: [
             Center(
               child: Container(
-                width: 48, height: 4, decoration: BoxDecoration(color: theme.colorScheme.onSurface.withOpacity(0.2), borderRadius: BorderRadius.circular(4)),
+                width: 48, height: 4, decoration: BoxDecoration(color: theme.colorScheme.onSurface.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(4)),
               ),
             ),
             const SizedBox(height: 24),
@@ -295,7 +294,7 @@ class _ExpenseEditSheetState extends State<ExpenseEditSheet> {
 
             Container(
               padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(color: theme.colorScheme.surfaceVariant.withOpacity(0.5), borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(color: theme.colorScheme.surfaceVariant.withValues(alpha: 0.5), borderRadius: BorderRadius.circular(12)),
               child: Row(
                 children: [
                   Expanded(
@@ -307,15 +306,15 @@ class _ExpenseEditSheetState extends State<ExpenseEditSheet> {
                             _isIncome = false;
                             if (_category == ExpenseCategory.other || _category == ExpenseCategory.gifts) {
                               _category = ExpenseCategory.food;
-                              _customCategoryId = null; // Сброс
+                              _customCategoryId = null;
                             }
                           });
                         }
                       },
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 200), padding: const EdgeInsets.symmetric(vertical: 10),
-                        decoration: BoxDecoration(color: !_isIncome ? theme.colorScheme.surface : Colors.transparent, borderRadius: BorderRadius.circular(10), boxShadow: !_isIncome ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))] : []),
-                        child: Center(child: Text(_t('Expense', 'Расход'), style: TextStyle(fontWeight: !_isIncome ? FontWeight.w700 : FontWeight.w500, color: !_isIncome ? theme.colorScheme.onSurface : theme.colorScheme.onSurface.withOpacity(0.5)))),
+                        decoration: BoxDecoration(color: !_isIncome ? theme.colorScheme.surface : Colors.transparent, borderRadius: BorderRadius.circular(10), boxShadow: !_isIncome ? [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, 2))] : []),
+                        child: Center(child: Text(_t('Expense', 'Расход'), style: TextStyle(fontWeight: !_isIncome ? FontWeight.w700 : FontWeight.w500, color: !_isIncome ? theme.colorScheme.onSurface : theme.colorScheme.onSurface.withValues(alpha: 0.5)))),
                       ),
                     ),
                   ),
@@ -328,15 +327,15 @@ class _ExpenseEditSheetState extends State<ExpenseEditSheet> {
                             _isIncome = true;
                             if (_category != ExpenseCategory.custom) {
                               _category = ExpenseCategory.other;
-                              _customCategoryId = null; // Сброс
+                              _customCategoryId = null;
                             }
                           });
                         }
                       },
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 200), padding: const EdgeInsets.symmetric(vertical: 10),
-                        decoration: BoxDecoration(color: _isIncome ? CupertinoColors.systemGreen : Colors.transparent, borderRadius: BorderRadius.circular(10), boxShadow: _isIncome ? [BoxShadow(color: CupertinoColors.systemGreen.withOpacity(0.3), blurRadius: 4, offset: const Offset(0, 2))] : []),
-                        child: Center(child: Text(_t('Income', 'Доход'), style: TextStyle(fontWeight: _isIncome ? FontWeight.w700 : FontWeight.w500, color: _isIncome ? Colors.white : theme.colorScheme.onSurface.withOpacity(0.5)))),
+                        decoration: BoxDecoration(color: _isIncome ? CupertinoColors.systemGreen : Colors.transparent, borderRadius: BorderRadius.circular(10), boxShadow: _isIncome ? [BoxShadow(color: CupertinoColors.systemGreen.withValues(alpha: 0.3), blurRadius: 4, offset: const Offset(0, 2))] : []),
+                        child: Center(child: Text(_t('Income', 'Доход'), style: TextStyle(fontWeight: _isIncome ? FontWeight.w700 : FontWeight.w500, color: _isIncome ? Colors.white : theme.colorScheme.onSurface.withValues(alpha: 0.5)))),
                       ),
                     ),
                   ),
@@ -361,11 +360,11 @@ class _ExpenseEditSheetState extends State<ExpenseEditSheet> {
                     onTap: _handleCurrencyTap,
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      decoration: BoxDecoration(color: theme.colorScheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(16), border: Border.all(color: theme.colorScheme.primary.withOpacity(0.3))),
+                      decoration: BoxDecoration(color: theme.colorScheme.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(16), border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.3))),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          if (!provider.canUseFeature(PremiumFeature.multiCurrency)) ...[
+                          if (!settings.canUseFeature(PremiumFeature.multiCurrency)) ...[
                             const Icon(CupertinoIcons.lock_fill, size: 12, color: CupertinoColors.systemYellow),
                             const SizedBox(width: 4),
                           ],
@@ -385,9 +384,9 @@ class _ExpenseEditSheetState extends State<ExpenseEditSheet> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
-                    color: CupertinoColors.activeOrange.withOpacity(0.15),
+                    color: CupertinoColors.activeOrange.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: CupertinoColors.activeOrange.withOpacity(0.3)),
+                    border: Border.all(color: CupertinoColors.activeOrange.withValues(alpha: 0.3)),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -395,7 +394,7 @@ class _ExpenseEditSheetState extends State<ExpenseEditSheet> {
                       if (_isConverting)
                         const CupertinoActivityIndicator(radius: 8)
                       else ...[
-                        if (!provider.canUseFeature(PremiumFeature.multiCurrency)) ...[
+                        if (!settings.canUseFeature(PremiumFeature.multiCurrency)) ...[
                           const Icon(CupertinoIcons.lock_fill, size: 12, color: CupertinoColors.activeOrange),
                           const SizedBox(width: 4),
                         ],
@@ -420,7 +419,7 @@ class _ExpenseEditSheetState extends State<ExpenseEditSheet> {
 
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              decoration: BoxDecoration(color: theme.colorScheme.surfaceVariant.withOpacity(0.3), borderRadius: BorderRadius.circular(16), border: Border.all(color: theme.colorScheme.surfaceVariant)),
+              decoration: BoxDecoration(color: theme.colorScheme.surfaceVariant.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(16), border: Border.all(color: theme.colorScheme.surfaceVariant)),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<ExpenseCategory>(
                   value: _category, isExpanded: true, icon: Icon(CupertinoIcons.chevron_down, color: theme.colorScheme.primary, size: 20),
@@ -429,7 +428,6 @@ class _ExpenseEditSheetState extends State<ExpenseEditSheet> {
                     if (value != null) {
                       setState(() {
                         _category = value;
-                        // Сбрасываем кастомный ID, если выбрали системную категорию
                         if (value != ExpenseCategory.custom) _customCategoryId = null;
                       });
                     }
@@ -443,7 +441,7 @@ class _ExpenseEditSheetState extends State<ExpenseEditSheet> {
               onTap: _pickDate,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                decoration: BoxDecoration(color: theme.colorScheme.surfaceVariant.withOpacity(0.3), borderRadius: BorderRadius.circular(16), border: Border.all(color: theme.colorScheme.surfaceVariant)),
+                decoration: BoxDecoration(color: theme.colorScheme.surfaceVariant.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(16), border: Border.all(color: theme.colorScheme.surfaceVariant)),
                 child: Row(children: [
                   Icon(CupertinoIcons.calendar, color: theme.colorScheme.primary), const SizedBox(width: 12),
                   Text(l10n.expenseEditDateValue('${_date.day.toString().padLeft(2, '0')}.${_date.month.toString().padLeft(2, '0')}.${_date.year}'), style: TextStyle(fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface, fontSize: 16)),
@@ -467,10 +465,10 @@ class _ExpenseEditSheetState extends State<ExpenseEditSheet> {
     final theme = Theme.of(context);
     final effectiveColor = color ?? theme.colorScheme.primary;
     return Container(
-      decoration: BoxDecoration(color: theme.colorScheme.surfaceVariant.withOpacity(0.3), borderRadius: BorderRadius.circular(16), border: Border.all(color: theme.colorScheme.surfaceVariant)),
+      decoration: BoxDecoration(color: theme.colorScheme.surfaceVariant.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(16), border: Border.all(color: theme.colorScheme.surfaceVariant)),
       child: TextField(
         controller: controller, keyboardType: keyboardType, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface),
-        decoration: InputDecoration(prefixIcon: Icon(icon, color: effectiveColor), labelText: label, labelStyle: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.5)), border: InputBorder.none, contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16)),
+        decoration: InputDecoration(prefixIcon: Icon(icon, color: effectiveColor), labelText: label, labelStyle: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5)), border: InputBorder.none, contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16)),
       ),
     );
   }

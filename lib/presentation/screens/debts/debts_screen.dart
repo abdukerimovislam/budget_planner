@@ -7,8 +7,11 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../data/models/debt_model.dart';
-import '../../providers/home_provider.dart';
 import '../../widgets/premium_background.dart';
+
+// НОВЫЕ ПРОВАЙДЕРЫ
+import '../../providers/settings_provider.dart';
+import '../../providers/transactions_provider.dart';
 
 class DebtsScreen extends StatefulWidget {
   const DebtsScreen({super.key});
@@ -40,11 +43,11 @@ class _DebtsScreenState extends State<DebtsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<HomeProvider>();
+    final tx = context.watch<TransactionsProvider>();
     final theme = Theme.of(context);
 
     // Фильтруем долги по выбранной вкладке
-    final displayedDebts = provider.debts.where((d) {
+    final displayedDebts = tx.debts.where((d) {
       if (_currentTab == 0) return d.isOwedToMe;
       return !d.isOwedToMe;
     }).toList();
@@ -156,7 +159,7 @@ class _DebtsScreenState extends State<DebtsScreen> {
                               SlidableAction(
                                 onPressed: (_) async {
                                   HapticFeedback.heavyImpact();
-                                  await provider.markDebtAsPaid(debt.id);
+                                  await tx.markDebtAsPaid(debt.id);
                                   if (!context.mounted) return;
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
@@ -180,7 +183,7 @@ class _DebtsScreenState extends State<DebtsScreen> {
                               SlidableAction(
                                 onPressed: (_) {
                                   HapticFeedback.mediumImpact();
-                                  provider.deleteDebt(debt.id);
+                                  tx.deleteDebt(debt.id);
                                 },
                                 backgroundColor: CupertinoColors.destructiveRed,
                                 foregroundColor: Colors.white,
@@ -309,19 +312,20 @@ class _AddDebtSheetState extends State<_AddDebtSheet> {
       return;
     }
 
-    final provider = context.read<HomeProvider>();
+    final tx = context.read<TransactionsProvider>();
+    final settings = context.read<SettingsProvider>();
 
     final newDebt = DebtModel(
       id: const Uuid().v4(),
       amount: amount,
-      currency: provider.activeCurrency, // Сохраняем в текущей валюте
+      currency: settings.activeCurrency,
       personName: name,
       isOwedToMe: _isOwedToMe,
       dueDate: _dueDate,
       createdAt: DateTime.now(),
     );
 
-    provider.addDebt(newDebt);
+    tx.addDebt(newDebt);
     HapticFeedback.mediumImpact();
     Navigator.of(context).pop();
   }
@@ -392,7 +396,6 @@ class _AddDebtSheetState extends State<_AddDebtSheet> {
                 ),
                 const SizedBox(height: 16),
 
-                // Простой выбор даты (опционально)
                 GestureDetector(
                   onTap: () async {
                     FocusScope.of(context).unfocus();

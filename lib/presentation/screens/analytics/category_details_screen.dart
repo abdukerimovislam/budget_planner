@@ -1,12 +1,18 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/utils/category_extension.dart';
 import '../../../data/models/expense_category.dart';
 import '../../../data/models/expense_model.dart';
-import '../../providers/home_provider.dart';
 import '../../widgets/expense_item_card.dart';
+import '../../widgets/expense_edit_sheet.dart';
+
+// НОВЫЕ ПРОВАЙДЕРЫ
+import '../../providers/settings_provider.dart';
+import '../../providers/transactions_provider.dart';
 
 class CategoryDetailsScreen extends StatelessWidget {
   final ExpenseCategory category;
@@ -27,12 +33,14 @@ class CategoryDetailsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<HomeProvider>();
+    final settings = context.watch<SettingsProvider>();
+    final tx = context.watch<TransactionsProvider>();
+
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
     // Фильтруем транзакции только для этой категории в выбранном месяце
-    final categoryExpenses = provider.expensesForMonth(monthDate).where((e) {
+    final categoryExpenses = tx.expensesForMonth(monthDate).where((e) {
       if (e.isIncome) return false;
       if (e.category == ExpenseCategory.custom) {
         return e.customCategoryId == customCategoryId;
@@ -87,7 +95,7 @@ class CategoryDetailsScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '${_formatNumber(totalAmount)} ${provider.activeCurrency}',
+                    '${_formatNumber(totalAmount)} ${settings.activeCurrency}',
                     style: TextStyle(
                       fontSize: 40,
                       fontWeight: FontWeight.w800,
@@ -151,11 +159,23 @@ class CategoryDetailsScreen extends StatelessWidget {
                               ),
                               child: const Icon(CupertinoIcons.trash, color: Colors.white),
                             ),
-                            onDismissed: (_) => provider.deleteExpense(expense.id),
+                            onDismissed: (_) {
+                              HapticFeedback.mediumImpact();
+                              tx.deleteExpense(expense.id);
+                            },
                             child: ExpenseItemCard(
                               expense: expense,
-                              incomeProfile: provider.incomeProfile,
-                              onTap: () => provider.openExpenseEditor(context, expense),
+                              incomeProfile: settings.incomeProfile,
+                              onTap: () async {
+                                final result = await showModalBottomSheet<ExpenseEditResult>(
+                                  context: context,
+                                  isScrollControlled: true,
+                                  builder: (_) => ExpenseEditSheet(expense: expense),
+                                );
+                                if (result != null) {
+                                  await tx.updateExpense(expense.id, result);
+                                }
+                              },
                             ),
                           ),
                           if (!isLast)

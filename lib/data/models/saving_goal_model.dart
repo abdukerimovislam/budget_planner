@@ -1,5 +1,17 @@
+import 'package:isar/isar.dart';
+
+// Этот файл сгенерирует Isar
+part 'saving_goal_model.g.dart';
+
+@collection
 class SavingsGoalModel {
+  // Внутренний быстрый ID для базы данных Isar
+  Id isarId = Isar.autoIncrement;
+
+  // Твой строковый UUID. Индекс ускоряет поиск, unique не дает создать дубликаты
+  @Index(unique: true, replace: true)
   final String id;
+
   final String title;
   final double targetAmount;
   final double currentAmount;
@@ -7,12 +19,12 @@ class SavingsGoalModel {
   final DateTime? targetDate;
   final DateTime createdAt;
 
-  const SavingsGoalModel({
+  SavingsGoalModel({
     required this.id,
     required this.title,
     required this.targetAmount,
     required this.currentAmount,
-    required this.currency, // <-- ДОБАВЛЕНО
+    required this.currency,
     required this.targetDate,
     required this.createdAt,
   });
@@ -22,7 +34,7 @@ class SavingsGoalModel {
     String? title,
     double? targetAmount,
     double? currentAmount,
-    String? currency, // <-- ДОБАВЛЕНО
+    String? currency,
     DateTime? targetDate,
     DateTime? createdAt,
   }) {
@@ -31,7 +43,7 @@ class SavingsGoalModel {
       title: title ?? this.title,
       targetAmount: targetAmount ?? this.targetAmount,
       currentAmount: currentAmount ?? this.currentAmount,
-      currency: currency ?? this.currency, // <-- ДОБАВЛЕНО
+      currency: currency ?? this.currency,
       targetDate: targetDate ?? this.targetDate,
       createdAt: createdAt ?? this.createdAt,
     );

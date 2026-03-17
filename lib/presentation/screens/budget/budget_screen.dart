@@ -7,7 +7,6 @@ import '../../../core/utils/responsive.dart';
 import '../../../data/models/expense_category.dart';
 import '../../../domain/services/premium_feature.dart';
 import '../../../l10n/app_localizations.dart';
-import '../../providers/home_provider.dart';
 import '../../widgets/adaptive_page_padding.dart';
 import '../../widgets/auto_budget_card.dart';
 import '../../widgets/premium_background.dart';
@@ -15,6 +14,11 @@ import '../../widgets/premium_lock_card.dart';
 import '../../widgets/spending_pace_card.dart';
 import '../premium/premium_screen.dart';
 import '../subscriptions/subscriptions_screen.dart';
+
+// НОВЫЕ ПРОВАЙДЕРЫ
+import '../../providers/settings_provider.dart';
+import '../../providers/budget_provider.dart';
+import '../../providers/insights_provider.dart';
 
 class BudgetScreen extends StatelessWidget {
   const BudgetScreen({super.key});
@@ -25,11 +29,12 @@ class BudgetScreen extends StatelessWidget {
   }
 
   Future<void> _showEditBudgetDialog(BuildContext context) async {
-    final provider = context.read<HomeProvider>();
+    final settings = context.read<SettingsProvider>();
+    final budgetProv = context.read<BudgetProvider>();
     final l10n = AppLocalizations.of(context);
 
-    final bool hasValidBudget = provider.budget != null && provider.budget!.currency == provider.activeCurrency;
-    final currentBudget = hasValidBudget ? provider.budget!.totalBudget : null;
+    final bool hasValidBudget = budgetProv.budget != null && budgetProv.budget!.currency == settings.activeCurrency;
+    final currentBudget = hasValidBudget ? budgetProv.budget!.totalBudget : null;
 
     final controller = TextEditingController(
       text: currentBudget == null ? '' : _formatNumber(currentBudget),
@@ -45,7 +50,7 @@ class BudgetScreen extends StatelessWidget {
             child: CupertinoTextField(
               controller: controller,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              placeholder: '${l10n.monthlyBudgetLabel} (${provider.activeCurrency})',
+              placeholder: '${l10n.monthlyBudgetLabel} (${settings.activeCurrency})',
               autofocus: true,
             ),
           ),
@@ -60,7 +65,7 @@ class BudgetScreen extends StatelessWidget {
                 final value = double.tryParse(controller.text.trim().replaceAll(',', '.'));
                 if (value == null || value <= 0) return;
 
-                await provider.updateMonthlyBudget(value, DateTime.now());
+                await budgetProv.updateMonthlyBudget(value, DateTime.now());
                 if (dialogContext.mounted) Navigator.of(dialogContext).pop();
               },
               isDefaultAction: true,
@@ -74,22 +79,25 @@ class BudgetScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<HomeProvider>();
+    final settings = context.watch<SettingsProvider>();
+    final budgetProv = context.watch<BudgetProvider>();
+    final insights = context.watch<InsightsProvider>();
+
     final l10n = AppLocalizations.of(context);
     final now = DateTime.now();
     final theme = Theme.of(context);
 
-    final String currency = provider.activeCurrency;
-    final bool hasBudgetForCurrency = provider.budget != null && provider.budget!.currency == currency;
-    final totalBudget = hasBudgetForCurrency ? provider.budget!.totalBudget : 0.0;
+    final String currency = settings.activeCurrency;
+    final bool hasBudgetForCurrency = budgetProv.budget != null && budgetProv.budget!.currency == currency;
+    final totalBudget = hasBudgetForCurrency ? budgetProv.budget!.totalBudget : 0.0;
 
-    final spent = provider.totalSpentThisMonth(now);
+    final spent = insights.totalSpentForMonth(now);
     final remaining = totalBudget > 0 ? (totalBudget - spent) : 0.0;
-    final autoBudget = provider.autoBudgetRecommendation(now);
+    final autoBudget = budgetProv.autoBudgetRecommendation(now);
 
-    final categoryBudgets = provider.effectiveCategoryBudgetsForMonth(now).entries.toList()
+    final categoryBudgets = budgetProv.effectiveCategoryBudgetsForMonth(now).entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
-    final dangerousCategory = provider.mostDangerousCategoryThisMonth(now);
+    final dangerousCategory = insights.mostDangerousCategoryThisMonth(now);
 
     final double overallProgress = totalBudget > 0 ? (spent / totalBudget).clamp(0.0, 1.0) : 0.0;
     final bool isOverOverall = spent > totalBudget && totalBudget > 0;
@@ -104,7 +112,6 @@ class BudgetScreen extends StatelessWidget {
               stretch: true,
               backgroundColor: Colors.transparent,
               surfaceTintColor: Colors.transparent,
-              // ИСПРАВЛЕНИЕ: Кнопка назад для навигации
               leading: CupertinoButton(
                 padding: EdgeInsets.zero,
                 child: const Icon(CupertinoIcons.back, color: CupertinoColors.activeBlue),
@@ -258,7 +265,7 @@ class BudgetScreen extends StatelessWidget {
                     AutoBudgetCard(
                       recommendation: autoBudget,
                       onApplyTap: () async {
-                        await provider.applyAutoBudget(now);
+                        await budgetProv.applyAutoBudget(now);
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.autoBudgetAppliedMessage), behavior: SnackBarBehavior.floating));
                         }
@@ -294,7 +301,7 @@ class BudgetScreen extends StatelessWidget {
                             final isLast = entry.key == categoryBudgets.length - 1;
                             final category = entry.value.key;
                             final budget = entry.value.value;
-                            final spentForCategory = provider.spentForCategoryThisMonth(now, category);
+                            final spentForCategory = insights.spentForCategoryThisMonth(now, category);
                             final isOverBudget = spentForCategory > budget;
                             final progress = budget > 0 ? (spentForCategory / budget).clamp(0.0, 1.0) : 0.0;
 
@@ -358,7 +365,7 @@ class BudgetScreen extends StatelessWidget {
                     SizedBox(height: Responsive.sectionGap(context)),
                   ],
 
-                  if (!provider.canUseFeature(PremiumFeature.advancedSubscriptions))
+                  if (!settings.canUseFeature(PremiumFeature.advancedSubscriptions))
                     PremiumLockCard(
                       title: l10n.premiumLockedSubscriptionsTitle,
                       subtitle: l10n.premiumLockedSubscriptionsSubtitle,

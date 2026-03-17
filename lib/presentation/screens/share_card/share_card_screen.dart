@@ -13,7 +13,11 @@ import '../../../data/models/share_card_model.dart';
 import '../../../domain/services/premium_feature.dart';
 import '../../../domain/services/share_export_service.dart';
 import '../../../l10n/app_localizations.dart';
-import '../../providers/home_provider.dart';
+
+// НОВЫЕ ПРОВАЙДЕРЫ
+import '../../providers/settings_provider.dart';
+import '../../providers/insights_provider.dart';
+
 import '../../widgets/monthly_share_card_widget.dart';
 import '../../widgets/premium_background.dart';
 import '../../widgets/premium_lock_card.dart';
@@ -104,12 +108,14 @@ class _ShareCardScreenState extends State<ShareCardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<HomeProvider>();
+    final settings = context.watch<SettingsProvider>();
+    final insights = context.watch<InsightsProvider>();
+
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final now = DateTime.now();
 
-    if (!provider.canUseFeature(PremiumFeature.shareExport)) {
+    if (!settings.canUseFeature(PremiumFeature.shareExport)) {
       return PremiumBackground(
         child: Scaffold(
           backgroundColor: Colors.transparent,
@@ -138,7 +144,7 @@ class _ShareCardScreenState extends State<ShareCardScreen> {
       );
     }
 
-    final report = provider.monthlyReport(now);
+    final report = insights.monthlyReport(now);
 
     final shareData = ShareCardModel(
       income: report.totalIncome,

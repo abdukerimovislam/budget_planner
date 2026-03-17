@@ -7,9 +7,14 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import '../../../data/datasources/local/local_storage_service.dart';
 import '../../../l10n/app_localizations.dart';
-import '../../providers/home_provider.dart';
 import '../../widgets/insight_card.dart';
 import '../../widgets/premium_background.dart';
+
+// НОВЫЕ ПРОВАЙДЕРЫ
+import '../../providers/settings_provider.dart';
+import '../../providers/transactions_provider.dart';
+import '../../providers/budget_provider.dart';
+import '../../providers/insights_provider.dart';
 
 class AiAdvisorScreen extends StatefulWidget {
   const AiAdvisorScreen({super.key});
@@ -63,10 +68,13 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
 
-    final provider = context.read<HomeProvider>();
+    final settings = context.read<SettingsProvider>();
+    final tx = context.read<TransactionsProvider>();
+    final budgetProv = context.read<BudgetProvider>();
+    final insightsProv = context.read<InsightsProvider>();
 
-    // Сохраняем сообщение пользователя в провайдер (чтобы не потерять при выходе с экрана)
-    provider.addAiChatMessage(true, text);
+    // Сохраняем сообщение пользователя в провайдер
+    insightsProv.addAiChatMessage(true, text);
 
     setState(() {
       _controller.clear();
@@ -76,14 +84,14 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
     _scrollToBottom();
 
     if (!LocalStorageService.instance.canUseAiAdvisor()) {
-      provider.addAiChatMessage(false, "Извините, но дневной лимит советов исчерпан. Мне нужно отдохнуть, возвращайтесь завтра!");
+      insightsProv.addAiChatMessage(false, "Извините, но дневной лимит советов исчерпан. Мне нужно отдохнуть, возвращайтесь завтра!");
       setState(() => _isLoading = false);
       _scrollToBottom();
       return;
     }
 
     if (_model == null) {
-      provider.addAiChatMessage(false, "Связь с ИИ не установлена. Проверьте ваш API ключ.");
+      insightsProv.addAiChatMessage(false, "Связь с ИИ не установлена. Проверьте ваш API ключ.");
       setState(() => _isLoading = false);
       _scrollToBottom();
       return;
@@ -91,14 +99,16 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
 
     try {
       final now = DateTime.now();
-      final spent = provider.totalSpentThisMonth(now);
-      final budget = provider.budget?.currency == provider.activeCurrency ? (provider.budget?.totalBudget ?? 0) : 0.0;
-      final currency = provider.activeCurrency;
-      final topCat = provider.categoryTotalsForMonth(now).entries.isNotEmpty
-          ? provider.categoryTotalsForMonth(now).entries.reduce((a, b) => a.value > b.value ? a : b).key.name
+      final spent = insightsProv.totalSpentForMonth(now);
+      final budget = budgetProv.budget?.currency == settings.activeCurrency ? (budgetProv.budget?.totalBudget ?? 0) : 0.0;
+      final currency = settings.activeCurrency;
+
+      final categoryTotals = insightsProv.categoryTotalsForMonth(now);
+      final topCat = categoryTotals.entries.isNotEmpty
+          ? categoryTotals.entries.reduce((a, b) => a.value > b.value ? a : b).key.name
           : 'none';
 
-      final recentExpenses = provider.expenses
+      final recentExpenses = tx.expenses
           .where((e) => e.date.month == now.month && e.date.year == now.year && !e.isIncome && e.currency == currency)
           .take(30)
           .toList();
@@ -107,8 +117,7 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
           ? 'No transactions yet.'
           : recentExpenses.map((e) => '- ${e.date.day}/${e.date.month}: ${e.category.name}, ${e.amount} ${e.currency} (Merchant: ${e.merchant.isEmpty ? "Unknown" : e.merchant})').join('\n');
 
-      // ИСПРАВЛЕНИЕ: Формируем историю из последних 10 сообщений
-      final historyStrings = provider.aiChatHistory.take(10).map((msg) {
+      final historyStrings = insightsProv.aiChatHistory.take(10).map((msg) {
         return "${msg['isUser'] ? 'User' : 'Advisor'}: ${msg['text']}";
       }).join('\n');
 
@@ -133,12 +142,12 @@ Answer the user's latest message concisely (1-3 short paragraphs). Provide actio
 
       if (response.text != null) {
         await LocalStorageService.instance.incrementAiAdvisorUsage();
-        provider.addAiChatMessage(false, response.text!.trim());
+        insightsProv.addAiChatMessage(false, response.text!.trim());
       }
     } catch (e, stackTrace) {
       debugPrint('--- AI ERROR ---');
       debugPrint(e.toString());
-      provider.addAiChatMessage(false, "К сожалению, произошла ошибка. Попробуйте сформулировать вопрос иначе.");
+      insightsProv.addAiChatMessage(false, "К сожалению, произошла ошибка. Попробуйте сформулировать вопрос иначе.");
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -161,12 +170,12 @@ Answer the user's latest message concisely (1-3 short paragraphs). Provide actio
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<HomeProvider>();
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
 
-    final insights = provider.insightsForMonth(DateTime.now());
-    final chatHistory = provider.aiChatHistory; // Берем из стейта
+    final insightsProv = context.watch<InsightsProvider>();
+    final insights = insightsProv.insightsForMonth(DateTime.now());
+    final chatHistory = insightsProv.aiChatHistory;
 
     return PremiumBackground(
       child: Scaffold(

@@ -1,7 +1,17 @@
-import 'package:uuid/uuid.dart';
+import 'package:isar/isar.dart';
 
+// Этот файл сгенерирует Isar
+part 'debt_model.g.dart';
+
+@collection
 class DebtModel {
+  // Внутренний быстрый ID для базы данных Isar
+  Id isarId = Isar.autoIncrement;
+
+  // Твой строковый UUID. Индекс ускоряет поиск, unique не дает создать дубликаты
+  @Index(unique: true, replace: true)
   final String id;
+
   final double amount;
   final String currency;
   final String personName;

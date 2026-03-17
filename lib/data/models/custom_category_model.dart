@@ -1,10 +1,22 @@
+import 'package:isar/isar.dart';
+
+// Этот файл сгенерирует Isar
+part 'custom_category_model.g.dart';
+
+@collection
 class CustomCategoryModel {
+  // Внутренний быстрый ID для базы данных Isar
+  Id isarId = Isar.autoIncrement;
+
+  // Твой строковый UUID. Индекс ускоряет поиск, unique не дает создать дубликаты
+  @Index(unique: true, replace: true)
   final String id;
+
   final String name;
   final int iconCodePoint; // Код иконки (чтобы красиво отображать в UI)
   final int colorValue;    // Цвет категории
 
-  const CustomCategoryModel({
+  CustomCategoryModel({
     required this.id,
     required this.name,
     required this.iconCodePoint,

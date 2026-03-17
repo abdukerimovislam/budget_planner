@@ -2,14 +2,26 @@ import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 
 import '../../data/models/expense_category.dart';
+import '../../data/models/custom_category_model.dart';
 import '../../l10n/app_localizations.dart';
-import '../../presentation/providers/home_provider.dart';
+// НОВЫЙ ПРОВАЙДЕР
+import '../../presentation/providers/settings_provider.dart';
 
 extension ExpenseCategoryUI on ExpenseCategory {
 
+  // Вспомогательный метод для поиска кастомной категории
+  CustomCategoryModel? _getCustomCategory(BuildContext context, String? id) {
+    if (id == null) return null;
+    try {
+      return context.read<SettingsProvider>().customCategories.firstWhere((c) => c.id == id);
+    } catch (_) {
+      return null;
+    }
+  }
+
   String localizedName(BuildContext context, {String? customCategoryId}) {
     if (this == ExpenseCategory.custom && customCategoryId != null) {
-      final customCat = context.read<HomeProvider>().getCustomCategoryById(customCategoryId);
+      final customCat = _getCustomCategory(context, customCategoryId);
       // ВОТ ТУТ МЫ ВОЗВРАЩАЕМ РЕАЛЬНОЕ ИМЯ (НАПРИМЕР "Курс")
       if (customCat != null) return customCat.name;
     }
@@ -33,7 +45,7 @@ extension ExpenseCategoryUI on ExpenseCategory {
 
   Color dynamicColor(BuildContext context, {String? customCategoryId}) {
     if (this == ExpenseCategory.custom && customCategoryId != null) {
-      final customCat = context.read<HomeProvider>().getCustomCategoryById(customCategoryId);
+      final customCat = _getCustomCategory(context, customCategoryId);
       if (customCat != null) return Color(customCat.colorValue);
     }
 
@@ -55,7 +67,7 @@ extension ExpenseCategoryUI on ExpenseCategory {
 
   IconData dynamicIcon(BuildContext context, {String? customCategoryId}) {
     if (this == ExpenseCategory.custom && customCategoryId != null) {
-      final customCat = context.read<HomeProvider>().getCustomCategoryById(customCategoryId);
+      final customCat = _getCustomCategory(context, customCategoryId);
       if (customCat != null) return IconData(customCat.iconCodePoint, fontFamily: 'CupertinoIcons', fontPackage: CupertinoIcons.iconFontPackage);
     }
 

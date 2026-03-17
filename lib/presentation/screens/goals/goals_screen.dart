@@ -5,11 +5,15 @@ import 'package:uuid/uuid.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../data/models/saving_goal_model.dart';
 import '../../../l10n/app_localizations.dart';
-import '../../providers/home_provider.dart';
 import '../../widgets/action_plan_card.dart';
 import '../../widgets/adaptive_page_padding.dart';
 import '../../widgets/savings_goal_card.dart';
 import '../../widgets/section_header.dart';
+
+// НОВЫЕ ПРОВАЙДЕРЫ
+import '../../providers/settings_provider.dart';
+import '../../providers/budget_provider.dart';
+import '../../providers/insights_provider.dart';
 
 class GoalsScreen extends StatelessWidget {
   const GoalsScreen({super.key});
@@ -51,8 +55,7 @@ class GoalsScreen extends StatelessWidget {
                     keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
                     decoration: InputDecoration(
-                      // ИСПРАВЛЕНИЕ: Добавляем текущую валюту в Label, чтобы пользователь понимал, в чем он копит
-                      labelText: '${l10n.goalTargetAmountLabel} (${context.read<HomeProvider>().activeCurrency})',
+                      labelText: '${l10n.goalTargetAmountLabel} (${context.read<SettingsProvider>().activeCurrency})',
                       errorText: amountError,
                     ),
                   ),
@@ -106,15 +109,16 @@ class GoalsScreen extends StatelessWidget {
 
                     if (titleError != null || amountError != null) return;
 
-                    final provider = context.read<HomeProvider>();
+                    final settings = context.read<SettingsProvider>();
+                    final budgetProv = context.read<BudgetProvider>();
 
-                    await provider.setSavingsGoal(
+                    await budgetProv.setSavingsGoal(
                       SavingsGoalModel(
                         id: const Uuid().v4(),
                         title: title,
                         targetAmount: targetAmount!,
                         currentAmount: 0,
-                        currency: provider.activeCurrency, // <-- ИСПРАВЛЕНИЕ: Передаем валюту
+                        currency: settings.activeCurrency,
                         targetDate: targetDate,
                         createdAt: DateTime.now(),
                       ),
@@ -155,7 +159,7 @@ class GoalsScreen extends StatelessWidget {
                 keyboardType:
                 const TextInputType.numberWithOptions(decimal: true),
                 decoration: InputDecoration(
-                  labelText: '${l10n.goalAddProgressLabel} (${goal.currency})', // Подсказываем валюту
+                  labelText: '${l10n.goalAddProgressLabel} (${goal.currency})',
                   errorText: amountError,
                 ),
               ),
@@ -177,7 +181,7 @@ class GoalsScreen extends StatelessWidget {
                       return;
                     }
 
-                    await context.read<HomeProvider>().updateSavingsGoalProgress(
+                    await context.read<BudgetProvider>().updateSavingsGoalProgress(
                       goal.id,
                       value,
                     );
@@ -198,16 +202,23 @@ class GoalsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<HomeProvider>();
+    final settings = context.watch<SettingsProvider>();
+    final budgetProv = context.watch<BudgetProvider>();
+    final insights = context.watch<InsightsProvider>();
+
     final l10n = AppLocalizations.of(context);
     final now = DateTime.now();
 
-    final goal = provider.savingsGoal;
-    final projection = goal == null ? null : provider.savingsGoalProjection(now);
-    final actionPlan = provider.actionPlan(now);
+    final goal = budgetProv.savingsGoal;
 
-    // ИСПРАВЛЕНИЕ: Показываем цель, только если она в текущей активной валюте
-    final bool isGoalVisible = goal != null && goal.currency == provider.activeCurrency;
+    // Для проекции цели нам нужно знать, сколько мы отложили за месяц.
+    // Это значение можно взять из MonthlyReport
+    final report = insights.monthlyReport(now);
+    final projection = goal == null ? null : budgetProv.savingsGoalProjection(now, report.totalSaved);
+
+    final actionPlan = insights.actionPlan(now);
+
+    final bool isGoalVisible = goal != null && goal.currency == settings.activeCurrency;
 
     return Scaffold(
       appBar: AppBar(
@@ -232,8 +243,7 @@ class GoalsScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        // Если цель есть, но в другой валюте, мы мягко объясняем это пользователю
-                        goal != null ? 'No goals for ${provider.activeCurrency}' : l10n.goalsEmptyTitle,
+                        goal != null ? 'No goals for ${settings.activeCurrency}' : l10n.goalsEmptyTitle,
                         style: Theme.of(context).textTheme.titleMedium,
                         textAlign: TextAlign.center,
                       ),

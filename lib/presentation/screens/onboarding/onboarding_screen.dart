@@ -9,7 +9,10 @@ import '../../../core/utils/month_key.dart';
 import '../../../data/models/budget_model.dart';
 import '../../../data/models/income_profile_model.dart';
 import '../../../l10n/app_localizations.dart';
-import '../../providers/home_provider.dart';
+
+// НОВЫЕ ПРОВАЙДЕРЫ
+import '../../providers/settings_provider.dart';
+import '../../providers/budget_provider.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -112,7 +115,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     });
   }
 
-  // НОВЫЙ МЕТОД: Показ барабана выбора валюты
   void _showCurrencyPicker() {
     HapticFeedback.lightImpact();
     showCupertinoModalPopup(
@@ -164,7 +166,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
     setState(() => _isSubmitting = true);
 
-    final provider = context.read<HomeProvider>();
+    final settings = context.read<SettingsProvider>();
+    final budgetProv = context.read<BudgetProvider>();
     final now = DateTime.now();
 
     try {
@@ -175,16 +178,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         workingHoursPerDay: _selectedType == IncomeType.salary ? _parseInt(_workHoursController.text) : null,
         hourlyRate: _selectedType == IncomeType.freelance ? _parseDouble(_hourlyRateController.text) : null,
         workingHoursPerWeek: _selectedType == IncomeType.business ? _parseInt(_hoursPerWeekController.text) : null,
-        currency: _selectedCurrency, // <-- СОХРАНЯЕМ ВЫБРАННУЮ ВАЛЮТУ!
+        currency: _selectedCurrency,
       );
 
-      await provider.setIncomeProfile(profile);
+      await settings.setIncomeProfile(profile);
 
-      await provider.setBudget(
+      await budgetProv.setBudget(
         BudgetModel(
           monthKey: buildMonthKey(now),
           totalBudget: budget,
-          currency: _selectedCurrency, // <-- ИСПРАВЛЕНИЕ: Передали валюту в бюджет!
+          currency: _selectedCurrency,
           categoryBudgets: const {},
         ),
       );
@@ -264,15 +267,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     subtitle: l10n.onboardingMoneySubtitle,
                     child: Column(
                       children: [
-                        // ВИДЖЕТ ВЫБОРА ВАЛЮТЫ
                         GestureDetector(
                           onTap: _showCurrencyPicker,
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                             decoration: BoxDecoration(
-                              color: theme.colorScheme.primary.withOpacity(0.1),
+                              color: theme.colorScheme.primary.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: theme.colorScheme.primary.withOpacity(0.3)),
+                              border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.3)),
                             ),
                             child: Row(
                               children: [
@@ -382,7 +384,7 @@ class _CustomTextField extends StatelessWidget {
         decoration: InputDecoration(
           prefixIcon: Icon(icon, color: theme.colorScheme.primary),
           labelText: label,
-          labelStyle: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.5)),
+          labelStyle: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         ),
@@ -414,7 +416,7 @@ class _ArchetypeCard extends StatelessWidget {
         ),
         child: Column(
           children: [
-            Icon(icon, color: isSelected ? Colors.white : theme.colorScheme.onSurface.withOpacity(0.5), size: 28),
+            Icon(icon, color: isSelected ? Colors.white : theme.colorScheme.onSurface.withValues(alpha: 0.5), size: 28),
             const SizedBox(height: 8),
             Text(
               title,
@@ -554,7 +556,7 @@ class _FeatureCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: colorScheme.primary.withOpacity(0.15), shape: BoxShape.circle), child: Icon(icon, color: colorScheme.primary)),
+          Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: colorScheme.primary.withValues(alpha: 0.15), shape: BoxShape.circle), child: Icon(icon, color: colorScheme.primary)),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
@@ -562,7 +564,7 @@ class _FeatureCard extends StatelessWidget {
               children: [
                 Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
                 const SizedBox(height: 4),
-                Text(subtitle, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface.withOpacity(0.6))),
+                Text(subtitle, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface.withValues(alpha: 0.6))),
               ],
             ),
           ),
@@ -585,7 +587,7 @@ class _LanguageButton extends StatelessWidget {
     return OutlinedButton(
       onPressed: onTap,
       style: OutlinedButton.styleFrom(
-        backgroundColor: isSelected ? colorScheme.primary.withOpacity(0.1) : null,
+        backgroundColor: isSelected ? colorScheme.primary.withValues(alpha: 0.1) : null,
         side: BorderSide(color: isSelected ? colorScheme.primary : colorScheme.outlineVariant, width: isSelected ? 2 : 1),
         padding: const EdgeInsets.symmetric(vertical: 14),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
