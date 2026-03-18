@@ -1,19 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../l10n/app_localizations.dart';
 
-// НОВЫЕ ПРОВАЙДЕРЫ
+// ПРОВАЙДЕРЫ
 import '../providers/settings_provider.dart';
 import '../providers/transactions_provider.dart';
 
-import '../screens/analytics/analytics_screen.dart';
-import '../screens/expenses/expenses_screen.dart';
-import '../screens/cashflow/cashflow_screen.dart';
+// ЭКРАНЫ
 import '../screens/home/home_screen.dart';
+import '../screens/analytics/analytics_screen.dart';
+import '../screens/budget/budget_screen.dart';
+import '../screens/profile/profile_screen.dart';
+import '../screens/add_expense/add_expense_screen.dart';
 import '../screens/month_close/month_close_screen.dart';
-import '../screens/debts/debts_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -28,15 +30,13 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   late final List<Widget> _screens = const [
     HomeScreen(),
     AnalyticsScreen(),
-    ExpensesScreen(),
-    DebtsScreen(),
-    CashflowScreen(),
+    BudgetScreen(),
+    ProfileScreen(),
   ];
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-
     final settings = context.watch<SettingsProvider>();
     final tx = context.watch<TransactionsProvider>();
 
@@ -53,45 +53,120 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       });
     }
 
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
-        onDestinationSelected: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-        destinations: [
-          NavigationDestination(
-            icon: const Icon(Icons.home_outlined),
-            selectedIcon: const Icon(Icons.home),
-            label: l10n.homeTab,
+      extendBody: true,
+      backgroundColor: theme.scaffoldBackgroundColor, // Базовый цвет фона
+      body: Stack(
+        children: [
+          // --- ГЛОБАЛЬНЫЙ ГРАДИЕНТ ДЛЯ ВСЕХ ЭКРАНОВ ---
+          Positioned(
+            top: -100,
+            left: -50,
+            right: -50,
+            height: 400,
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  colors: [
+                    theme.colorScheme.primary.withValues(alpha: isDark ? 0.3 : 0.15),
+                    theme.colorScheme.secondary.withValues(alpha: isDark ? 0.2 : 0.1),
+                    Colors.transparent,
+                  ],
+                  radius: 0.8,
+                ),
+              ),
+            ),
           ),
-          NavigationDestination(
-            icon: const Icon(Icons.pie_chart_outline_rounded),
-            selectedIcon: const Icon(Icons.pie_chart_rounded),
-            label: 'Аналитика',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.list_alt_rounded),
-            selectedIcon: Icon(Icons.receipt_long_rounded),
-            label: 'История',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.people_outline_rounded),
-            selectedIcon: Icon(Icons.people_rounded),
-            label: 'Долги',
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.timeline_outlined),
-            selectedIcon: const Icon(Icons.timeline),
-            label: l10n.cashflowTab,
+
+          // САМИ ЭКРАНЫ (ТЕПЕРЬ ОНИ ДОЛЖНЫ БЫТЬ ПРОЗРАЧНЫМИ)
+          IndexedStack(
+            index: _currentIndex,
+            children: _screens,
           ),
         ],
+      ),
+
+      floatingActionButton: SizedBox(
+        height: 64,
+        width: 64,
+        child: FloatingActionButton(
+          onPressed: () {
+            HapticFeedback.lightImpact();
+            Navigator.of(context).push(
+              CupertinoPageRoute(
+                builder: (_) => const AddExpenseScreen(),
+                fullscreenDialog: true,
+              ),
+            );
+          },
+          backgroundColor: theme.colorScheme.primary,
+          foregroundColor: theme.colorScheme.onPrimary,
+          elevation: 4,
+          highlightElevation: 12,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: const Icon(Icons.add_rounded, size: 36),
+        ),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+
+      bottomNavigationBar: _buildBottomAppBar(theme, l10n),
+    );
+  }
+
+  Widget _buildBottomAppBar(ThemeData theme, AppLocalizations l10n) {
+    return BottomAppBar(
+      color: theme.colorScheme.surface,
+      surfaceTintColor: theme.colorScheme.surfaceTint,
+      elevation: 20,
+      notchMargin: 10,
+      shape: const CircularNotchedRectangle(),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      height: 70,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          _NavBarItem(icon: CupertinoIcons.home, activeIcon: CupertinoIcons.house_fill, label: l10n.homeTab, isSelected: _currentIndex == 0, onTap: () => _onTabTapped(0)),
+          _NavBarItem(icon: CupertinoIcons.chart_pie, activeIcon: CupertinoIcons.chart_pie_fill, label: 'Анализ', isSelected: _currentIndex == 1, onTap: () => _onTabTapped(1)),
+          const SizedBox(width: 48),
+          _NavBarItem(icon: CupertinoIcons.flag, activeIcon: CupertinoIcons.flag_fill, label: 'Цели', isSelected: _currentIndex == 2, onTap: () => _onTabTapped(2)),
+          _NavBarItem(icon: CupertinoIcons.person, activeIcon: CupertinoIcons.person_fill, label: 'Профиль', isSelected: _currentIndex == 3, onTap: () => _onTabTapped(3)),
+        ],
+      ),
+    );
+  }
+
+  void _onTabTapped(int index) {
+    HapticFeedback.selectionClick();
+    setState(() {
+      _currentIndex = index;
+    });
+  }
+}
+
+class _NavBarItem extends StatelessWidget {
+  final IconData icon; final IconData activeIcon; final String label; final bool isSelected; final VoidCallback onTap;
+  const _NavBarItem({required this.icon, required this.activeIcon, required this.label, required this.isSelected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = isSelected ? theme.colorScheme.primary : theme.colorScheme.onSurface.withValues(alpha: 0.4);
+
+    return InkWell(
+      onTap: onTap, borderRadius: BorderRadius.circular(16), splashColor: Colors.transparent, highlightColor: Colors.transparent,
+      child: SizedBox(
+        width: 64,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            AnimatedSwitcher(duration: const Duration(milliseconds: 200), transitionBuilder: (child, anim) => ScaleTransition(scale: anim, child: child), child: Icon(isSelected ? activeIcon : icon, key: ValueKey(isSelected), color: color, size: 26)),
+            const SizedBox(height: 4),
+            Text(label, style: TextStyle(color: color, fontSize: 10, fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
+          ],
+        ),
       ),
     );
   }

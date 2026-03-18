@@ -10,7 +10,7 @@ import '../../../data/models/expense_model.dart';
 import '../../widgets/expense_item_card.dart';
 import '../../widgets/expense_edit_sheet.dart';
 
-// НОВЫЕ ПРОВАЙДЕРЫ
+// ПРОВАЙДЕРЫ
 import '../../providers/settings_provider.dart';
 import '../../providers/transactions_provider.dart';
 
@@ -39,7 +39,6 @@ class CategoryDetailsScreen extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    // Фильтруем транзакции только для этой категории в выбранном месяце
     final categoryExpenses = tx.expensesForMonth(monthDate).where((e) {
       if (e.isIncome) return false;
       if (e.category == ExpenseCategory.custom) {
@@ -48,7 +47,6 @@ class CategoryDetailsScreen extends StatelessWidget {
       return e.category == category;
     }).toList();
 
-    // Сортируем от новых к старым
     categoryExpenses.sort((a, b) => b.date.compareTo(a.date));
 
     final totalAmount = categoryExpenses.fold<double>(0, (sum, e) => sum + e.amount);
@@ -56,18 +54,28 @@ class CategoryDetailsScreen extends StatelessWidget {
     final categoryColor = category.dynamicColor(context, customCategoryId: customCategoryId);
 
     return Scaffold(
-      backgroundColor: isDark ? Colors.black : const Color(0xFFF2F2F7),
-      appBar: CupertinoNavigationBar(
-        backgroundColor: (isDark ? Colors.black : const Color(0xFFF2F2F7)).withValues(alpha: 0.8),
-        middle: Text(categoryName, style: TextStyle(color: theme.colorScheme.onSurface)),
-        previousPageTitle: 'Back',
+      backgroundColor: theme.scaffoldBackgroundColor,
+      appBar: AppBar(
+        backgroundColor: theme.scaffoldBackgroundColor,
+        scrolledUnderElevation: 0,
+        elevation: 0,
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(CupertinoIcons.back),
+          color: theme.colorScheme.primary,
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Text(
+          categoryName,
+          style: TextStyle(fontWeight: FontWeight.w700, color: theme.colorScheme.onSurface, fontSize: 18),
+        ),
       ),
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
         slivers: [
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
+              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
               child: Column(
                 children: [
                   Container(
@@ -140,6 +148,9 @@ class CategoryDetailsScreen extends StatelessWidget {
                         borderRadius: BorderRadius.vertical(
                           top: isFirst ? const Radius.circular(24) : Radius.zero,
                           bottom: isLast ? const Radius.circular(24) : Radius.zero,
+                        ),
+                        border: Border.all(
+                          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
                         ),
                       ),
                       child: Column(

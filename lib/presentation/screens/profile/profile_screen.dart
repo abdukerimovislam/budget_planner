@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:convert';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
@@ -12,16 +13,15 @@ import '../../../app/app_state.dart';
 import '../../../core/localization/locale_controller.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../data/datasources/local/local_storage_service.dart';
-import '../../../data/datasources/local/isar_database_service.dart'; // <-- ИМПОРТ ISAR ДЛЯ ОЧИСТКИ
+import '../../../data/datasources/local/isar_database_service.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../monthly_report/monthly_report_screen.dart';
 import '../../widgets/financial_level_card.dart';
-import '../../widgets/premium_background.dart';
 import '../../widgets/streak_card.dart';
 import '../achievements/achievements_screen.dart';
 import '../premium/premium_screen.dart';
 
-// НОВЫЕ ПРОВАЙДЕРЫ
+// ПРОВАЙДЕРЫ
 import '../../providers/settings_provider.dart';
 import '../../providers/transactions_provider.dart';
 import '../../providers/insights_provider.dart';
@@ -106,7 +106,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ]);
       }
 
-      // Генерируем CSV формат вручную. Это надежно и оборачивает всё в кавычки.
       String csvData = rows.map((row) {
         return row.map((item) {
           String str = item.toString().replaceAll('"', '""');
@@ -192,136 +191,167 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final isPremium = settings.isPremium;
     final currentCurrency = settings.incomeProfile?.currency ?? 'USD';
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
-    return PremiumBackground(
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: CustomScrollView(
-          physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-          slivers: [
-            SliverAppBar.large(
-              stretch: true,
-              backgroundColor: Colors.transparent,
-              surfaceTintColor: Colors.transparent,
-              title: Text(
-                l10n.profileTitle,
-                style: const TextStyle(fontWeight: FontWeight.w700, letterSpacing: -0.5),
+    return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
+      body: Stack(
+        children: [
+          Positioned(
+            top: -100,
+            left: -50,
+            right: -50,
+            height: 400,
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  colors: [
+                    theme.colorScheme.primary.withValues(alpha: isDark ? 0.3 : 0.15),
+                    theme.colorScheme.secondary.withValues(alpha: isDark ? 0.2 : 0.1),
+                    Colors.transparent,
+                  ],
+                  radius: 0.8,
+                ),
               ),
             ),
+          ),
 
-            SliverPadding(
-              padding: EdgeInsets.symmetric(horizontal: Responsive.cardPadding(context), vertical: 16),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate([
-
-                  _SectionTitle(title: l10n.subscriptionSection.toUpperCase()),
-                  const SizedBox(height: 8),
-                  _SettingsGroup(
-                    children: [
-                      _SettingsRow(
-                        icon: CupertinoIcons.star_circle_fill,
-                        iconColor: CupertinoColors.systemYellow,
-                        title: isPremium ? l10n.premiumActiveTitle : l10n.premiumUpgradeTitle,
-                        subtitle: isPremium ? l10n.premiumActiveSubtitle : l10n.premiumUpgradeSubtitle,
-                        onTap: () => Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const PremiumScreen())),
-                        isLast: true,
-                      ),
-                    ],
+          CustomScrollView(
+            physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+            slivers: [
+              // --- ЗАКРЕПЛЕННЫЙ МАТОВЫЙ APPBAR ---
+              SliverAppBar(
+                pinned: true,
+                backgroundColor: theme.scaffoldBackgroundColor.withValues(alpha: 0.8), // Полупрозрачный
+                scrolledUnderElevation: 0,
+                elevation: 0,
+                flexibleSpace: ClipRect(
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15), // Эффект матового стекла
+                    child: Container(color: Colors.transparent),
                   ),
-                  const SizedBox(height: 32),
-
-                  _SectionTitle(title: l10n.preferencesSection.toUpperCase()),
-                  const SizedBox(height: 8),
-                  _SettingsGroup(
-                    children: [
-                      _SettingsRow(
-                        icon: CupertinoIcons.globe,
-                        iconColor: CupertinoColors.activeBlue,
-                        title: l10n.language,
-                        trailing: _buildLanguageSelector(context),
-                      ),
-                      _SettingsRow(
-                        icon: CupertinoIcons.money_dollar_circle_fill,
-                        iconColor: CupertinoColors.systemGreen,
-                        title: _t(context, 'Currency', 'Валюта'),
-                        trailing: Text(
-                          currentCurrency,
-                          style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 16, fontWeight: FontWeight.w600),
-                        ),
-                        onTap: () => _showCurrencyPicker(context, settings),
-                      ),
-                      _SettingsRow(
-                        icon: CupertinoIcons.lock_shield_fill,
-                        iconColor: CupertinoColors.systemIndigo,
-                        title: _t(context, 'Face ID / PIN Login', 'Вход по Face ID / PIN'),
-                        trailing: CupertinoSwitch(
-                          value: _isBiometricEnabled,
-                          activeColor: theme.colorScheme.primary,
-                          onChanged: _toggleBiometric,
-                        ),
-                        isLast: true,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 32),
-
-                  _SectionTitle(title: _t(context, 'DATA MANAGEMENT', 'УПРАВЛЕНИЕ ДАННЫМИ')),
-                  const SizedBox(height: 8),
-                  _SettingsGroup(
-                    children: [
-                      _SettingsRow(
-                        icon: CupertinoIcons.doc_text_fill,
-                        iconColor: CupertinoColors.systemTeal,
-                        title: _t(context, 'Export to CSV', 'Экспорт в CSV (Excel)'),
-                        subtitle: _t(context, 'Download your full transaction history', 'Скачать полную историю транзакций'),
-                        onTap: () => _exportToCsv(context, tx),
-                        isLast: true,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 32),
-
-                  _SectionTitle(title: l10n.gamificationSection.toUpperCase()),
-                  const SizedBox(height: 8),
-                  StreakCard(
-                    streak: streak,
-                    onTap: () => Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const AchievementsScreen())),
-                  ),
-                  const SizedBox(height: 12),
-                  FinancialLevelCard(
-                    level: report.level,
-                    onTapReport: () => Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const MonthlyReportScreen())),
-                  ),
-
-                  const SizedBox(height: 32),
-
-                  _SectionTitle(title: l10n.dangerZoneSection.toUpperCase()),
-                  const SizedBox(height: 8),
-                  _SettingsGroup(
-                    children: [
-                      _SettingsRow(
-                        icon: CupertinoIcons.refresh_circled,
-                        iconColor: CupertinoColors.systemOrange,
-                        title: l10n.restartOnboarding,
-                        onTap: () => context.read<AppState>().resetOnboarding(),
-                      ),
-                      _SettingsRow(
-                        icon: CupertinoIcons.trash_fill,
-                        iconColor: CupertinoColors.destructiveRed,
-                        title: l10n.clearAllDataTitle,
-                        textColor: CupertinoColors.destructiveRed,
-                        onTap: () => _showClearDataConfirm(context),
-                        isLast: true,
-                      ),
-                    ],
-                  ),
-
-                  SizedBox(height: 48 + MediaQuery.of(context).padding.bottom),
-                ]),
+                ),
+                centerTitle: false,
+                title: Text(
+                  l10n.profileTitle,
+                  style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: -0.5, color: theme.colorScheme.onSurface, fontSize: 24),
+                ),
               ),
-            ),
-          ],
-        ),
+
+              SliverPadding(
+                padding: EdgeInsets.symmetric(horizontal: Responsive.cardPadding(context), vertical: 16),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
+
+                    _SectionTitle(title: l10n.subscriptionSection.toUpperCase()),
+                    const SizedBox(height: 8),
+                    _SettingsGroup(
+                      children: [
+                        _SettingsRow(
+                          icon: CupertinoIcons.star_circle_fill,
+                          iconColor: CupertinoColors.systemYellow,
+                          title: isPremium ? l10n.premiumActiveTitle : l10n.premiumUpgradeTitle,
+                          subtitle: isPremium ? l10n.premiumActiveSubtitle : l10n.premiumUpgradeSubtitle,
+                          onTap: () => Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const PremiumScreen())),
+                          isLast: true,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 32),
+
+                    _SectionTitle(title: l10n.preferencesSection.toUpperCase()),
+                    const SizedBox(height: 8),
+                    _SettingsGroup(
+                      children: [
+                        _SettingsRow(
+                          icon: CupertinoIcons.globe,
+                          iconColor: CupertinoColors.activeBlue,
+                          title: l10n.language,
+                          trailing: _buildLanguageSelector(context),
+                        ),
+                        _SettingsRow(
+                          icon: CupertinoIcons.money_dollar_circle_fill,
+                          iconColor: CupertinoColors.systemGreen,
+                          title: _t(context, 'Currency', 'Валюта'),
+                          trailing: Text(
+                            currentCurrency,
+                            style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 16, fontWeight: FontWeight.w600),
+                          ),
+                          onTap: () => _showCurrencyPicker(context, settings),
+                        ),
+                        _SettingsRow(
+                          icon: CupertinoIcons.lock_shield_fill,
+                          iconColor: CupertinoColors.systemIndigo,
+                          title: _t(context, 'Face ID / PIN Login', 'Вход по Face ID / PIN'),
+                          trailing: CupertinoSwitch(
+                            value: _isBiometricEnabled,
+                            activeColor: theme.colorScheme.primary,
+                            onChanged: _toggleBiometric,
+                          ),
+                          isLast: true,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 32),
+
+                    _SectionTitle(title: _t(context, 'DATA MANAGEMENT', 'УПРАВЛЕНИЕ ДАННЫМИ')),
+                    const SizedBox(height: 8),
+                    _SettingsGroup(
+                      children: [
+                        _SettingsRow(
+                          icon: CupertinoIcons.doc_text_fill,
+                          iconColor: CupertinoColors.systemTeal,
+                          title: _t(context, 'Export to CSV', 'Экспорт в CSV (Excel)'),
+                          subtitle: _t(context, 'Download your full transaction history', 'Скачать полную историю транзакций'),
+                          onTap: () => _exportToCsv(context, tx),
+                          isLast: true,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 32),
+
+                    _SectionTitle(title: l10n.gamificationSection.toUpperCase()),
+                    const SizedBox(height: 8),
+                    StreakCard(
+                      streak: streak,
+                      onTap: () => Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const AchievementsScreen())),
+                    ),
+                    const SizedBox(height: 12),
+                    FinancialLevelCard(
+                      level: report.level,
+                      onTapReport: () => Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const MonthlyReportScreen())),
+                    ),
+
+                    const SizedBox(height: 32),
+
+                    _SectionTitle(title: l10n.dangerZoneSection.toUpperCase()),
+                    const SizedBox(height: 8),
+                    _SettingsGroup(
+                      children: [
+                        _SettingsRow(
+                          icon: CupertinoIcons.refresh_circled,
+                          iconColor: CupertinoColors.systemOrange,
+                          title: l10n.restartOnboarding,
+                          onTap: () => context.read<AppState>().resetOnboarding(),
+                        ),
+                        _SettingsRow(
+                          icon: CupertinoIcons.trash_fill,
+                          iconColor: CupertinoColors.destructiveRed,
+                          title: l10n.clearAllDataTitle,
+                          textColor: CupertinoColors.destructiveRed,
+                          onTap: () => _showClearDataConfirm(context),
+                          isLast: true,
+                        ),
+                      ],
+                    ),
+
+                    SizedBox(height: 140 + MediaQuery.of(context).padding.bottom),
+                  ]),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -366,12 +396,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           CupertinoDialogAction(
             isDestructiveAction: true, child: Text(l10n.deleteButton),
             onPressed: () async {
-              // Очищаем обе базы данных (LocalStorage и Isar)!
               await LocalStorageService.instance.clearAll();
               await IsarDatabaseService.instance.clearAll();
 
               if (context.mounted) {
-                // Перезагружаем провайдеры (чтобы очистить стейты)
                 context.read<SettingsProvider>().load();
                 context.read<TransactionsProvider>().load();
 

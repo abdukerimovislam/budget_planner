@@ -11,7 +11,6 @@ import '../../../core/utils/responsive.dart';
 import '../../../data/models/expense_category.dart';
 import '../../../data/models/expense_model.dart';
 import '../../../data/models/expense_source_type.dart';
-import '../../../data/models/parsed_expense_input_model.dart';
 import '../../../data/models/receipt_parsed_data_model.dart';
 import '../../../data/models/receipt_review_model.dart';
 import '../../../domain/services/currency_conversion_service.dart';
@@ -21,14 +20,13 @@ import '../../../domain/services/receipt_scan_service.dart';
 import '../../../domain/services/smart_expense_parser.dart';
 import '../../../domain/services/voice_input_service.dart';
 import '../../../l10n/app_localizations.dart';
-import '../../widgets/adaptive_page_padding.dart';
 import '../../widgets/add_expense_source_selector.dart';
 import '../../widgets/custom_category_sheet.dart';
 import '../premium/premium_screen.dart';
 import '../receipt_review/receipt_review_screen.dart';
 import '../qr_scanner/qr_scanner_screen.dart';
 
-// НОВЫЕ ПРОВАЙДЕРЫ
+// ПРОВАЙДЕРЫ
 import '../../providers/settings_provider.dart';
 import '../../providers/transactions_provider.dart';
 
@@ -49,18 +47,17 @@ class AddExpenseScreen extends StatefulWidget {
 }
 
 class _AddExpenseScreenState extends State<AddExpenseScreen> {
-  final TextEditingController _smartInputController = TextEditingController();
-  final SmartExpenseParser _parser = SmartExpenseParser();
   final VoiceInputService _voiceInputService = VoiceInputService();
   final ReceiptScanService _receiptScanService = ReceiptScanService();
   final ReceiptParserService _receiptParserService = ReceiptParserService();
-
+  final SmartExpenseParser _parser = SmartExpenseParser();
   final CurrencyConversionService _conversionService = CurrencyConversionService();
 
-  ParsedExpenseInputModel? _parsed;
-  ReceiptParsedDataModel? _receiptParsedData;
   AddExpenseSourceMode _sourceMode = AddExpenseSourceMode.smartText;
 
+  // Состояние ввода
+  String _amountString = '0';
+  String _noteText = '';
   DateTime _selectedDate = DateTime.now();
   ExpenseCategory? _selectedCategory;
   String? _selectedCustomCategoryId;
@@ -71,28 +68,18 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
   final List<String> _availableCurrencies = ['USD', 'EUR', 'GBP', 'RUB', 'KZT', 'KGS', 'UZS', 'UAH', 'BYN'];
 
+  // Статусы UI
   bool _isVoiceLoading = false;
   bool _isVoiceListening = false;
-  String _voicePreviewText = '';
   String? _selectedLocaleId;
+  String _voicePreviewText = '';
 
   bool _isReceiptLoading = false;
   String _receiptPreviewText = '';
+  ReceiptParsedDataModel? _receiptParsedData;
 
   bool _isConverting = false;
-
   bool _isAiParsing = false;
-  Timer? _debounceTimer;
-
-  Timer? _typewriterTimer;
-  String _currentHint = '';
-  int _hintIndex = 0;
-  int _charIndex = 0;
-  bool _isTypingForward = true;
-
-  late List<String> _expenseHints;
-  late List<String> _incomeHints;
-  bool _isDependenciesInit = false;
 
   @override
   void initState() {
@@ -101,22 +88,14 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
     final settings = context.read<SettingsProvider>();
     _userCurrency = settings.activeCurrency;
-
-    if (settings.canUseFeature(PremiumFeature.multiCurrency)) {
-      _selectedCurrency = _userCurrency;
-    } else {
-      _selectedCurrency = _userCurrency;
-    }
+    _selectedCurrency = _userCurrency;
 
     if (widget.initialCustomCategoryId != null) {
       _selectedCategory = ExpenseCategory.custom;
       _selectedCustomCategoryId = widget.initialCustomCategoryId;
-      _parsed = ParsedExpenseInputModel(amount: null, currency: _selectedCurrency, category: ExpenseCategory.custom, merchant: null, rawText: '');
     } else {
       _selectedCategory = widget.initialCategory;
-      if (widget.initialCategory != null) {
-        _parsed = ParsedExpenseInputModel(amount: null, currency: _selectedCurrency, category: widget.initialCategory, merchant: null, rawText: '');
-      } else if (_isIncome) {
+      if (_isIncome && _selectedCategory == null) {
         _selectedCategory = ExpenseCategory.other;
       }
     }
@@ -125,82 +104,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-
-    if (!_isDependenciesInit) {
-      _initVoice();
-
-      final isRu = Localizations.localeOf(context).languageCode == 'ru';
-      _expenseHints = isRu
-          ? ['Кофе 150', 'Такси домой 500', 'Продукты в Ашане 2500', 'Кино с друзьями 800', 'Подписка Netflix 15 USD']
-          : ['Coffee 5', 'Uber to home 15', 'Groceries at Target 120', 'Movie tickets 25', 'Netflix subscription 15'];
-
-      _incomeHints = isRu
-          ? ['Зарплата 100000', 'Вернули долг 5000', 'Продал телефон 30000']
-          : ['Salary 5000', 'Refund 50', 'Sold old phone 300'];
-
-      _startTypewriterAnimation();
-
-      _isDependenciesInit = true;
-    }
-  }
-
-  void _startTypewriterAnimation() {
-    _typewriterTimer?.cancel();
-    final activeHints = _isIncome ? _incomeHints : _expenseHints;
-    if (activeHints.isEmpty) return;
-
-    _typewriterTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-
-      if (_smartInputController.text.isNotEmpty) {
-        setState(() => _currentHint = '');
-        timer.cancel();
-        return;
-      }
-
-      final targetWord = activeHints[_hintIndex];
-
-      setState(() {
-        if (_isTypingForward) {
-          if (_charIndex < targetWord.length) {
-            _charIndex++;
-            _currentHint = targetWord.substring(0, _charIndex);
-          } else {
-            _isTypingForward = false;
-            _typewriterTimer?.cancel();
-            Future.delayed(const Duration(seconds: 2), () {
-              if (mounted && _smartInputController.text.isEmpty) _startTypewriterAnimation();
-            });
-          }
-        } else {
-          if (_charIndex > 0) {
-            _charIndex--;
-            _currentHint = targetWord.substring(0, _charIndex);
-            _typewriterTimer?.cancel();
-            _typewriterTimer = Timer.periodic(const Duration(milliseconds: 50), (t) => _startTypewriterAnimation());
-          } else {
-            _isTypingForward = true;
-            _hintIndex = (_hintIndex + 1) % activeHints.length;
-            _typewriterTimer?.cancel();
-            _typewriterTimer = Timer.periodic(const Duration(milliseconds: 100), (t) => _startTypewriterAnimation());
-          }
-        }
-      });
-    });
-  }
-
-  String _t(String en, String ru) {
-    final isRu = Localizations.localeOf(context).languageCode == 'ru';
-    return isRu ? ru : en;
-  }
-
-  String _sanitizeNumbers(String text) {
-    String sanitized = text.replaceAllMapped(RegExp(r'(\d)[\s\u00A0]+(?=\d)'), (m) => m.group(1)!);
-    sanitized = sanitized.replaceAllMapped(RegExp(r'(\d),(?=\d)'), (m) => '${m.group(1)}.');
-    return sanitized;
+    _initVoice();
   }
 
   Future<void> _initVoice() async {
@@ -218,373 +122,145 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   String? _pickPreferredLocale(List<LocaleName> locales, BuildContext context) {
     if (locales.isEmpty) return null;
     final currentLang = Localizations.localeOf(context).languageCode.toLowerCase();
-
     for (final locale in locales) {
       if (locale.localeId.toLowerCase().startsWith(currentLang)) return locale.localeId;
     }
-
     for (final locale in locales) {
       if (locale.localeId.toLowerCase().startsWith('en')) return locale.localeId;
     }
-
     return locales.first.localeId;
   }
 
   @override
   void dispose() {
-    _typewriterTimer?.cancel();
-    _debounceTimer?.cancel();
-    _smartInputController.dispose();
     _voiceInputService.cancelListening();
     _receiptScanService.dispose();
     super.dispose();
   }
 
-  void _parseInput() {
-    final text = _smartInputController.text;
-
-    if (text.isEmpty && _currentHint.isEmpty) {
-      _hintIndex = 0;
-      _charIndex = 0;
-      _isTypingForward = true;
-      _startTypewriterAnimation();
-    }
-
-    final sanitizedText = _sanitizeNumbers(text);
-    final localParsed = _parser.parse(sanitizedText);
-
+  // --- ОБРАБОТЧИК NUMPAD ---
+  void _onNumpadTap(String value) {
+    HapticFeedback.lightImpact();
     setState(() {
-      final hasPremium = context.read<SettingsProvider>().canUseFeature(PremiumFeature.multiCurrency);
-      if (localParsed.currency != null && hasPremium) {
-        _selectedCurrency = localParsed.currency!;
-      }
-
-      _parsed = ParsedExpenseInputModel(
-        amount: localParsed.amount,
-        currency: hasPremium ? (localParsed.currency ?? _selectedCurrency) : _userCurrency,
-        category: _selectedCategory ?? localParsed.category ?? widget.initialCategory ?? ExpenseCategory.other,
-        merchant: localParsed.merchant,
-        rawText: text,
-      );
-    });
-
-    _debounceTimer?.cancel();
-
-    final hasLetters = RegExp(r'[a-zA-Zа-яА-Я]').hasMatch(text);
-
-    if (text.trim().length > 3 && hasLetters) {
-      _debounceTimer = Timer(const Duration(milliseconds: 1500), () async {
-        if (!mounted) return;
-
-        setState(() => _isAiParsing = true);
-
-        final aiParsed = await _parser.parseWithAI(sanitizedText, _selectedCurrency);
-
-        if (!mounted) return;
-
-        setState(() {
-          _isAiParsing = false;
-          final hasPremium = context.read<SettingsProvider>().canUseFeature(PremiumFeature.multiCurrency);
-
-          if (aiParsed.currency != null && hasPremium) {
-            _selectedCurrency = aiParsed.currency!;
+      if (value == 'C') {
+        _amountString = '0';
+      } else if (value == '<') {
+        if (_amountString.length > 1) {
+          _amountString = _amountString.substring(0, _amountString.length - 1);
+        } else {
+          _amountString = '0';
+        }
+      } else if (value == '.') {
+        if (!_amountString.contains('.')) {
+          _amountString += '.';
+        }
+      } else {
+        if (_amountString == '0') {
+          _amountString = value;
+        } else {
+          if (_amountString.contains('.')) {
+            final parts = _amountString.split('.');
+            if (parts[1].length < 2) _amountString += value;
+          } else {
+            if (_amountString.length < 9) _amountString += value;
           }
-
-          _parsed = ParsedExpenseInputModel(
-            amount: aiParsed.amount ?? _parsed?.amount,
-            currency: hasPremium ? (aiParsed.currency ?? _selectedCurrency) : _userCurrency,
-            category: _selectedCategory != null ? _selectedCategory! : (aiParsed.category ?? ExpenseCategory.other),
-            merchant: aiParsed.merchant ?? _parsed?.merchant,
-            rawText: text,
-          );
-        });
-      });
-    } else {
-      if (_isAiParsing) {
-        setState(() => _isAiParsing = false);
+        }
       }
-    }
+    });
   }
 
-  Future<void> _parseVoiceText(String text) async {
-    setState(() {
-      _voicePreviewText = text;
-      _isAiParsing = true;
-    });
+  double get _parsedAmount => double.tryParse(_amountString) ?? 0.0;
+  bool get _canSave => _parsedAmount > 0 && _selectedCategory != null;
 
-    final sanitizedText = _sanitizeNumbers(text);
+  String _t(String en, String ru) {
+    final isRu = Localizations.localeOf(context).languageCode == 'ru';
+    return isRu ? ru : en;
+  }
 
-    final localParsed = _parser.parse(sanitizedText);
-    final aiParsed = await _parser.parseWithAI(sanitizedText, _selectedCurrency);
-
-    if (!mounted) return;
-
+  // --- ХЕЛПЕР ЗАПОЛНЕНИЯ ИЗ ИИ / СКАНЕРА ---
+  void _applyParsedData(double? amount, ExpenseCategory? category, String? merchant, String? currency, String sourceText) {
     final hasPremium = context.read<SettingsProvider>().canUseFeature(PremiumFeature.multiCurrency);
-
     setState(() {
-      _isAiParsing = false;
-      if (aiParsed.currency != null && hasPremium) _selectedCurrency = aiParsed.currency!;
-
-      _parsed = ParsedExpenseInputModel(
-        amount: aiParsed.amount ?? localParsed.amount,
-        currency: hasPremium ? (aiParsed.currency ?? _selectedCurrency) : _userCurrency,
-        category: _selectedCategory ?? aiParsed.category ?? localParsed.category ?? widget.initialCategory ?? ExpenseCategory.other,
-        merchant: aiParsed.merchant ?? localParsed.merchant,
-        rawText: text,
-      );
-    });
-  }
-
-  void _parseReceiptText(String text) {
-    final parsedReceipt = _receiptParserService.parse(text);
-    final hasPremium = context.read<SettingsProvider>().canUseFeature(PremiumFeature.multiCurrency);
-
-    setState(() {
-      _receiptPreviewText = text;
-      _receiptParsedData = parsedReceipt;
-      if (parsedReceipt.currency != null && hasPremium) _selectedCurrency = parsedReceipt.currency!;
-      _parsed = ParsedExpenseInputModel(
-        amount: parsedReceipt.amount,
-        currency: hasPremium ? (parsedReceipt.currency ?? _selectedCurrency) : _userCurrency,
-        category: _selectedCategory ?? parsedReceipt.category ?? widget.initialCategory ?? ExpenseCategory.other,
-        merchant: parsedReceipt.merchant,
-        rawText: text.replaceAll('\n', ' '),
-      );
-    });
-  }
-
-  void _selectSystemCategory(ExpenseCategory cat) {
-    HapticFeedback.selectionClick();
-    setState(() {
-      _selectedCategory = cat;
-      _selectedCustomCategoryId = null;
-      if (_parsed != null) {
-        _parsed = ParsedExpenseInputModel(amount: _parsed!.amount, currency: _selectedCurrency, category: cat, merchant: _parsed!.merchant, rawText: _parsed!.rawText);
-      } else {
-        _parsed = ParsedExpenseInputModel(amount: null, currency: _selectedCurrency, category: cat, merchant: null, rawText: '');
+      if (amount != null) {
+        _amountString = amount % 1 == 0 ? amount.toInt().toString() : amount.toString();
       }
+      if (category != null) _selectedCategory = category;
+      if (merchant != null && merchant.isNotEmpty) _noteText = merchant;
+      if (currency != null && hasPremium) _selectedCurrency = currency;
+
+      if (_sourceMode == AddExpenseSourceMode.voice) _voicePreviewText = sourceText;
+      if (_sourceMode == AddExpenseSourceMode.receipt) _receiptPreviewText = sourceText;
     });
   }
 
-  void _selectCustomCategory(String id) {
-    HapticFeedback.selectionClick();
-    setState(() {
-      _selectedCategory = ExpenseCategory.custom;
-      _selectedCustomCategoryId = id;
-      if (_parsed != null) {
-        _parsed = ParsedExpenseInputModel(amount: _parsed!.amount, currency: _selectedCurrency, category: ExpenseCategory.custom, merchant: _parsed!.merchant, rawText: _parsed!.rawText);
-      } else {
-        _parsed = ParsedExpenseInputModel(amount: null, currency: _selectedCurrency, category: ExpenseCategory.custom, merchant: null, rawText: '');
-      }
-    });
-  }
-
-  void _showDatePicker() {
-    showCupertinoModalPopup(
-      context: context,
-      builder: (_) => Container(
-        height: 280, color: Theme.of(context).colorScheme.surface,
-        child: SafeArea(
-          top: false,
-          child: CupertinoDatePicker(
-            initialDateTime: _selectedDate,
-            mode: CupertinoDatePickerMode.dateAndTime,
-            use24hFormat: true,
-            maximumDate: DateTime.now(),
-            onDateTimeChanged: (val) => setState(() => _selectedDate = val),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _handleCurrencyTap() {
-    final settings = context.read<SettingsProvider>();
-    if (!settings.canUseFeature(PremiumFeature.multiCurrency)) {
-      Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const PremiumScreen()));
-      return;
-    }
-
-    HapticFeedback.lightImpact();
-    int initialIndex = _availableCurrencies.indexOf(_selectedCurrency);
-    if (initialIndex == -1) initialIndex = 0;
-
-    showCupertinoModalPopup(
-      context: context,
-      builder: (_) => Container(
-        height: 250,
-        color: Theme.of(context).colorScheme.surface,
-        child: SafeArea(
-          top: false,
-          child: CupertinoPicker(
-            itemExtent: 40,
-            scrollController: FixedExtentScrollController(initialItem: initialIndex),
-            onSelectedItemChanged: (index) {
-              HapticFeedback.selectionClick();
-              setState(() {
-                _selectedCurrency = _availableCurrencies[index];
-                if (_parsed != null) {
-                  _parsed = ParsedExpenseInputModel(
-                    amount: _parsed!.amount, currency: _selectedCurrency, category: _parsed!.category, merchant: _parsed!.merchant, rawText: _parsed!.rawText,
-                  );
-                }
-              });
-            },
-            children: _availableCurrencies.map((c) => Center(
-              child: Text(c, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w600)),
-            )).toList(),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _handleAutoConvert() async {
-    final settings = context.read<SettingsProvider>();
-    if (!settings.canUseFeature(PremiumFeature.multiCurrency)) {
-      Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const PremiumScreen()));
-      return;
-    }
-
-    if (_parsed == null || _parsed!.amount == null) return;
-
-    setState(() {
-      _isConverting = true;
-    });
-
-    final convertedAmount = await _conversionService.convert(
-      amount: _parsed!.amount!,
-      fromCurrency: _selectedCurrency,
-      toCurrency: _userCurrency,
-    );
-
-    if (!mounted) return;
-
-    setState(() {
-      _isConverting = false;
-    });
-
-    if (convertedAmount != null) {
-      HapticFeedback.mediumImpact();
-      setState(() {
-        _selectedCurrency = _userCurrency;
-        _parsed = ParsedExpenseInputModel(
-          amount: convertedAmount,
-          currency: _userCurrency,
-          category: _parsed!.category,
-          merchant: _parsed!.merchant,
-          rawText: _parsed!.rawText,
-        );
-      });
-    } else {
-      HapticFeedback.heavyImpact();
-      _showSnack(context, _t('Failed to fetch exchange rates', 'Не удалось получить курс валют. Проверьте интернет.'));
-    }
-  }
-
-  void _showSnack(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), behavior: SnackBarBehavior.floating));
-  }
-
+  // --- ГОЛОС ---
   Future<void> _handleVoiceTap(BuildContext context) async {
-    final l10n = AppLocalizations.of(context);
     HapticFeedback.lightImpact();
-
     if (_isVoiceListening) {
       setState(() => _isVoiceLoading = true);
       final result = await _voiceInputService.stopListening();
-
       if (!mounted) return;
-
       setState(() { _isVoiceLoading = false; _isVoiceListening = false; });
+
       if (result.hasText) {
-        await _parseVoiceText(result.recognizedText);
-      }
-      else if (result.errorMessage != null) {
-        _showSnack(context, l10n.voiceErrorMessage(result.errorMessage!));
+        setState(() { _voicePreviewText = result.recognizedText; _isAiParsing = true; });
+        final aiParsed = await _parser.parseWithAI(result.recognizedText, _selectedCurrency);
+        if (!mounted) return;
+        setState(() => _isAiParsing = false);
+        _applyParsedData(aiParsed.amount, aiParsed.category, aiParsed.merchant, aiParsed.currency, result.recognizedText);
+      } else if (result.errorMessage != null) {
+        _showSnack(context, result.errorMessage!);
       }
       return;
     }
 
     setState(() => _isVoiceLoading = true);
     final result = await _voiceInputService.startListening(localeId: _selectedLocaleId ?? '');
-
     if (!mounted) return;
-
     setState(() { _isVoiceLoading = false; _isVoiceListening = result.isAvailable; });
-    if (!result.isAvailable) _showSnack(context, l10n.voiceUnavailableMessage);
   }
 
+  // --- ЧЕКИ И QR ---
   Future<void> _handleQrScannerTap(BuildContext context) async {
     HapticFeedback.lightImpact();
     final qrResult = await Navigator.of(context).push<String>(
         CupertinoPageRoute(builder: (_) => const QrScannerScreen())
     );
-
     if (qrResult == null || !mounted) return;
 
-    setState(() { _isReceiptLoading = true; });
-
+    setState(() => _isReceiptLoading = true);
     final parsedData = _receiptScanService.parseQrData(qrResult);
-
-    setState(() { _isReceiptLoading = false; });
+    setState(() => _isReceiptLoading = false);
 
     if (parsedData == null || parsedData['amount'] == null) {
-      _showSnack(context, 'Нестандартный QR-код. Пробуем распознать...');
-      _smartInputController.text = qrResult;
-      _parseInput();
+      _showSnack(context, 'Нестандартный QR-код');
       return;
     }
 
-    setState(() {
-      _receiptPreviewText = "QR-код отсканирован!";
-      _selectedDate = parsedData['date'] as DateTime;
-      _parsed = ParsedExpenseInputModel(
-        amount: parsedData['amount'] as double,
-        currency: _selectedCurrency,
-        category: _selectedCategory ?? widget.initialCategory ?? ExpenseCategory.other,
-        merchant: null,
-        rawText: 'Чек: ${parsedData['rawText']}',
-      );
-    });
+    _selectedDate = parsedData['date'] as DateTime;
+    _applyParsedData(parsedData['amount'] as double, _selectedCategory ?? ExpenseCategory.other, null, _selectedCurrency, 'QR: ${parsedData['rawText']}');
   }
 
   Future<void> _scanPickedFile(BuildContext context, XFile file) async {
-    final l10n = AppLocalizations.of(context);
-    setState(() { _isReceiptLoading = true; });
+    setState(() => _isReceiptLoading = true);
     final result = await _receiptScanService.scanFile(file);
-
     if (!mounted) return;
     setState(() => _isReceiptLoading = false);
 
     if (!result.isSuccess) {
-      _showSnack(context, l10n.receiptScanErrorMessage(result.errorMessage ?? l10n.notAvailableShort));
+      _showSnack(context, result.errorMessage ?? 'Ошибка сканирования');
       return;
     }
 
-    _parseReceiptText(result.recognizedText);
-    if (_receiptParsedData == null) return;
+    final parsedReceipt = _receiptParserService.parse(result.recognizedText);
+    _receiptParsedData = parsedReceipt;
 
     final review = await Navigator.of(context).push<ReceiptReviewModel>(
         CupertinoPageRoute(builder: (_) => ReceiptReviewScreen(parsedData: _receiptParsedData!))
     );
-
     if (!mounted || review == null) return;
 
-    final hasPremium = context.read<SettingsProvider>().canUseFeature(PremiumFeature.multiCurrency);
-
-    setState(() {
-      if (hasPremium && review.currency != null) _selectedCurrency = review.currency!;
-      _parsed = ParsedExpenseInputModel(
-          amount: review.amount,
-          currency: hasPremium ? _selectedCurrency : _userCurrency,
-          category: review.category,
-          merchant: review.merchant,
-          rawText: review.rawText
-      );
-      _receiptPreviewText = review.rawText;
-    });
+    _applyParsedData(review.amount, review.category, review.merchant, review.currency, review.rawText);
   }
 
   Future<void> _handleReceiptCameraTap(BuildContext context) async {
@@ -601,11 +277,10 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     await _scanPickedFile(context, file);
   }
 
+  // --- СОХРАНЕНИЕ ---
   Future<void> _saveExpense(BuildContext context) async {
-    final parsed = _parsed;
-    if (parsed == null || !parsed.isValid) return;
-
-    HapticFeedback.mediumImpact();
+    if (!_canSave) return;
+    HapticFeedback.heavyImpact();
 
     final settings = context.read<SettingsProvider>();
     final transactions = context.read<TransactionsProvider>();
@@ -614,12 +289,12 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     await transactions.addExpense(
       ExpenseModel(
         id: const Uuid().v4(),
-        amount: parsed.amount!,
+        amount: _parsedAmount,
         currency: hasPremium ? _selectedCurrency : _userCurrency,
-        category: _selectedCategory ?? parsed.category ?? ExpenseCategory.other,
+        category: _selectedCategory!,
         customCategoryId: _selectedCustomCategoryId,
-        merchant: parsed.merchant ?? '',
-        note: parsed.rawText.isEmpty ? null : parsed.rawText,
+        merchant: _noteText.isEmpty ? (_isIncome ? 'Доход' : 'Расход') : _noteText,
+        note: _noteText.isEmpty ? null : _noteText,
         date: _selectedDate,
         sourceType: _mapSourceModeToType(_sourceMode),
         isRecurring: false,
@@ -641,30 +316,86 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     }
   }
 
-  String _formatNumber(num value) {
-    if (value % 1 == 0) return value.toInt().toString();
-    return value.toStringAsFixed(2);
+  // --- КАТЕГОРИИ И UI-ХЕЛПЕРЫ ---
+  void _selectSystemCategory(ExpenseCategory cat) {
+    HapticFeedback.selectionClick();
+    setState(() { _selectedCategory = cat; _selectedCustomCategoryId = null; });
   }
 
-  String _formatDate(DateTime date) {
+  void _selectCustomCategory(String id) {
+    HapticFeedback.selectionClick();
+    setState(() { _selectedCategory = ExpenseCategory.custom; _selectedCustomCategoryId = id; });
+  }
+
+  void _handleCurrencyTap() {
+    final settings = context.read<SettingsProvider>();
+    if (!settings.canUseFeature(PremiumFeature.multiCurrency)) {
+      Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const PremiumScreen()));
+      return;
+    }
+
+    HapticFeedback.lightImpact();
+    int initialIndex = _availableCurrencies.indexOf(_selectedCurrency);
+    if (initialIndex == -1) initialIndex = 0;
+
+    showCupertinoModalPopup(
+      context: context,
+      builder: (_) => Container(
+        height: 250, color: Theme.of(context).colorScheme.surface,
+        child: SafeArea(
+          top: false,
+          child: CupertinoPicker(
+            itemExtent: 40,
+            scrollController: FixedExtentScrollController(initialItem: initialIndex),
+            onSelectedItemChanged: (index) {
+              HapticFeedback.selectionClick();
+              setState(() => _selectedCurrency = _availableCurrencies[index]);
+            },
+            children: _availableCurrencies.map((c) => Center(
+              child: Text(c, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w600)),
+            )).toList(),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showDatePicker() {
+    showCupertinoModalPopup(
+      context: context,
+      builder: (_) => Container(
+        height: 280, color: Theme.of(context).colorScheme.surface,
+        child: SafeArea(
+          top: false,
+          child: CupertinoDatePicker(
+            initialDateTime: _selectedDate, mode: CupertinoDatePickerMode.dateAndTime, use24hFormat: true, maximumDate: DateTime.now(),
+            onDateTimeChanged: (val) => setState(() => _selectedDate = val),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatDateShort(DateTime date) {
     final now = DateTime.now();
-    final isToday = date.year == now.year && date.month == now.month && date.day == now.day;
-    final time = '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
-    if (isToday) return '${_t('Today', 'Сегодня')}, $time';
-    return '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}, $time';
+    if (date.year == now.year && date.month == now.month && date.day == now.day) return _t('Today', 'Сегодня');
+    return '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}';
   }
 
-  String _categoryLabel(BuildContext context, ExpenseCategory category) {
-    final l10n = AppLocalizations.of(context);
+  void _showSnack(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), behavior: SnackBarBehavior.floating));
+  }
 
+  String _categoryLabel(ExpenseCategory category) {
+    final l10n = AppLocalizations.of(context);
     if (_isIncome) {
       switch (category) {
-        case ExpenseCategory.other: return '💼 ${_t('Salary / Income', 'Зарплата / Доход')}';
-        case ExpenseCategory.gifts: return '🎁 ${_t('Gift / Transfer', 'Подарок / Перевод')}';
+        case ExpenseCategory.other: return '💼 ${_t('Salary', 'Зарплата')}';
+        case ExpenseCategory.gifts: return '🎁 ${_t('Transfer', 'Перевод')}';
         default: return '📦 ${_t('Other', 'Другое')}';
       }
     }
-
     switch (category) {
       case ExpenseCategory.food: return '🍔 ${l10n.categoryFood}';
       case ExpenseCategory.transport: return '🚕 ${l10n.categoryTransport}';
@@ -681,670 +412,423 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     }
   }
 
-  bool get _canSave => _parsed != null && _parsed!.isValid;
-
+  // --- BUILD ---
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final backgroundColor = isDark ? Colors.black : const Color(0xFFF2F2F7);
-
     final settings = context.watch<SettingsProvider>();
-    final customCategories = settings.customCategories;
-
-    final systemCategories = _isIncome
-        ? [ExpenseCategory.other, ExpenseCategory.gifts]
-        : ExpenseCategory.values.where((c) => c != ExpenseCategory.custom).toList();
 
     return Scaffold(
-      backgroundColor: backgroundColor,
-      appBar: CupertinoNavigationBar(
-        backgroundColor: backgroundColor.withValues(alpha: 0.8),
-        middle: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 200),
-          child: Text(
-              _isIncome ? _t('Add Income', 'Добавить Доход') : l10n.addExpense,
-              key: ValueKey(_isIncome),
-              style: TextStyle(color: theme.colorScheme.onSurface)
+      backgroundColor: theme.colorScheme.surface,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            _buildHeader(theme),
+
+            Expanded(
+              flex: 4,
+              child: _buildAmountDisplay(theme),
+            ),
+
+            if (_sourceMode != AddExpenseSourceMode.smartText)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: _sourceMode == AddExpenseSourceMode.voice ? _buildVoiceSection() : _buildReceiptSection(),
+              ),
+
+            _buildCategorySelector(theme, settings),
+            const SizedBox(height: 16),
+
+            Expanded(
+              flex: 6,
+              child: _buildNumpad(theme),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader(ThemeData theme) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          CupertinoButton(
+            padding: EdgeInsets.zero,
+            child: Icon(CupertinoIcons.xmark_circle_fill, color: theme.colorScheme.onSurface.withValues(alpha: 0.2), size: 28),
+            onPressed: () => Navigator.of(context).pop(),
           ),
+
+          Container(
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              children: [
+                _buildTypeTab(_t('Expense', 'Расход'), !_isIncome, theme),
+                _buildTypeTab(_t('Income', 'Доход'), _isIncome, theme),
+              ],
+            ),
+          ),
+
+          GestureDetector(
+            onTap: _handleCurrencyTap,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(_selectedCurrency, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTypeTab(String title, bool isActive, ThemeData theme) {
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        setState(() {
+          _isIncome = title == 'Доход' || title == 'Income';
+          _selectedCategory = null;
+        });
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isActive ? (_isIncome ? CupertinoColors.systemGreen : theme.colorScheme.primary) : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
         ),
-        leading: CupertinoButton(
-          padding: EdgeInsets.zero,
-          child: Text(l10n.cancelButton ?? 'Cancel', style: TextStyle(color: theme.colorScheme.primary)),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        trailing: CupertinoButton(
-          padding: EdgeInsets.zero,
-          onPressed: _canSave ? () => _saveExpense(context) : null,
-          child: _isAiParsing && !_canSave
-              ? CupertinoActivityIndicator(radius: 10, color: theme.colorScheme.primary)
-              : Text(
-            l10n.saveExpenseButton,
-            style: TextStyle(fontWeight: FontWeight.w700, color: _canSave ? theme.colorScheme.primary : CupertinoColors.systemGrey),
+        child: Text(
+          title,
+          style: TextStyle(
+            color: isActive ? Colors.white : theme.colorScheme.onSurface.withValues(alpha: 0.5),
+            fontWeight: FontWeight.w600,
           ),
         ),
       ),
-      body: AdaptivePagePadding(
-        addBottomSafeArea: true,
-        child: ListView(
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          physics: const BouncingScrollPhysics(),
-          children: [
-            const SizedBox(height: 16),
+    );
+  }
 
-            AddExpenseSourceSelector(
-              value: _sourceMode,
-              onChanged: (mode) {
-                if (mode == AddExpenseSourceMode.voice && !settings.canUseFeature(PremiumFeature.voiceInput)) {
-                  Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const PremiumScreen()));
-                  return;
-                }
-                if (mode == AddExpenseSourceMode.receipt && !settings.canUseFeature(PremiumFeature.receiptOcr)) {
-                  Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const PremiumScreen()));
-                  return;
-                }
-                setState(() => _sourceMode = mode);
-              },
-            ),
-
-            const SizedBox(height: 24),
-
-            _buildTypeToggle(theme),
-
-            const SizedBox(height: 32),
-
-            Column(
-              children: [
-                SizedBox(
-                  height: 80,
-                  child: Center(
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 300),
-                        transitionBuilder: (Widget child, Animation<double> animation) {
-                          return ScaleTransition(scale: animation, child: child);
-                        },
-                        child: Text(
-                          '${_isIncome && _parsed?.amount != null ? '+' : ''}${_parsed?.amount != null ? _formatNumber(_parsed!.amount!) : '0'}',
-                          key: ValueKey('${_parsed?.amount}_$_isIncome'),
-                          style: TextStyle(
-                            fontSize: 64,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -2.5,
-                            color: _isIncome ? CupertinoColors.systemGreen : theme.colorScheme.onSurface,
-                            height: 1.1,
-                          ),
-                        ),
-                      ),
-                    ),
+  Widget _buildAmountDisplay(ThemeData theme) {
+    return GestureDetector(
+      onTap: () async {
+        HapticFeedback.lightImpact();
+        final result = await showCupertinoDialog<String>(
+            context: context,
+            builder: (ctx) {
+              String tempNote = _noteText;
+              return CupertinoAlertDialog(
+                title: Text(_t('Add Note', 'Добавить заметку')),
+                content: Padding(
+                  padding: const EdgeInsets.only(top: 16.0),
+                  child: CupertinoTextField(
+                    placeholder: _t('What was this for?', 'За что платим?'),
+                    autofocus: true,
+                    controller: TextEditingController(text: _noteText),
+                    onChanged: (v) => tempNote = v,
                   ),
                 ),
-
-                GestureDetector(
-                  onTap: _handleCurrencyTap,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (!settings.canUseFeature(PremiumFeature.multiCurrency)) ...[
-                          Icon(CupertinoIcons.lock_fill, size: 12, color: CupertinoColors.systemYellow),
-                          const SizedBox(width: 6),
-                        ],
-                        Text(
-                          _selectedCurrency,
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: theme.colorScheme.onSurface),
-                        ),
-                        const SizedBox(width: 4),
-                        Icon(CupertinoIcons.chevron_down, size: 14, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
-                      ],
-                    ),
-                  ),
-                ),
-
-                if (_selectedCurrency != _userCurrency && (_parsed?.amount ?? 0) > 0) ...[
-                  const SizedBox(height: 16),
-                  GestureDetector(
-                    onTap: _isConverting ? null : _handleAutoConvert,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: CupertinoColors.activeOrange.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: CupertinoColors.activeOrange.withValues(alpha: 0.3)),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (_isConverting)
-                            const CupertinoActivityIndicator(radius: 8)
-                          else ...[
-                            if (!settings.canUseFeature(PremiumFeature.multiCurrency)) ...[
-                              const Icon(CupertinoIcons.lock_fill, size: 12, color: CupertinoColors.activeOrange),
-                              const SizedBox(width: 4),
-                            ],
-                            const Icon(CupertinoIcons.arrow_right_arrow_left, size: 14, color: CupertinoColors.activeOrange),
-                          ],
-                          const SizedBox(width: 6),
-                          Text(
-                            _t('Convert to $_userCurrency', 'В $_userCurrency'),
-                            style: const TextStyle(fontWeight: FontWeight.w700, color: CupertinoColors.activeOrange),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                actions: [
+                  CupertinoDialogAction(child: Text(_t('Cancel', 'Отмена')), onPressed: () => Navigator.pop(ctx)),
+                  CupertinoDialogAction(child: Text('OK'), isDefaultAction: true, onPressed: () => Navigator.pop(ctx, tempNote)),
                 ],
-              ],
+              );
+            }
+        );
+        if (result != null) setState(() => _noteText = result);
+      },
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            _isIncome ? '+' : '-',
+            style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: _isIncome ? CupertinoColors.systemGreen : theme.colorScheme.primary),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                _amountString,
+                style: TextStyle(
+                  fontSize: 76,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -2,
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
             ),
+          ),
+          const SizedBox(height: 8),
+          if (_noteText.isNotEmpty)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(12)),
+              child: Text(_noteText, style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.7), fontSize: 14, fontWeight: FontWeight.w500)),
+            )
+          else
+            Text(_t('Tap to add note', 'Нажмите, чтобы добавить заметку'), style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.3), fontSize: 12)),
+        ],
+      ),
+    );
+  }
 
-            const SizedBox(height: 24),
+  Widget _buildCategorySelector(ThemeData theme, SettingsProvider settings) {
+    final systemCategories = _isIncome
+        ? [ExpenseCategory.other, ExpenseCategory.gifts]
+        : ExpenseCategory.values.where((c) => c != ExpenseCategory.custom).toList();
+    final customCategories = settings.customCategories;
 
-            if (_sourceMode == AddExpenseSourceMode.smartText) _buildSmartTextSection(context),
-            if (_sourceMode == AddExpenseSourceMode.voice) _buildVoiceSection(context),
-            if (_sourceMode == AddExpenseSourceMode.receipt) _buildReceiptSection(context),
+    return SizedBox(
+      height: 48,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        children: [
+          ...systemCategories.map((cat) {
+            final isSelected = _selectedCustomCategoryId == null && _selectedCategory == cat;
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: GestureDetector(
+                onTap: () => _selectSystemCategory(cat),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: isSelected ? (_isIncome ? CupertinoColors.systemGreen : theme.colorScheme.primary) : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: isSelected ? Colors.transparent : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)),
+                  ),
+                  child: Center(
+                    child: Text(
+                      _categoryLabel(cat),
+                      style: TextStyle(color: isSelected ? Colors.white : theme.colorScheme.onSurface, fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500, fontSize: 13),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }),
 
-            const SizedBox(height: 32),
+          ...customCategories.map((cat) {
+            final isSelected = _selectedCustomCategoryId == cat.id;
+            final catColor = Color(cat.colorValue);
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: GestureDetector(
+                onTap: () => _selectCustomCategory(cat.id),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: isSelected ? catColor : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: isSelected ? Colors.transparent : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)),
+                  ),
+                  child: Center(
+                    child: Text(cat.name, style: TextStyle(color: isSelected ? Colors.white : theme.colorScheme.onSurface, fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500, fontSize: 13)),
+                  ),
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
 
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              physics: const BouncingScrollPhysics(),
-              padding: EdgeInsets.symmetric(horizontal: Responsive.cardPadding(context)),
-              child: Row(
-                children: [
-                  ...systemCategories.map((cat) {
-                    final isSelected = _selectedCustomCategoryId == null && (_selectedCategory ?? _parsed?.category ?? widget.initialCategory ?? ExpenseCategory.other) == cat;
-
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: GestureDetector(
-                        onTap: () => _selectSystemCategory(cat),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: isSelected ? (_isIncome ? CupertinoColors.systemGreen : theme.colorScheme.primary) : theme.colorScheme.surface,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: isSelected ? Colors.transparent : theme.colorScheme.surfaceContainerHighest),
-                          ),
-                          child: Text(
-                            _categoryLabel(context, cat),
-                            style: TextStyle(
-                              color: isSelected ? Colors.white : theme.colorScheme.onSurface,
-                              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+  Widget _buildNumpad(ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.2),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildToolButton(CupertinoIcons.calendar, _formatDateShort(_selectedDate), () => _showDatePicker()),
+              _buildToolButton(CupertinoIcons.mic_fill, _t('Voice', 'Голос'), () {
+                final settings = context.read<SettingsProvider>();
+                if (!settings.canUseFeature(PremiumFeature.voiceInput)) {
+                  Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const PremiumScreen()));
+                  return;
+                }
+                setState(() => _sourceMode = _sourceMode == AddExpenseSourceMode.voice ? AddExpenseSourceMode.smartText : AddExpenseSourceMode.voice);
+              }),
+              _buildToolButton(CupertinoIcons.qrcode_viewfinder, _t('Scan', 'Скан'), () {
+                final settings = context.read<SettingsProvider>();
+                if (!settings.canUseFeature(PremiumFeature.receiptOcr)) {
+                  Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const PremiumScreen()));
+                  return;
+                }
+                setState(() => _sourceMode = _sourceMode == AddExpenseSourceMode.receipt ? AddExpenseSourceMode.smartText : AddExpenseSourceMode.receipt);
+              }),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: Column(
+                    children: [
+                      _buildNumpadRow(['1', '2', '3']),
+                      _buildNumpadRow(['4', '5', '6']),
+                      _buildNumpadRow(['7', '8', '9']),
+                      _buildNumpadRow(['.', '0', '<']),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  flex: 1,
+                  child: Column(
+                    children: [
+                      _buildNumpadButton('C', color: CupertinoColors.systemRed),
+                      const SizedBox(height: 8),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: _canSave ? () => _saveExpense(context) : null,
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            decoration: BoxDecoration(
+                              color: _canSave ? (_isIncome ? CupertinoColors.systemGreen : theme.colorScheme.primary) : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: _canSave ? [BoxShadow(color: (_isIncome ? CupertinoColors.systemGreen : theme.colorScheme.primary).withValues(alpha: 0.3), blurRadius: 12, offset: const Offset(0, 4))] : [],
+                            ),
+                            child: const Center(
+                              child: Icon(CupertinoIcons.checkmark_alt, color: Colors.white, size: 36),
                             ),
                           ),
                         ),
                       ),
-                    );
-                  }),
-
-                  ...customCategories.map((cat) {
-                    final isSelected = _selectedCustomCategoryId == cat.id;
-                    final catColor = Color(cat.colorValue);
-
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: GestureDetector(
-                        onTap: () => _selectCustomCategory(cat.id),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: isSelected ? catColor : theme.colorScheme.surface,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: isSelected ? Colors.transparent : theme.colorScheme.surfaceContainerHighest),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                IconData(cat.iconCodePoint, fontFamily: 'CupertinoIcons', fontPackage: CupertinoIcons.iconFontPackage),
-                                size: 16, color: isSelected ? Colors.white : catColor,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                cat.name,
-                                style: TextStyle(
-                                  color: isSelected ? Colors.white : theme.colorScheme.onSurface,
-                                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  }),
-
-                  GestureDetector(
-                    onTap: () async {
-                      final newCat = await CustomCategorySheet.show(context);
-                      if (newCat != null) _selectCustomCategory(newCat.id);
-                    },
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.primary.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(CupertinoIcons.add, size: 16, color: theme.colorScheme.primary),
-                          const SizedBox(width: 4),
-                          Text('New', style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.w700)),
-                        ],
-                      ),
-                    ),
+                    ],
                   ),
-                ],
-              ),
+                )
+              ],
             ),
-
-            const SizedBox(height: 32),
-
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: Responsive.cardPadding(context)),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surface,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Column(
-                  children: [
-                    _SettingsRow(
-                      icon: CupertinoIcons.calendar,
-                      iconColor: CupertinoColors.systemRed,
-                      title: _t('Date', 'Дата'),
-                      value: _formatDate(_selectedDate),
-                      onTap: _showDatePicker,
-                    ),
-                    _SettingsRow(
-                      icon: CupertinoIcons.building_2_fill,
-                      iconColor: CupertinoColors.systemBlue,
-                      title: _isIncome ? _t('Source', 'Источник') : l10n.previewMerchant,
-                      value: _parsed?.merchant?.isNotEmpty == true ? _parsed!.merchant! : _t('Optional', 'Необязательно'),
-                      isLast: true,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            SizedBox(height: MediaQuery.of(context).padding.bottom + 100),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTypeToggle(ThemeData theme) {
-    return Container(
-      margin: EdgeInsets.symmetric(horizontal: Responsive.cardPadding(context)),
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: GestureDetector(
-              onTap: () {
-                if (_isIncome) {
-                  HapticFeedback.selectionClick();
-                  setState(() {
-                    _isIncome = false;
-                    _hintIndex = 0;
-                    _charIndex = 0;
-                    _isTypingForward = true;
-                    _startTypewriterAnimation();
-
-                    if (_selectedCategory == ExpenseCategory.other || _selectedCategory == ExpenseCategory.gifts) {
-                      _selectedCategory = widget.initialCategory ?? ExpenseCategory.food;
-                    }
-                  });
-                }
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                  color: !_isIncome ? theme.colorScheme.surface : Colors.transparent,
-                  borderRadius: BorderRadius.circular(10),
-                  boxShadow: !_isIncome ? [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, 2))] : [],
-                ),
-                child: Center(
-                  child: Text(
-                    _t('Expense', 'Расход'),
-                    style: TextStyle(
-                      fontWeight: !_isIncome ? FontWeight.w700 : FontWeight.w500,
-                      color: !_isIncome ? theme.colorScheme.onSurface : theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          Expanded(
-            child: GestureDetector(
-              onTap: () {
-                if (!_isIncome) {
-                  HapticFeedback.selectionClick();
-                  setState(() {
-                    _isIncome = true;
-                    _hintIndex = 0;
-                    _charIndex = 0;
-                    _isTypingForward = true;
-                    _startTypewriterAnimation();
-
-                    if (_selectedCustomCategoryId == null) {
-                      _selectedCategory = ExpenseCategory.other;
-                    }
-                  });
-                }
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                  color: _isIncome ? CupertinoColors.systemGreen : Colors.transparent,
-                  borderRadius: BorderRadius.circular(10),
-                  boxShadow: _isIncome ? [BoxShadow(color: CupertinoColors.systemGreen.withValues(alpha: 0.3), blurRadius: 4, offset: const Offset(0, 2))] : [],
-                ),
-                child: Center(
-                  child: Text(
-                    _t('Income', 'Доход'),
-                    style: TextStyle(
-                      fontWeight: _isIncome ? FontWeight.w700 : FontWeight.w500,
-                      color: _isIncome ? Colors.white : theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
+          )
         ],
       ),
     );
   }
 
-  Widget _buildSmartTextSection(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: Responsive.cardPadding(context)),
+  Widget _buildToolButton(IconData icon, String label, VoidCallback onTap) {
+    final theme = Theme.of(context);
+    return GestureDetector(
+      onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: Theme.of(context).colorScheme.surfaceContainerHighest),
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(color: theme.colorScheme.surface, borderRadius: BorderRadius.circular(16)),
         child: Row(
           children: [
-            Expanded(
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  if (_smartInputController.text.isEmpty)
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          _currentHint,
-                          style: TextStyle(
-                              fontSize: 18,
-                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
-                              fontWeight: FontWeight.w500
-                          ),
-                        ),
-                        AnimatedOpacity(
-                          opacity: _isTypingForward ? 1.0 : 0.0,
-                          duration: const Duration(milliseconds: 300),
-                          child: Container(
-                            width: 2, height: 20,
-                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
-                            margin: const EdgeInsets.only(left: 2),
-                          ),
-                        ),
-                      ],
-                    ),
-
-                  TextField(
-                    controller: _smartInputController,
-                    autofocus: true,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 18, color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w500),
-                    decoration: const InputDecoration(
-                      border: InputBorder.none,
-                      hintText: '',
-                    ),
-                    onChanged: (_) => _parseInput(),
-                  ),
-                ],
-              ),
-            ),
-            if (_isAiParsing)
-              Padding(
-                padding: const EdgeInsets.only(left: 8.0),
-                child: CupertinoActivityIndicator(color: Theme.of(context).colorScheme.primary),
-              ),
+            Icon(icon, size: 16, color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
+            const SizedBox(width: 8),
+            Text(label, style: TextStyle(fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface.withValues(alpha: 0.8), fontSize: 13)),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildVoiceSection(BuildContext context) {
-    return Column(
-      children: [
-        GestureDetector(
-            onTap: _isVoiceLoading ? null : () => _handleVoiceTap(context),
-            child: AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                height: 100, width: 100,
-                decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: _isVoiceListening ? CupertinoColors.destructiveRed : Theme.of(context).colorScheme.primary,
-                    boxShadow: [
-                      BoxShadow(
-                        color: (_isVoiceListening ? CupertinoColors.destructiveRed : Theme.of(context).colorScheme.primary).withValues(alpha: 0.4),
-                        blurRadius: 30, spreadRadius: _isVoiceListening ? 10 : 0,
-                      )
-                    ]
-                ),
-                child: _isAiParsing
-                    ? const CupertinoActivityIndicator(color: Colors.white, radius: 16)
-                    : Icon(
-                  _isVoiceListening ? CupertinoIcons.stop_fill : CupertinoIcons.mic_fill,
-                  size: 42, color: Colors.white,
-                )
-            )
-        ),
-        if (_voicePreviewText.isNotEmpty) ...[
-          const SizedBox(height: 24),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32),
-            child: Text(
-              '"$_voicePreviewText"',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 16, fontStyle: FontStyle.italic, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
-            ),
+  Widget _buildNumpadRow(List<String> keys) {
+    return Expanded(
+      child: Row(
+        children: keys.map((k) => Expanded(
+          child: Padding(
+            padding: const EdgeInsets.all(4.0),
+            child: _buildNumpadButton(k),
           ),
-        ]
-      ],
+        )).toList(),
+      ),
     );
   }
 
-  Widget _buildReceiptSection(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: Responsive.cardPadding(context)),
-      child: Column(
+  Widget _buildNumpadButton(String label, {Color? color}) {
+    final theme = Theme.of(context);
+    return GestureDetector(
+      onTap: () => _onNumpadTap(label),
+      child: Container(
+        decoration: BoxDecoration(color: theme.colorScheme.surface, borderRadius: BorderRadius.circular(16)),
+        child: Center(
+          child: label == '<'
+              ? Icon(CupertinoIcons.delete_left_fill, color: theme.colorScheme.onSurface, size: 24)
+              : Text(label, style: TextStyle(fontSize: 28, fontWeight: FontWeight.w600, color: color ?? theme.colorScheme.onSurface)),
+        ),
+      ),
+    );
+  }
+
+  // --- ГОЛОСОВОЙ И СКАНЕР UI ---
+  Widget _buildVoiceSection() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
+      child: Row(
         children: [
           GestureDetector(
-            onTap: _isReceiptLoading ? null : () => _handleQrScannerTap(context),
+            onTap: _isVoiceLoading ? null : () => _handleVoiceTap(context),
             child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 20),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4),
-                    blurRadius: 15,
-                    offset: const Offset(0, 4),
-                  )
-                ],
-              ),
-              child: Column(
-                children: const [
-                  Icon(CupertinoIcons.qrcode_viewfinder, size: 36, color: Colors.white),
-                  SizedBox(height: 8),
-                  Text(
-                    'Сканировать QR-код',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16),
-                  ),
-                ],
-              ),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(shape: BoxShape.circle, color: _isVoiceListening ? CupertinoColors.destructiveRed : Theme.of(context).colorScheme.primary),
+              child: _isAiParsing
+                  ? const CupertinoActivityIndicator(color: Colors.white)
+                  : Icon(_isVoiceListening ? CupertinoIcons.stop_fill : CupertinoIcons.mic_fill, color: Colors.white, size: 24),
             ),
           ),
-
-          const SizedBox(height: 16),
-
-          Row(
-            children: [
-              Expanded(
-                child: _ReceiptButton(
-                  icon: CupertinoIcons.camera_fill,
-                  label: _t('Сфотографировать чек', 'Сфотографировать чек'),
-                  onTap: _isReceiptLoading ? null : () => _handleReceiptCameraTap(context),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _ReceiptButton(
-                  icon: CupertinoIcons.photo_fill_on_rectangle_fill,
-                  label: _t('Из галереи', 'Из галереи'),
-                  onTap: _isReceiptLoading ? null : () => _handleReceiptGalleryTap(context),
-                ),
-              ),
-            ],
-          ),
-
-          if (_isReceiptLoading)
-            const Padding(padding: EdgeInsets.only(top: 24), child: CupertinoActivityIndicator(radius: 14)),
-
-          if (_receiptPreviewText.isNotEmpty && !_isReceiptLoading) ...[
-            const SizedBox(height: 24),
-            Text(
-              _receiptPreviewText,
-              textAlign: TextAlign.center,
-              style: TextStyle(fontWeight: FontWeight.w500, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
-            ),
-          ]
+          const SizedBox(width: 16),
+          Expanded(child: Text(_isAiParsing ? _t('AI is thinking...', 'ИИ анализирует...') : (_isVoiceListening ? _t('Listening...', 'Говорите...') : _voicePreviewText.isNotEmpty ? '"$_voicePreviewText"' : _t('Tap to speak', 'Нажмите для голосового ввода')), style: const TextStyle(fontWeight: FontWeight.w500))),
         ],
       ),
     );
   }
-}
 
-class _SettingsRow extends StatelessWidget {
-  final IconData icon;
-  final Color iconColor;
-  final String title;
-  final String value;
-  final VoidCallback? onTap;
-  final bool isLast;
-
-  const _SettingsRow({
-    required this.icon,
-    required this.iconColor,
-    required this.title,
-    required this.value,
-    this.onTap,
-    this.isLast = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: Column(
+  Widget _buildReceiptSection() {
+    return Column(
+      children: [
+        Row(
           children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(color: iconColor, borderRadius: BorderRadius.circular(8)),
-                    child: Icon(icon, color: Colors.white, size: 20),
-                  ),
-                  const SizedBox(width: 16),
-                  Text(title, style: TextStyle(fontSize: 17, color: Theme.of(context).colorScheme.onSurface)),
-                  const Spacer(),
-                  Text(
-                      value,
-                      style: TextStyle(fontSize: 16, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5))
-                  ),
-                  const SizedBox(width: 8),
-                  Icon(CupertinoIcons.chevron_forward, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3), size: 18),
-                ],
-              ),
-            ),
-            if (!isLast) Padding(
-              padding: const EdgeInsets.only(left: 56),
-              child: Divider(height: 1, color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)),
-            ),
+            Expanded(child: _ReceiptButton(icon: CupertinoIcons.camera_fill, label: _t('Camera', 'Камера'), onTap: _isReceiptLoading ? null : () => _handleReceiptCameraTap(context))),
+            const SizedBox(width: 12),
+            Expanded(child: _ReceiptButton(icon: CupertinoIcons.photo_fill, label: _t('Gallery', 'Галерея'), onTap: _isReceiptLoading ? null : () => _handleReceiptGalleryTap(context))),
+            const SizedBox(width: 12),
+            Expanded(child: _ReceiptButton(icon: CupertinoIcons.qrcode_viewfinder, label: 'QR', onTap: _isReceiptLoading ? null : () => _handleQrScannerTap(context))),
           ],
         ),
-      ),
+        if (_isReceiptLoading) const Padding(padding: EdgeInsets.only(top: 16), child: CupertinoActivityIndicator()),
+        if (_receiptPreviewText.isNotEmpty && !_isReceiptLoading)
+          Padding(padding: const EdgeInsets.only(top: 16), child: Text(_receiptPreviewText, textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5)))),
+      ],
     );
   }
 }
 
 class _ReceiptButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback? onTap;
-
+  final IconData icon; final String label; final VoidCallback? onTap;
   const _ReceiptButton({required this.icon, required this.label, this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return CupertinoButton(
-      padding: EdgeInsets.zero,
-      onPressed: onTap,
+      padding: EdgeInsets.zero, onPressed: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3)),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, size: 24, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
-            const SizedBox(height: 6),
-            Text(
-                label,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
-                  fontWeight: FontWeight.w600,
-                  fontSize: 12,
-                )
-            ),
-          ],
-        ),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: Theme.of(context).colorScheme.surfaceContainerHighest)),
+        child: Column(children: [Icon(icon, size: 24, color: Theme.of(context).colorScheme.primary), const SizedBox(height: 4), Text(label, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w600, fontSize: 12))]),
       ),
     );
   }

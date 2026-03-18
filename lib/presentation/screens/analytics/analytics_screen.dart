@@ -10,15 +10,18 @@ import '../../../core/utils/category_extension.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../data/models/expense_category.dart';
 import '../../../data/models/expense_model.dart';
+import '../../../data/models/insight_model.dart';
+import '../../../data/models/insight_type.dart';
 import '../../../domain/services/premium_feature.dart';
 import '../../../l10n/app_localizations.dart';
-import '../../widgets/adaptive_page_padding.dart';
+import '../../widgets/apple_section_header.dart';
 import '../../widgets/health_score_explainer_card.dart';
 import '../../widgets/insight_card.dart';
+import '../ai_advisor/ai_advisor_screen.dart';
 import '../premium/premium_screen.dart';
 import 'category_details_screen.dart';
 
-// НОВЫЕ ПРОВАЙДЕРЫ
+// ПРОВАЙДЕРЫ
 import '../../providers/settings_provider.dart';
 import '../../providers/transactions_provider.dart';
 import '../../providers/insights_provider.dart';
@@ -110,6 +113,46 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     );
   }
 
+  String _resolveInsightTitle(BuildContext context, InsightModel insight) {
+    final l10n = AppLocalizations.of(context);
+    switch (insight.titleKey) {
+      case 'insightOverBudgetTitle': return l10n.insightOverBudgetTitle;
+      case 'insightHealthyPaceTitle': return l10n.insightHealthyPaceTitle;
+      case 'insightTopCategoryTitle': return l10n.insightTopCategoryTitle;
+      case 'insightSubscriptionsTitle': return l10n.insightSubscriptionsTitle;
+      case 'insightStrongScoreTitle': return l10n.insightStrongScoreTitle;
+      case 'insightLowScoreTitle': return l10n.insightLowScoreTitle;
+      default: return insight.titleKey;
+    }
+  }
+
+  void _showInsightStory(BuildContext context, InsightModel insight) {
+    final l10n = AppLocalizations.of(context);
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => Container(
+        margin: const EdgeInsets.all(16),
+        decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, borderRadius: BorderRadius.circular(32)),
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(width: 48, height: 4, decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(4))),
+              const SizedBox(height: 24),
+              InsightCard(insight: insight),
+              const SizedBox(height: 24),
+              FilledButton(onPressed: () => Navigator.of(ctx).pop(), child: Text(l10n.gotItButton)),
+              const SizedBox(height: 16),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -122,26 +165,16 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     final insightsProv = context.watch<InsightsProvider>();
 
     final previousMonthDate = DateTime(now.year, now.month - 1, 1);
-
     final currentMonthExpenses = tx.expensesForMonth(now).where((e) => !e.isIncome).toList();
     final previousMonthExpenses = tx.expensesForMonth(previousMonthDate).where((e) => !e.isIncome).toList();
 
     final String currency = settings.activeCurrency;
-
     final totalSpent = insightsProv.totalSpentForMonth(now);
     final lastMonthTotal = previousMonthExpenses.fold<double>(0, (sum, e) => sum + e.amount);
 
     final diff = totalSpent - lastMonthTotal;
     final diffPercent = lastMonthTotal > 0 ? (diff / lastMonthTotal) * 100 : 0.0;
     final isOverspending = diff > 0;
-
-    final transactionsCount = currentMonthExpenses.length;
-    final dailyAvg = now.day > 0 ? totalSpent / now.day : 0.0;
-
-    ExpenseModel? highestExpense;
-    if (currentMonthExpenses.isNotEmpty) {
-      highestExpense = currentMonthExpenses.reduce((a, b) => a.amount > b.amount ? a : b);
-    }
 
     final breakdown = <String, _DetailedCategoryStat>{};
     for (final e in currentMonthExpenses) {
@@ -154,9 +187,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     }
 
     final sortedStats = breakdown.values.toList()..sort((a, b) => b.amount.compareTo(a.amount));
-
-    final insights = insightsProv.insightsForMonth(now);
-    final healthScore = insightsProv.healthScoreFor(now);
+    final aiInsights = insightsProv.insightsForMonth(now);
 
     final sections = sortedStats.asMap().entries.map((entry) {
       final index = entry.key;
@@ -164,13 +195,13 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       final isTouched = index == _touchedIndex;
       final percent = totalSpent > 0 ? (stat.amount / totalSpent) * 100 : 0.0;
 
-      final radius = isTouched ? 45.0 : 32.0;
-      final fontSize = isTouched ? 16.0 : 10.0;
+      final radius = isTouched ? 45.0 : 35.0;
+      final fontSize = isTouched ? 16.0 : 12.0;
 
       return PieChartSectionData(
         color: stat.category.dynamicColor(context, customCategoryId: stat.customId),
         value: stat.amount,
-        title: percent >= 4 ? '${percent.toStringAsFixed(0)}%' : '',
+        title: percent >= 5 ? '${percent.toStringAsFixed(0)}%' : '',
         radius: radius,
         titleStyle: TextStyle(
           fontSize: fontSize,
@@ -184,9 +215,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     final hasPremium = settings.canUseFeature(PremiumFeature.multiCurrency);
 
     return Scaffold(
-      backgroundColor: isDark ? Colors.black : const Color(0xFFF2F2F7),
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: Stack(
         children: [
+          // ФОНОВЫЙ ГРАДИЕНТ
           Positioned(
             top: -100,
             left: -50,
@@ -209,13 +241,22 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           CustomScrollView(
             physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
             slivers: [
-              SliverAppBar.large(
-                stretch: true,
-                backgroundColor: Colors.transparent,
-                surfaceTintColor: Colors.transparent,
+              // --- ЗАКРЕПЛЕННЫЙ МАТОВЫЙ APPBAR ---
+              SliverAppBar(
+                pinned: true,
+                backgroundColor: theme.scaffoldBackgroundColor.withValues(alpha: 0.8),
+                scrolledUnderElevation: 0,
+                elevation: 0,
+                flexibleSpace: ClipRect(
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                    child: Container(color: Colors.transparent),
+                  ),
+                ),
+                centerTitle: false,
                 title: Text(
                   l10n.analyticsTab,
-                  style: const TextStyle(fontWeight: FontWeight.w800, letterSpacing: -0.5),
+                  style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: -0.5, color: theme.colorScheme.onSurface, fontSize: 24),
                 ),
                 actions: [
                   Padding(
@@ -223,11 +264,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     child: GestureDetector(
                       onTap: () => _showCurrencyAccountSelector(context, settings),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surface,
+                          color: theme.colorScheme.surface,
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Theme.of(context).colorScheme.surfaceContainerHighest),
+                          border: Border.all(color: theme.colorScheme.surfaceContainerHighest),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -238,11 +279,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                             ],
                             Text(
                               currency,
-                              style: TextStyle(fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurface, fontSize: 14),
+                              style: TextStyle(fontWeight: FontWeight.w700, color: theme.colorScheme.onSurface, fontSize: 14),
                             ),
                             if (hasPremium) ...[
                               const SizedBox(width: 4),
-                              Icon(CupertinoIcons.chevron_up_chevron_down, size: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5)),
+                              Icon(CupertinoIcons.chevron_up_chevron_down, size: 12, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
                             ]
                           ],
                         ),
@@ -256,7 +297,79 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                 padding: EdgeInsets.symmetric(horizontal: Responsive.cardPadding(context)),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 16),
+
+                    if (aiInsights.isNotEmpty && settings.canUseFeature(PremiumFeature.aiInsights)) ...[
+                      AppleSectionHeader(
+                        title: l10n.aiInsightsTitle,
+                        action: 'Ask AI',
+                        onActionTap: () {
+                          Navigator.of(context).push(
+                            CupertinoPageRoute(builder: (_) => const AiAdvisorScreen()),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 130,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          physics: const BouncingScrollPhysics(),
+                          clipBehavior: Clip.none,
+                          itemCount: aiInsights.length,
+                          separatorBuilder: (_, __) => const SizedBox(width: 16),
+                          itemBuilder: (context, index) {
+                            final insight = aiInsights[index];
+                            final isWarning = insight.type == InsightType.warning;
+                            final color = isWarning ? CupertinoColors.systemOrange : CupertinoColors.activeBlue;
+                            final icon = isWarning ? CupertinoIcons.exclamationmark_triangle_fill : CupertinoIcons.lightbulb_fill;
+
+                            return GestureDetector(
+                              onTap: () => _showInsightStory(context, insight),
+                              child: Container(
+                                width: 260,
+                                padding: const EdgeInsets.all(20),
+                                decoration: BoxDecoration(
+                                    color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.8),
+                                    borderRadius: BorderRadius.circular(28),
+                                    border: Border.all(color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)),
+                                    boxShadow: [
+                                      BoxShadow(color: color.withValues(alpha: 0.05), blurRadius: 20, offset: const Offset(0, 10))
+                                    ]
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(color: color.withValues(alpha: 0.15), shape: BoxShape.circle),
+                                          child: Icon(icon, color: color, size: 16),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Text(
+                                          isWarning ? l10n.warningLabel.toUpperCase() : l10n.tipLabel.toUpperCase(),
+                                          style: TextStyle(fontWeight: FontWeight.w800, color: color, fontSize: 11, letterSpacing: 1.2),
+                                        ),
+                                      ],
+                                    ),
+                                    const Spacer(),
+                                    Text(
+                                      _resolveInsightTitle(context, insight),
+                                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: Theme.of(context).colorScheme.onSurface, height: 1.2),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      SizedBox(height: Responsive.sectionGap(context)),
+                    ],
 
                     if (sortedStats.isEmpty) ...[
                       _buildEmptyState(context, l10n, theme, currency),
@@ -267,11 +380,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                           color: theme.colorScheme.surface.withValues(alpha: isDark ? 0.8 : 1),
                           borderRadius: BorderRadius.circular(32),
                           boxShadow: [
-                            BoxShadow(
-                              color: theme.colorScheme.primary.withValues(alpha: 0.05),
-                              blurRadius: 30,
-                              offset: const Offset(0, 10),
-                            ),
+                            BoxShadow(color: theme.colorScheme.primary.withValues(alpha: 0.05), blurRadius: 30, offset: const Offset(0, 10)),
                           ],
                           border: Border.all(color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)),
                         ),
@@ -280,9 +389,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                               decoration: BoxDecoration(
-                                color: isOverspending
-                                    ? CupertinoColors.systemRed.withValues(alpha: 0.1)
-                                    : CupertinoColors.systemGreen.withValues(alpha: 0.1),
+                                color: isOverspending ? CupertinoColors.systemRed.withValues(alpha: 0.1) : CupertinoColors.systemGreen.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(20),
                               ),
                               child: Row(
@@ -296,17 +403,12 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                   const SizedBox(width: 4),
                                   Text(
                                     '${diffPercent.abs().toStringAsFixed(1)}% ${l10n.analyticsVsLastMonth}',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w700,
-                                      color: isOverspending ? CupertinoColors.systemRed : CupertinoColors.systemGreen,
-                                    ),
+                                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: isOverspending ? CupertinoColors.systemRed : CupertinoColors.systemGreen),
                                   ),
                                 ],
                               ),
                             ),
                             const SizedBox(height: 32),
-
                             SizedBox(
                               height: 240,
                               child: Stack(
@@ -314,15 +416,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                 children: [
                                   Container(
                                     width: 140, height: 140,
-                                    decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: theme.colorScheme.primary.withValues(alpha: 0.2),
-                                            blurRadius: 40,
-                                          )
-                                        ]
-                                    ),
+                                    decoration: BoxDecoration(shape: BoxShape.circle, boxShadow: [BoxShadow(color: theme.colorScheme.primary.withValues(alpha: 0.15), blurRadius: 40)]),
                                   ),
                                   PieChart(
                                     PieChartData(
@@ -334,50 +428,48 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                               return;
                                             }
                                             _touchedIndex = pieTouchResponse.touchedSection!.touchedSectionIndex;
-
-                                            if (event is FlTapUpEvent && _touchedIndex >= 0 && _touchedIndex < sortedStats.length) {
-                                              _openCategoryDetails(context, sortedStats[_touchedIndex], now);
-                                            }
                                           });
                                         },
                                       ),
                                       borderData: FlBorderData(show: false),
                                       sectionsSpace: 4,
-                                      centerSpaceRadius: Responsive.isCompactHeight(context) ? 65 : 85,
+                                      centerSpaceRadius: Responsive.isCompactHeight(context) ? 75 : 85,
                                       sections: sections,
                                     ),
                                   ),
-                                  Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        l10n.spentThisMonth.toUpperCase(),
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w700,
-                                          letterSpacing: 1.5,
-                                          color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                                  AnimatedSwitcher(
+                                    duration: const Duration(milliseconds: 200),
+                                    child: _touchedIndex != -1 && _touchedIndex < sortedStats.length
+                                        ? Column(
+                                      key: ValueKey(_touchedIndex),
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          sortedStats[_touchedIndex].category.localizedName(context, customCategoryId: sortedStats[_touchedIndex].customId).toUpperCase(),
+                                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.5, color: sortedStats[_touchedIndex].category.dynamicColor(context, customCategoryId: sortedStats[_touchedIndex].customId)),
+                                          textAlign: TextAlign.center,
                                         ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        _formatNumber(totalSpent),
-                                        style: TextStyle(
-                                          fontSize: 32,
-                                          fontWeight: FontWeight.w800,
-                                          color: theme.colorScheme.onSurface,
-                                          height: 1.1,
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          _formatNumber(sortedStats[_touchedIndex].amount),
+                                          style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: theme.colorScheme.onSurface, height: 1.1),
                                         ),
-                                      ),
-                                      Text(
-                                        currency,
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                          color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                                        Text(currency, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface.withValues(alpha: 0.5))),
+                                      ],
+                                    )
+                                        : Column(
+                                      key: const ValueKey('total'),
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          l10n.spentThisMonth.toUpperCase(),
+                                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1.5, color: theme.colorScheme.onSurface.withValues(alpha: 0.4)),
                                         ),
-                                      ),
-                                    ],
+                                        const SizedBox(height: 4),
+                                        Text(_formatNumber(totalSpent), style: TextStyle(fontSize: 32, fontWeight: FontWeight.w800, color: theme.colorScheme.onSurface, height: 1.1)),
+                                        Text(currency, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface.withValues(alpha: 0.5))),
+                                      ],
+                                    ),
                                   ),
                                 ],
                               ),
@@ -385,60 +477,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                           ],
                         ),
                       ),
-
-                      SizedBox(height: Responsive.itemGap(context)),
-
-                      Row(
-                        children: [
-                          Expanded(child: _MiniStatCard(icon: CupertinoIcons.calendar, title: l10n.analyticsDailyAvg, value: '${_formatNumber(dailyAvg)} $currency')),
-                          const SizedBox(width: 8),
-                          Expanded(child: _MiniStatCard(icon: CupertinoIcons.tag_fill, title: l10n.analyticsTransactions, value: transactionsCount.toString())),
-                        ],
-                      ),
-
-                      if (highestExpense != null) ...[
-                        const SizedBox(height: 8),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.surface,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(color: CupertinoColors.systemYellow.withValues(alpha: 0.15), shape: BoxShape.circle),
-                                child: const Icon(CupertinoIcons.star_fill, color: CupertinoColors.systemYellow, size: 20),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(l10n.analyticsLargestTransaction, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: CupertinoColors.systemGrey)),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      highestExpense.merchant.isNotEmpty ? highestExpense.merchant : highestExpense.category.localizedName(context, customCategoryId: highestExpense.customCategoryId),
-                                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: theme.colorScheme.onSurface),
-                                      maxLines: 1, overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Text(
-                                '${_formatNumber(highestExpense.amount)} $currency',
-                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: theme.colorScheme.onSurface),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-
                       SizedBox(height: Responsive.sectionGap(context)),
-
                       Padding(
                         padding: const EdgeInsets.only(left: 8, bottom: 16),
                         child: Text(
@@ -446,7 +485,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                           style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: -0.5, color: theme.colorScheme.onSurface),
                         ),
                       ),
-
                       Container(
                         decoration: BoxDecoration(
                           color: theme.colorScheme.surface,
@@ -480,29 +518,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                           }).toList(),
                         ),
                       ),
-
-                      SizedBox(height: Responsive.sectionGap(context)),
-
-                      if (insights.isNotEmpty) ...[
-                        Padding(
-                          padding: const EdgeInsets.only(left: 8, bottom: 16),
-                          child: Text(
-                            l10n.analyticsInsightsTitle,
-                            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: -0.5, color: theme.colorScheme.onSurface),
-                          ),
-                        ),
-                        ...insights.map(
-                              (insight) => Padding(
-                            padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                            child: InsightCard(insight: insight),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        HealthScoreExplainerCard(score: healthScore),
-                      ],
                     ],
-
-                    SizedBox(height: 100 + MediaQuery.of(context).padding.bottom),
+                    SizedBox(height: 140 + MediaQuery.of(context).padding.bottom),
                   ]),
                 ),
               ),
@@ -516,59 +533,18 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   Widget _buildEmptyState(BuildContext context, AppLocalizations l10n, ThemeData theme, String activeCurrency) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(32),
-      ),
+      decoration: BoxDecoration(color: theme.colorScheme.surface, borderRadius: BorderRadius.circular(32)),
       child: Column(
         children: [
           Container(
             padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primary.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: theme.colorScheme.primary.withValues(alpha: 0.1), shape: BoxShape.circle),
             child: Icon(CupertinoIcons.chart_pie_fill, size: 48, color: theme.colorScheme.primary),
           ),
           const SizedBox(height: 24),
           Text(l10n.analyticsEmptyTitle, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700), textAlign: TextAlign.center),
           const SizedBox(height: 8),
-          Text('No data in $activeCurrency this month', style: TextStyle(fontSize: 15, color: theme.colorScheme.onSurface.withValues(alpha: 0.6)), textAlign: TextAlign.center),
-        ],
-      ),
-    );
-  }
-}
-
-class _MiniStatCard extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String value;
-
-  const _MiniStatCard({required this.icon, required this.title, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: 14, color: theme.colorScheme.primary),
-              const SizedBox(width: 6),
-              Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: CupertinoColors.systemGrey)),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: theme.colorScheme.onSurface), maxLines: 1, overflow: TextOverflow.ellipsis),
+          Text('Нет данных в $activeCurrency за этот месяц', style: TextStyle(fontSize: 15, color: theme.colorScheme.onSurface.withValues(alpha: 0.6)), textAlign: TextAlign.center),
         ],
       ),
     );
@@ -610,17 +586,13 @@ class _PremiumCategoryRow extends StatelessWidget {
                 child: Icon(iconData, color: categoryColor, size: 20),
               ),
               const SizedBox(width: 16),
-
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(categoryName, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: theme.colorScheme.onSurface)),
                     const SizedBox(height: 4),
-                    Text(
-                      transactionsCountLabel,
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: theme.colorScheme.onSurface.withValues(alpha: 0.4)),
-                    ),
+                    Text(transactionsCountLabel, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: theme.colorScheme.onSurface.withValues(alpha: 0.4))),
                     const SizedBox(height: 8),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(4),
@@ -635,9 +607,7 @@ class _PremiumCategoryRow extends StatelessWidget {
                   ],
                 ),
               ),
-
               const SizedBox(width: 16),
-
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -647,7 +617,7 @@ class _PremiumCategoryRow extends StatelessWidget {
                 ],
               ),
               const SizedBox(width: 8),
-              Icon(CupertinoIcons.chevron_right, size: 16, color: theme.colorScheme.onSurface.withValues(alpha: 0.3)), // Подсказка, что можно кликнуть
+              Icon(CupertinoIcons.chevron_right, size: 16, color: theme.colorScheme.onSurface.withValues(alpha: 0.3)),
             ],
           ),
         ),
