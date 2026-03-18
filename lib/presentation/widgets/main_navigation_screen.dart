@@ -1,7 +1,10 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:animations/animations.dart'; // <-- ИМПОРТ БИБЛИОТЕКИ АНИМАЦИЙ
 
 import '../../l10n/app_localizations.dart';
 
@@ -71,8 +74,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
               decoration: BoxDecoration(
                 gradient: RadialGradient(
                   colors: [
-                    theme.colorScheme.primary.withValues(alpha: isDark ? 0.3 : 0.15),
-                    theme.colorScheme.secondary.withValues(alpha: isDark ? 0.2 : 0.1),
+                    theme.colorScheme.primary.withOpacity(isDark ? 0.3 : 0.15),
+                    theme.colorScheme.secondary.withOpacity(isDark ? 0.2 : 0.1),
                     Colors.transparent,
                   ],
                   radius: 0.8,
@@ -81,10 +84,23 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             ),
           ),
 
-          // САМИ ЭКРАНЫ (ТЕПЕРЬ ОНИ ДОЛЖНЫ БЫТЬ ПРОЗРАЧНЫМИ)
-          IndexedStack(
-            index: _currentIndex,
-            children: _screens,
+          // --- ПРЕМИАЛЬНАЯ АНИМАЦИЯ ПЕРЕКЛЮЧЕНИЯ ВКЛАДОК ---
+          PageTransitionSwitcher(
+            duration: const Duration(milliseconds: 300),
+            transitionBuilder: (
+                Widget child,
+                Animation<double> animation,
+                Animation<double> secondaryAnimation,
+                ) {
+              return FadeThroughTransition(
+                animation: animation,
+                secondaryAnimation: secondaryAnimation,
+                // Важно: прозрачный фон, чтобы не перекрывать наш глобальный градиент
+                fillColor: Colors.transparent,
+                child: child,
+              );
+            },
+            child: _screens[_currentIndex], // Flutter сам поймет, когда нужно запустить анимацию
           ),
         ],
       ),
@@ -117,28 +133,35 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   }
 
   Widget _buildBottomAppBar(ThemeData theme, AppLocalizations l10n) {
-    return BottomAppBar(
-      color: theme.colorScheme.surface,
-      surfaceTintColor: theme.colorScheme.surfaceTint,
-      elevation: 20,
-      notchMargin: 10,
-      shape: const CircularNotchedRectangle(),
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      height: 70,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          _NavBarItem(icon: CupertinoIcons.home, activeIcon: CupertinoIcons.house_fill, label: l10n.homeTab, isSelected: _currentIndex == 0, onTap: () => _onTabTapped(0)),
-          _NavBarItem(icon: CupertinoIcons.chart_pie, activeIcon: CupertinoIcons.chart_pie_fill, label: 'Анализ', isSelected: _currentIndex == 1, onTap: () => _onTabTapped(1)),
-          const SizedBox(width: 48),
-          _NavBarItem(icon: CupertinoIcons.flag, activeIcon: CupertinoIcons.flag_fill, label: 'Цели', isSelected: _currentIndex == 2, onTap: () => _onTabTapped(2)),
-          _NavBarItem(icon: CupertinoIcons.person, activeIcon: CupertinoIcons.person_fill, label: 'Профиль', isSelected: _currentIndex == 3, onTap: () => _onTabTapped(3)),
-        ],
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20), // Сильное размытие фона под меню
+        child: BottomAppBar(
+          // Делаем цвет меню полупрозрачным! (0.8 = 80% видимости)
+          color: theme.colorScheme.surface.withOpacity(0.8),
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          notchMargin: 10,
+          shape: const CircularNotchedRectangle(),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          height: 70,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _NavBarItem(icon: CupertinoIcons.home, activeIcon: CupertinoIcons.house_fill, label: l10n.homeTab, isSelected: _currentIndex == 0, onTap: () => _onTabTapped(0)),
+              _NavBarItem(icon: CupertinoIcons.chart_pie, activeIcon: CupertinoIcons.chart_pie_fill, label: 'Анализ', isSelected: _currentIndex == 1, onTap: () => _onTabTapped(1)),
+              const SizedBox(width: 48), // Место для центральной кнопки (FAB)
+              _NavBarItem(icon: CupertinoIcons.flag, activeIcon: CupertinoIcons.flag_fill, label: 'Цели', isSelected: _currentIndex == 2, onTap: () => _onTabTapped(2)),
+              _NavBarItem(icon: CupertinoIcons.person, activeIcon: CupertinoIcons.person_fill, label: 'Профиль', isSelected: _currentIndex == 3, onTap: () => _onTabTapped(3)),
+            ],
+          ),
+        ),
       ),
     );
   }
 
   void _onTabTapped(int index) {
+    if (_currentIndex == index) return; // Не анимируем, если нажали на текущую вкладку
     HapticFeedback.selectionClick();
     setState(() {
       _currentIndex = index;
@@ -153,7 +176,7 @@ class _NavBarItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final color = isSelected ? theme.colorScheme.primary : theme.colorScheme.onSurface.withValues(alpha: 0.4);
+    final color = isSelected ? theme.colorScheme.primary : theme.colorScheme.onSurface.withOpacity(0.4);
 
     return InkWell(
       onTap: onTap, borderRadius: BorderRadius.circular(16), splashColor: Colors.transparent, highlightColor: Colors.transparent,
@@ -162,7 +185,11 @@ class _NavBarItem extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            AnimatedSwitcher(duration: const Duration(milliseconds: 200), transitionBuilder: (child, anim) => ScaleTransition(scale: anim, child: child), child: Icon(isSelected ? activeIcon : icon, key: ValueKey(isSelected), color: color, size: 26)),
+            AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                transitionBuilder: (child, anim) => ScaleTransition(scale: anim, child: child),
+                child: Icon(isSelected ? activeIcon : icon, key: ValueKey(isSelected), color: color, size: 26)
+            ),
             const SizedBox(height: 4),
             Text(label, style: TextStyle(color: color, fontSize: 10, fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
           ],

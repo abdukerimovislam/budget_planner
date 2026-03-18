@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:animations/animations.dart'; // <-- АНИМАЦИИ
 
 import 'app_colors.dart';
 import 'app_radii.dart';
@@ -47,13 +48,13 @@ class AppTheme {
     // Очень мягкая, широкая тень (Apple-style Drop Shadow)
     final softShadow = [
       BoxShadow(
-        color: colorScheme.primary.withValues(alpha: isLight ? 0.04 : 0.02),
+        color: colorScheme.primary.withOpacity(isLight ? 0.04 : 0.02),
         blurRadius: 24,
         offset: const Offset(0, 8),
         spreadRadius: 0,
       ),
       BoxShadow(
-        color: Colors.black.withValues(alpha: isLight ? 0.02 : 0.2),
+        color: Colors.black.withOpacity(isLight ? 0.02 : 0.2),
         blurRadius: 8,
         offset: const Offset(0, 2),
         spreadRadius: 0,
@@ -66,6 +67,19 @@ class AppTheme {
       scaffoldBackgroundColor: backgroundColor,
       // Inter отлично подходит для финтеха (цифры читаются идеально)
       fontFamily: 'Inter',
+
+      // --- ГЛОБАЛЬНЫЕ АНИМАЦИИ ПЕРЕХОДОВ ---
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          // Для Android используем мягкое скольжение по горизонтали (аппаратно ускоренное)
+          TargetPlatform.android: SharedAxisPageTransitionsBuilder(
+            transitionType: SharedAxisTransitionType.horizontal,
+            fillColor: Colors.transparent, // Важно для сохранения градиентного фона
+          ),
+          // Для iOS оставляем стандартный нативный свайп
+          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+        },
+      ),
 
       appBarTheme: AppBarTheme(
         backgroundColor: backgroundColor,
@@ -82,19 +96,25 @@ class AppTheme {
         systemOverlayStyle: isLight ? SystemUiOverlayStyle.dark : SystemUiOverlayStyle.light,
       ),
 
+      // --- СТЕКЛЯННЫЕ КАРТОЧКИ (GLASSMORPHISM) ---
       cardTheme: CardThemeData(
-        color: colorScheme.surface,
+        color: colorScheme.surface.withOpacity(0.7), // ГЛАВНЫЙ СЕКРЕТ ПРОЗРАЧНОСТИ!
         elevation: 0,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24), // Максимально мягкие углы
+          borderRadius: BorderRadius.circular(24),
           side: BorderSide(
             color: isLight
-                ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)
-                : Colors.white.withValues(alpha: 0.05), // Тонкий стеклянный блик в даркмоде
+                ? colorScheme.surfaceContainerHighest.withOpacity(0.5)
+                : Colors.white.withOpacity(0.05),
             width: 1,
           ),
         ),
+      ),
+
+      // --- ПРОЗРАЧНЫЕ СПИСКИ ---
+      listTileTheme: const ListTileThemeData(
+        tileColor: Colors.transparent, // Чтобы элементы списков не блокировали градиент
       ),
 
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -107,8 +127,8 @@ class AppTheme {
             borderRadius: BorderRadius.circular(20),
             side: BorderSide(
               color: isLight
-                  ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)
-                  : Colors.white.withValues(alpha: 0.05),
+                  ? colorScheme.surfaceContainerHighest.withOpacity(0.5)
+                  : Colors.white.withOpacity(0.05),
             ),
           ),
           textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, letterSpacing: -0.4),
@@ -138,17 +158,17 @@ class AppTheme {
           borderRadius: BorderRadius.circular(20),
           borderSide: BorderSide(
             color: isLight
-                ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)
-                : Colors.white.withValues(alpha: 0.05),
+                ? colorScheme.surfaceContainerHighest.withOpacity(0.5)
+                : Colors.white.withOpacity(0.05),
             width: 1,
           ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(20),
-          borderSide: BorderSide(color: colorScheme.primary.withValues(alpha: 0.5), width: 2),
+          borderSide: BorderSide(color: colorScheme.primary.withOpacity(0.5), width: 2),
         ),
         labelStyle: TextStyle(color: textFaded, fontWeight: FontWeight.w500),
-        hintStyle: TextStyle(color: textFaded.withValues(alpha: 0.5), fontWeight: FontWeight.w400),
+        hintStyle: TextStyle(color: textFaded.withOpacity(0.5), fontWeight: FontWeight.w400),
       ),
 
       bottomSheetTheme: BottomSheetThemeData(
@@ -162,8 +182,8 @@ class AppTheme {
 
       navigationBarTheme: NavigationBarThemeData(
         elevation: 0,
-        backgroundColor: colorScheme.surface.withValues(alpha: 0.9), // Слегка прозрачный бар
-        indicatorColor: colorScheme.primary.withValues(alpha: 0.1),
+        backgroundColor: colorScheme.surface.withOpacity(0.8), // Слегка прозрачный бар
+        indicatorColor: colorScheme.primary.withOpacity(0.1),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
             return TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: -0.2, color: colorScheme.primary);
@@ -172,7 +192,6 @@ class AppTheme {
         }),
       ),
 
-      // Добавляем стиль для свитчей (переключателей)
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) return Colors.white;
